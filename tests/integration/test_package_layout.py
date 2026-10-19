@@ -187,12 +187,18 @@ def test_portable_contains_bound_offline_generation_resources(portable_root):
     from backend.loaders.melonloader.offline import OfflineToolchain
     resources = portable_root / OFFLINE_RESOURCE_PREFIX
     manifest = OfflineToolchain(resources).manifest()
-    assert len(manifest['files']) == 67
+    public = os.environ.get('PSMM_PUBLIC_RELEASE') == '1'
+    assert len(manifest['files']) == (2 if public else 67)
+    assert manifest.get('profile', 'full') == ('cpp2il-only' if public else 'full')
     with zipfile.ZipFile(resources / 'toolchain.zip') as archive:
         assert set(archive.namelist()) == {row['path'] for row in manifest['files']}
         assert archive.testzip() is None
     assert 'MIT License' in (resources / 'licenses/Cpp2IL-LICENSE.txt').read_text('utf-8')
-    assert 'Unity Software' in (resources / 'licenses/UnityDependencies-README.md').read_text('utf-8')
+    if public:
+        assert not (resources / 'licenses/UnityDependencies-README.md').exists()
+        assert all('/Cpp2IL/' in row['path'] for row in manifest['files'])
+    else:
+        assert 'Unity Software' in (resources / 'licenses/UnityDependencies-README.md').read_text('utf-8')
 
 
 def test_portable_metadata_helper_contains_its_runtime(portable_root):
@@ -256,7 +262,8 @@ def test_portable_build_manifest_binds_payload_and_dependency_materials(portable
     manifest = json.loads((portable_root / 'build-manifest.json').read_text('utf-8'))
     assert manifest['schema_version'] == 1
     assert manifest['product'] == 'PSModManager'
-    assert manifest['version'] == '0.1.0'
+    from backend.app.identity import APP_VERSION
+    assert manifest['version'] == APP_VERSION
     assert manifest['target'] == 'windows-x64'
     assert manifest['self_excluded'] == ['build-manifest.json', 'SHA256SUMS.txt']
     files = _files(portable_root)

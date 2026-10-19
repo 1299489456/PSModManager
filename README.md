@@ -6,11 +6,25 @@
 
 **面向 Probably Stolen 的 Windows 本地 Mod 管理器。** 选择游戏，导入 DLL、目录或 ZIP，用开关选择 Mod，保存后运行游戏。方案分享、版本替换、Nexus 在线获取和日志智能分析按需使用；不配置在线服务也能完成本地管理。
 
-[快速开始](docs/user/quick-start.md) · [方案、更新与在线 Mod](docs/user/sharing-updates-online.md) · [数据与重装](docs/user/data-and-reinstall.md) · [常见问题](docs/user/troubleshooting.md) · [从源码开发与打包](docs/development/README.md)
+[下载 Windows 便携版](https://github.com/1299489456/PSModManager/releases/latest) · [快速开始](docs/user/quick-start.md) · [方案、更新与在线 Mod](docs/user/sharing-updates-online.md) · [数据与重装](docs/user/data-and-reinstall.md) · [常见问题](docs/user/troubleshooting.md) · [从源码开发与打包](docs/development/README.md)
+
+## 界面预览
+
+### 模组：查看状态，选择启停，统一保存
+
+![模组工作区：真实配置的 Mod 卡片、启用状态、搜索筛选和批量操作](docs/images/mod-workspace.png)
+
+### 方案：保存不同的 Mod 组合，按需切换与分享
+
+![方案工作区：方案列表，以及分栏显示的已启用与已停用 Mod](docs/images/mod-profiles.png)
+
+### Nexus：在线浏览 Mod，查看版本与安装入口
+
+![Nexus 浏览页：Mod 封面、版本、作者和安装按钮](docs/images/nexus-browser.png)
 
 ## 便携使用
 
-仓库提供源码；需要自行构建便携包时，按[开发指南](docs/development/README.md)操作。以下步骤适用于完整的 Windows x64 便携包，不是 GitHub 的源码 ZIP。
+前往 [Releases](https://github.com/1299489456/PSModManager/releases/latest)，在 **Assets** 中下载 `PSModManager-v<版本号>-windows-x64.zip`。`Source code (zip)` / `Source code (tar.gz)` 是源码，不是可直接运行的程序。需要自行构建时，按[开发指南](docs/development/README.md)操作。
 
 ### 运行要求
 
@@ -28,6 +42,8 @@
 4. **导入 Mod。** 拖入 DLL、目录或 ZIP，核对预览后点击“添加到包库”。游戏目录中已有的 Mod 也会出现在“模组”页，无需重复导入。
 5. **启用或停用，再保存。** 卡片开关会加入右侧“待保存”列表；点击“保存”才应用变更，也可撤销未保存的选择。操作前先正常关闭游戏。
 6. **运行游戏。** 点击运行按钮；有待保存变更时可用“保存并启动”，保存失败不会继续启动。
+
+公开便携包内置 Cpp2IL 及配套插件，可离线恢复缺失的 `Cpp2IL.exe`；不附带游戏、Mod 或 Unity 运行库。Unity 生成依赖仍由 MelonLoader 在首次运行时下载，网络不通时需先解决该下载，再启动游戏。
 
 普通导入支持 DLL、目录和 ZIP，不支持 RAR / 7z、加密包或安装脚本。单次导入最多 4000 个文件，单文件及 ZIP 不超过 64 MiB，展开后共 256 MiB；安装目标限于 `Mods`、`Plugins`、`UserLibs`。更多操作与快捷键见[快速开始](docs/user/quick-start.md)。
 

@@ -97,6 +97,25 @@ def test_missing_dependencies_are_visible_and_read_only(app):
     assert tree(app.game) == before
 
 
+def test_public_profile_repairs_cpp2il_then_allows_loader_to_download_unity(app):
+    resources = app.context.loader.offline.resources
+    manifest_path = resources/'manifest.json'
+    manifest = json.loads(manifest_path.read_text('utf-8'))
+    manifest.update(profile='cpp2il-only', files=[row for row in manifest['files']
+                                                 if row['path'] in (CPP2IL, SCRS)])
+    manifest_path.write_text(json.dumps(manifest), encoding='utf-8')
+    with zipfile.ZipFile(resources/'toolchain.zip', 'w') as archive:
+        for name in (CPP2IL, SCRS):
+            archive.writestr(name, app.tool_bytes[name])
+    value = launch_prepare(app)
+    state = value['generation_dependencies']
+    assert value['repaired'] and value['files_written'] == 2
+    assert state['ready'] and not state['offline_complete'] and state['unity_download_required']
+    assert '联网下载' in state['message']
+    assert not (app.game/UNITY_DLL).exists() and not (app.game/UNITY_ARCHIVE).exists()
+    assert launch_prepare(app)['files_written'] == 0
+
+
 def test_repair_is_offline_and_preserves_config_generated_state_and_foreign_files(app):
     configuration = app.game / 'UserData/Loader.cfg'
     configuration.write_text('[loader]\ndisable = false\n[unityengine]\nforce_offline_generation = false\n', encoding='utf-8')

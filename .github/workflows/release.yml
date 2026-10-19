@@ -1,0 +1,142 @@
+name: Windows portable
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing version tag to build and publish, for example v0.1.0'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: portable-${{ inputs.tag || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      commit: ${{ steps.version.outputs.commit }}
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PYTHONUTF8: '1'
+      UV_PYTHON_PREFERENCE: only-managed
+      PSMM_DOTNET_SDK_VERSION: '10.0.400'
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6
+        with:
+          version: '0.10.0'
+          enable-cache: false
+      - name: Prepare pinned Python and check release version
+        id: version
+        env:
+          REQUESTED_TAG: ${{ inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || '' }}
+        run: |
+          uv python install 3.11.14
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $python = uv python find 3.11.14
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $tag = $env:REQUESTED_TAG
+          if (-not $tag) {
+            $version = & $python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])"
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+            $tag = 'v' + $version
+          }
+          & $python tools/check_release_version.py --tag $tag
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "commit=$(git rev-parse HEAD)" >> $env:GITHUB_OUTPUT
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.19.0'
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
+        with:
+          dotnet-version: '10.0.400'
+      - name: Restore locked dependencies
+        run: |
+          uv sync --locked --python 3.11.14
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          npm --prefix frontend ci
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          # Pin SDK selection even if the hosted runner has newer SDKs.
+          '{"sdk":{"version":"10.0.400","rollForward":"disable"}}' | Set-Content global.json
+          dotnet restore tools/PSModManager.Metadata/PSModManager.Metadata.csproj -r win-x64 -p:RuntimeFrameworkVersion=10.0.11
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Check release contracts and frontend
+        run: |
+          npm --prefix frontend run build
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          .venv/Scripts/python.exe -m pytest tests/unit/test_package_delivery.py tests/unit/test_release_workflow.py tests/unit/test_app_identity.py tests/unit/test_contracts.py -q
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          node --test frontend/src/app/bridge/client.test.js frontend/src/features/catalog/modWorkspaceRuntime.test.mjs
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Prepare verified public recovery resources
+        run: |
+          .venv/Scripts/python.exe tools/prepare_public_toolchain.py --download --output-dir .preview/public-toolchain
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Build portable ZIP
+        run: |
+          .venv/Scripts/python.exe pack_pyinstaller.py --public-release --offline-resources .preview/public-toolchain --output-root .preview/release
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Verify the actual portable directory and ZIP
+        run: |
+          $result = Get-Content .preview/release/result.json -Raw | ConvertFrom-Json
+          $env:PSMM_PORTABLE_ROOT = $result.bundle
+          $env:PSMM_PORTABLE_ZIP = $result.archive
+          $env:PSMM_FINAL_DELIVERY = '1'
+          $env:PSMM_PUBLIC_RELEASE = '1'
+          .venv/Scripts/python.exe -m pytest tests/integration/test_package_layout.py -q
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Show build diagnostics on failure
+        if: failure()
+        run: |
+          foreach ($path in '.preview/release/helper.log', '.preview/release/pyinstaller.log') {
+            if (Test-Path $path) { Write-Output "--- $path ---"; Get-Content $path -Tail 150 }
+          }
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-portable
+          path: |
+            .preview/release/PSModManager-*.zip
+            .preview/release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.build.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: windows-portable
+          path: release-assets
+      - name: Publish verified assets without replacing an existing release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.build.outputs.tag }}
+          RELEASE_COMMIT: ${{ needs.build.outputs.commit }}
+        run: python3 tools/publish_release.py --assets release-assets

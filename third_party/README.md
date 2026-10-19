@@ -8,4 +8,4 @@
 
 打包入口会复制这些材料并核对版本。升级依赖时，应同时核对并更新对应许可正文和清单，不能只修改基线版本来跳过检查。
 
-IL2CPP 离线恢复包由开发者依据 `backend/loaders/melonloader/resources/manifest.json` 的上游来源在本地准备。Unity 库适用 Unity 的条款，不能使用本项目的 MIT 许可替代；公开发布二进制前需单独确认其再分发条件。详见 [第三方说明](../THIRD_PARTY_NOTICES.md) 和 [开发说明](../docs/development/README.md)。
+GitHub Release 的 IL2CPP 离线恢复包仅包含 MIT 许可的 Cpp2IL 和配套插件，由 `tools/prepare_public_toolchain.py` 依据固定来源及校验值准备。Unity 库适用 Unity 的条款，公开包不分发这些库，首次生成仍由 MelonLoader 联网获取。原有本地完整资源准备入口保持不变。详见 [第三方说明](../THIRD_PARTY_NOTICES.md) 和 [开发说明](../docs/development/README.md)。

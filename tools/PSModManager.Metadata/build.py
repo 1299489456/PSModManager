@@ -18,6 +18,11 @@ def toolchain():
     version = lambda p: tuple(int(x) for x in p.name.split('.')[:3])
     sdks = sorted((root / 'sdk').glob('10.*'), key=version)
     refs = sorted((root / 'packs/Microsoft.NETCore.App.Ref').glob('10.*'), key=version)
+    requested = os.environ.get('PSMM_DOTNET_SDK_VERSION')
+    if requested:
+        sdks = [sdk for sdk in sdks if sdk.name == requested]
+        if not sdks:
+            raise RuntimeError(f'Required installed .NET SDK {requested} is unavailable')
     if not sdks or not refs:
         raise RuntimeError('Installed net10 SDK and reference pack are required')
     return dotnet, sdks[-1] / 'Roslyn/bincore/csc.dll', refs[-1] / 'ref/net10.0'

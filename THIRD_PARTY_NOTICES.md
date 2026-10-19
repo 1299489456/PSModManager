@@ -1,6 +1,6 @@
 # PSModManager 第三方说明
 
-本说明对应本地 Windows x64 便携交付材料。PSModManager 以 MIT 许可开源，[LICENSE](LICENSE) 写明 `Copyright (c) 2026 PSMM contributors`，并按 MIT 要求保留上游 `Copyright (c) 2026 RimCrow contributors` 和 MIT 原文；第三方组件仍适用各自许可。
+本说明对应 Windows x64 便携交付材料。PSModManager 以 MIT 许可开源，[LICENSE](LICENSE) 写明 `Copyright (c) 2026 PSMM contributors`，并按 MIT 要求保留上游 `Copyright (c) 2026 RimCrow contributors` 和 MIT 原文；第三方组件仍适用各自许可。
 
 便携包内的 `licenses/` 保存许可正文和原有 NOTICE；`licenses/distribution-materials.json` 记录组件版本、来源、材料路径、摘要及提取方式。源码仓库在 `third_party/notices/` 保存这些文本材料，打包入口直接复制到便携包，并按 `build-baseline.json` 核对 Python、前端依赖和 helper 运行时版本。本文中的 `licenses/` 路径相对便携包根。
 
@@ -8,10 +8,12 @@
 
 离线恢复资源位于 `_internal/backend/loaders/melonloader/resources/`，清单记录官方来源、具体版本、目标路径、大小和完整性校验值；不含本游戏文件、存档、Mod 或预生成的游戏程序集。
 
-公开源码不包含 `toolchain.zip` 或其中的工具链二进制，仅保留准备脚本、来源清单和许可说明。构建者须先按上游许可自行准备相应材料，再用 `tools/prepare_melonloader_offline.py` 生成本地离线资源；打包脚本不会下载材料，缺少资源时会停止。生成本地包不改变下述 Unity 库的授权条件。
+**GitHub Release 公开包仅内置 Cpp2IL 和配套插件，不包含 Unity 运行库或 Managed.zip。** `tools/prepare_public_toolchain.py` 按已提交清单校验官方工具字节，`pack_pyinstaller.py --public-release` 拒绝混入 Unity 或其他资源；Unity 依赖仍由 MelonLoader 在首次生成或游戏更新后联网获取。
+
+公开源码不包含 `toolchain.zip` 或其中的工具链二进制，仅保留准备脚本、来源清单和许可说明。原有 `tools/prepare_melonloader_offline.py` 仍用于准备包含 Unity 的本地完整包；生成本地包不改变下述 Unity 库的授权条件，不应将该完整包作为公开 Release 上传。
 
 - Cpp2IL `2022.1.0-pre-release.21` 和配套 `Cpp2IL.Plugin.StrippedCodeRegSupport.dll` 来自 [Cpp2IL 官方发布](https://github.com/SamboyCoding/Cpp2IL/releases/tag/2022.1.0-pre-release.21)，项目采用 MIT，正文见资源目录 `licenses/Cpp2IL-LICENSE.txt`。独立工具的自包含运行时及附带组件仍适用各自许可。
-- Unity `2021.3.45` 生成依赖及原始 `Managed.zip` 来自 [MelonLoader.UnityDependencies 官方发布](https://github.com/LavaGang/MelonLoader.UnityDependencies/releases/tag/2021.3.45)。这些库属于 Unity Software，适用 Unity Terms of Service 和 Unity Software Additional Terms；不能把仓库生成器的 Apache-2.0 当成这些库的许可。上游完整声明见资源目录 `licenses/UnityDependencies-README.md`。本地测试交付不代表取得公开再分发授权。
+- 本地完整包的 Unity `2021.3.45` 生成依赖及原始 `Managed.zip` 来自 [MelonLoader.UnityDependencies 官方发布](https://github.com/LavaGang/MelonLoader.UnityDependencies/releases/tag/2021.3.45)。这些库属于 Unity Software，适用 Unity Terms of Service 和 Unity Software Additional Terms；不能把仓库生成器的 Apache-2.0 当成这些库的许可。[上游完整声明](https://github.com/LavaGang/MelonLoader.UnityDependencies/blob/main/README.md)亦保留在本地完整包资源目录的 `licenses/UnityDependencies-README.md`；公开包排除这些二进制。
 
 ## 当前前端
 

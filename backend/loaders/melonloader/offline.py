@@ -48,11 +48,14 @@ class OfflineToolchain:
             if path.stat().st_size > 256 * 1024:
                 raise ValueError()
             value = json.loads(path.read_text(encoding='utf-8-sig'))
+            profile = value.get('profile', 'full')
             if (type(value['schema_version']) is not int or value['schema_version'] != 1 or value['loader_version'] != '0.7.3'
                     or value['dumper_version'] != DUMPER_VERSION
                     or value['unity_version'] != '2021.3.45'
                     or value['archive'] != 'toolchain.zip'
-                    or not isinstance(value['files'], list) or not 4 <= len(value['files']) <= 256):
+                    or profile not in ('full', 'cpp2il-only')
+                    or not isinstance(value['files'], list)
+                    or not (2 <= len(value['files']) <= 256)):
                 raise ValueError()
             seen, total = set(), 0
             for item in value['files']:
@@ -65,8 +68,12 @@ class OfflineToolchain:
                     raise ValueError()
                 seen.add(name.casefold())
                 total += item['size']
-            if (not {CPP2IL.casefold(), SCRS.casefold(), UNITY_ARCHIVE.casefold()} <= seen
-                    or total > MAX_BYTES):
+            required = {CPP2IL.casefold(), SCRS.casefold()}
+            if profile == 'full':
+                required.add(UNITY_ARCHIVE.casefold())
+            if (not required <= seen or total > MAX_BYTES
+                    or profile == 'cpp2il-only' and seen != required
+                    or profile == 'full' and len(seen) < 4):
                 raise ValueError()
             return value
         except (OSError, ValueError, KeyError, TypeError):
@@ -171,6 +178,16 @@ class OfflineToolchain:
         result['status'] = 'ok' if result['ready'] else 'missing'
         result['message'] = ('Cpp2IL、配套插件和 Unity 依赖已校验，可离线生成程序集。' if result['ready'] else
                              'IL2CPP 生成依赖缺失或损坏，可从管理器内置资源离线修复。')
+        if manifest.get('profile') == 'cpp2il-only':
+            # Public builds restore the MIT-licensed tools only. Unity libraries
+            # remain owned by MelonLoader's normal setup/download path; absence
+            # must not block launching the game to complete that setup.
+            result['offline_complete'] = False
+            result['unity_download_required'] = not unity_present or result['unity_archive_required']
+            result['message'] = ('Cpp2IL 和配套插件已校验。' if result['ready'] else
+                                 'Cpp2IL 或配套插件缺失、损坏，可离线修复。')
+            result['message'] += ('公开版不内置 Unity 库，首次生成或游戏更新后由 MelonLoader 联网下载。'
+                                  if result['unity_download_required'] else 'Unity 库由 MelonLoader 管理。')
         return result
 
     def extract(self, stage, needed, check=lambda: None):

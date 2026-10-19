@@ -61,7 +61,7 @@ Pop-Location
 
 ## 4. 准备本地离线修复资源
 
-Git 仓库不包含生成依赖压缩包 `backend/loaders/melonloader/resources/toolchain.zip`。完整的本地功能和便携打包需要先准备它；这些资源用于 MelonLoader 0.7.3 的 Cpp2IL / Unity 依赖修复，**不是 MelonLoader 安装包**。
+Git 仓库不包含生成依赖压缩包 `backend/loaders/melonloader/resources/toolchain.zip`。以下步骤准备原有本地完整包；资源用于 MelonLoader 0.7.3 的 Cpp2IL / Unity 依赖修复，**不是 MelonLoader 安装包**。对外分发应使用第 8 节的公开包流程，仅内置 Cpp2IL 和插件，不再分发 Unity 库。
 
 从已提交的 [`manifest.json`](../../backend/loaders/melonloader/resources/manifest.json) 中读取官方来源，下载到本地准备目录，再用仓库脚本组装：
 
@@ -164,6 +164,42 @@ Remove-Item Env:PSMM_PORTABLE_ROOT, Env:PSMM_PORTABLE_ZIP, Env:PSMM_FINAL_DELIVE
 ```
 
 未设置产物路径时，相关包体检查会跳过；跳过不算验证了便携包。目录 / ZIP 检查通过后仍需实际桌面启动与目标环境检查，见[干净机器检查表](clean-machine-checklist.md)。构建本地产物不会创建 GitHub Release，也不代表已完成发布签名或第三方服务的公开发行登记。
+
+## 8. 自动构建并发布 GitHub Release
+
+[`Windows portable` 工作流](../../.github/workflows/release.yml)在 `main` 推送时构建、测试并上传保留 14 天的 Actions artifact；**只有推送 `v主版本.次版本.补丁版本` 标签才自动创建 Release**。普通源码提交不会发布新版本。
+
+每次更新版本时，同步以下三处，然后提交并推送 `main`：
+
+- `pyproject.toml` 的 `project.version`。
+- `backend/app/identity.py` 的 `APP_VERSION`（打包器直接使用它）。
+- `uv.lock` 中 `psmodmanager` 的版本：修改声明后执行 `uv lock`，检查差异没有意外升级依赖。
+
+确认该提交的 Actions 构建成功，再推送相同版本的标签，例如：
+
+```powershell
+# 示例仅适用于已更新为 0.1.1 的提交；标签与源码版本必须一致。
+git tag -a v0.1.1 -m "Release PSModManager 0.1.1"
+git push origin v0.1.1
+```
+
+CI 固定 Windows 2022 x64、uv `0.10.0`、Python `3.11.14`、Node `24.19.0`、.NET SDK `10.0.400`；通过 `uv sync --locked`、`npm ci` 和 runtime `10.0.11` 准备干净构建环境。第三方 Actions 固定到提交。升级构建版本时，同时更新工作流和许可基线；不要绕过打包器的版本检查。
+
+公开包构建使用现有单入口，但传入独立的 Cpp2IL-only 资源，不修改本地完整资源目录：
+
+```powershell
+# 显式联网下载两项官方工具，校验来源清单中的大小和 SHA-256。
+.venv\Scripts\python.exe tools/prepare_public_toolchain.py --download --output-dir .preview\public-toolchain-01
+.venv\Scripts\python.exe pack_pyinstaller.py --public-release --offline-resources .preview\public-toolchain-01 --output-root .preview\public-release-01
+```
+
+已有下载文件时用 `--source <文件目录>` 代替 `--download`，目录需包含 `Cpp2IL.exe` 和 `Cpp2IL.Plugin.StrippedCodeRegSupport.dll`。公开包的包体验证在第 7 节命令之外加 `$env:PSMM_PUBLIC_RELEASE = '1'`；检查后移除此环境变量。公开包只保留两项离线工具，Unity 库由 MelonLoader 首次生成时下载，国内网络可能仍影响 Unity 下载。
+
+工作流先通过定向测试、构建和实际 ZIP 检查，再以单独发布任务的 `contents: write` 权限创建草稿，上传 ZIP 与 ZIP 外部的 `SHA256SUMS.txt`，两者成功才公开。无需填写个人 PAT 或其他 Secret；构建任务只有读权限。仓库需允许 GitHub Actions 和相应工作流令牌写入 Release。
+
+构建失败时在 Actions 查看失败步骤和日志，修正后先推送 `main` 验证。已经存在且源码未变的标签，可在 Actions 的 **Run workflow** 输入标签，或重跑失败任务。若上传中断留下草稿，先人工检查并删除那个未发布草稿，再重试；脚本不会自动覆盖或删除任何已有 Release/附件。已公开版本需要修复时发布新版本，不移动旧标签。
+
+Release 资产和 Actions artifact 都只包含便携 ZIP、校验清单，不包含真实配置、截图用数据、凭据或 Mod。公开包没有程序内自动升级器；这里实现的是开发者推送版本标签后自动编译、发布下载包。
 
 ## 代码导航
 
