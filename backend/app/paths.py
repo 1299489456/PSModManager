@@ -56,6 +56,10 @@ def resolve_paths(value=None, protected_roots=(), *, environ=None):
     if any(p.endswith((' ', '.')) or ':' in p for p in candidate.parts[1:]):
         raise ValueError('数据目录包含不明确的 Windows 路径段')
     candidate = Path(os.path.abspath(candidate))
+    reject_reparse(candidate)
+    # Expand Windows short-name aliases before protection/identity checks. The
+    # deployment path contract deliberately rejects ambiguous ~1 spellings.
+    candidate = candidate.resolve()
     forbidden = [REFERENCE_ROOT, KNOWN_GAME_ROOT, *map(Path, protected_roots)]
     workspace = Path(__file__).resolve().parents[2]
     forbidden += [workspace / name for name in ('data', 'mods', 'toolmods', 'updates')]
@@ -69,7 +73,6 @@ def resolve_paths(value=None, protected_roots=(), *, environ=None):
             raise ValueError('数据目录与游戏、包来源或 RimCrow 目录重叠')
     if candidate == workspace or candidate in workspace.parents or candidate == Path(candidate.anchor):
         raise ValueError('不能使用源码根目录或磁盘根目录作为数据目录')
-    reject_reparse(candidate)
     for ancestor in (candidate, *candidate.parents):
         if ancestor == Path(ancestor.anchor):
             break

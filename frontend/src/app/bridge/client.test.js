@@ -72,14 +72,14 @@ test('game launch errors display the bounded backend user message', async () => 
 test('loader commands expose direct selected-installation actions and preserve useful errors', async () => {
   const seen = []
   const bridge = createBridge({ transport: async request => { seen.push(request); return reply(request, request.payload) } })
-  for (const command of ['loader.status', 'loader.install', 'loader.choose']) {
+  for (const command of ['loader.status', 'loader.install', 'loader.choose', 'loader.repair']) {
     assert.deepEqual(await bridge.request(command, { installation_id: 'installation' }), { installation_id: 'installation' })
     await assert.rejects(bridge.request(command, { installation_id: 'installation', path: 'C:/game' }), BridgeError)
   }
   const payload = { installation_id: 'installation', source_handle: 'selected-zip' }
   assert.deepEqual(await bridge.request('loader.install_local', payload), payload)
   await assert.rejects(bridge.request('loader.install_local', { ...payload, download_url: 'https://example.invalid' }), BridgeError)
-  assert.equal(seen.length, 4)
+  assert.equal(seen.length, 5)
   await bridge.dispose()
   const failed = createBridge({ transport: async request => ({ request_id: request.request_id, ok: false,
     error: { code: 'LOADER_DOWNLOAD_FAILED', message: '下载失败，可改用本地 ZIP。' } }) })

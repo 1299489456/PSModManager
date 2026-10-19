@@ -166,13 +166,29 @@ def sheet(window, opener, label):
     wait(window, "!document.querySelector('dialog[open]')", 10)
 
 
+def accept_first_run(window, timeout=20):
+    """New data roots open on the storage choice; keep the default location."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        state = window.evaluate_js("document.querySelector('[data-testid=storage-default]') ? 'first' : !document.querySelector('[data-testid=storage-first-run]') && document.querySelector('[data-testid=mod-workspace]')?.offsetParent ? 'ready' : ''")
+        if state == 'first':
+            window.evaluate_js("document.querySelector('[data-testid=storage-default]').click()")
+        elif state == 'ready':
+            return
+        time.sleep(.1)
+    raise AssertionError('Workspace did not open after the storage choice')
+
+
 def observe():
     window = windows[0]
     try:
         window.events.loaded.wait()
+        accept_first_run(window)
         window.evaluate_js("window.__pageErrors=[];addEventListener('error',e=>__pageErrors.push(String(e.message)));addEventListener('unhandledrejection',e=>__pageErrors.push(String(e.reason)))")
         wait(window, "Boolean(" + element('mod-pager') + ")")
-        window.evaluate_js("(()=>{const s=document.querySelector('[aria-label=每页数量]');s.value='24';s.dispatchEvent(new Event('change'));document.querySelector('[aria-label=卡片视图]').click()})()")
+        window.evaluate_js("document.querySelector('[aria-label=每页数量]').click()")
+        wait(window, "Boolean(document.querySelector('.select-options [role=option][data-value=\"24\"]'))")
+        window.evaluate_js("document.querySelector('.select-options [role=option][data-value=\"24\"]').click();document.querySelector('[aria-label=卡片视图]').click()")
         wait(window, "document.querySelectorAll('[data-testid=workspace-mod-row]').length===24")
         assert window.evaluate_js("document.querySelector('[data-testid=mod-pager]').innerText.includes('共 36 个')")
         assert window.evaluate_js("document.querySelector('.garden-titlebar').innerText.includes('PSMM') && !document.querySelector('.canopy').innerText.includes('本地桌面') && !document.querySelector('.canopy').innerText.includes('PSModManager')")
@@ -205,9 +221,8 @@ def observe():
         sheet(window, 'installation-open', 'sheet-installation')
         sheet(window, 'import-open', 'sheet-import')
         sheet(window, 'loader-details', 'sheet-environment')
-        sheet(window, 'config-open', 'sheet-config')
-        report['checks'].append('Installation, import, environment and config sheets open, and a real click on the dimmed area closes each one')
-        assert window.evaluate_js("[...document.querySelectorAll('.canopy-nav>button')].map(b=>b.innerText.trim()).join('|')") == '模组|方案|Nexus|日志|应用信息'
+        report['checks'].append('Installation, import and environment sheets open, and a real click on the dimmed area closes each one')
+        assert window.evaluate_js("[...document.querySelectorAll('.canopy-nav>button')].map(b=>b.innerText.trim()).join('|')") == '模组|方案|Nexus|日志|设置'
         editor = element('profile-editor')
         click(window, 'profile-open')
         wait(window, editor + "?.dataset.busy==='false' && " + editor + ".offsetParent !== null && !" + element('mod-workspace') + ".offsetParent")

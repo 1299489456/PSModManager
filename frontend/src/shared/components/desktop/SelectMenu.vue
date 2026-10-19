@@ -22,11 +22,19 @@ function placeMenu() {
   const width = Math.min(Math.max(rect.width, 180), window.innerWidth - 24)
   position.value = { left: Math.max(12, Math.min(rect.left, window.innerWidth-width-12))+'px', width:width+'px', maxHeight:height+'px', top: (rect.bottom + height + 8 < window.innerHeight ? rect.bottom+4 : Math.max(12,rect.top-height-4))+'px' }
 }
+// A blurred or transformed ancestor becomes the containing block of a fixed
+// element; measure where the menu landed and shift it onto the trigger.
+function settle() { nextTick(() => {
+  const box = menu.value?.getBoundingClientRect(), want = position.value
+  if (!box || !want.left) return
+  const dx = box.left - parseFloat(want.left), dy = box.top - parseFloat(want.top)
+  if (Math.abs(dx) > .5 || Math.abs(dy) > .5) position.value = { ...want, left: `${parseFloat(want.left) - dx}px`, top: `${parseFloat(want.top) - dy}px` }
+}) }
 async function show(index = null) {
   if (props.disabled || !props.options.length) return
   placeMenu()
   active.value = index ?? Math.max(0, props.options.findIndex(option => option.value === props.modelValue))
-  open.value = true; focusOption()
+  open.value = true; focusOption(); settle()
 }
 function choose(option) { emit('update:modelValue', option.value); close(true) }
 function key(event) {
@@ -40,7 +48,7 @@ function key(event) {
   focusOption()
 }
 function outside(event) { if (!root.value?.contains(event.target)) close() }
-function reposition(event) { if (open.value && !menu.value?.contains(event.target)) placeMenu() }
+function reposition(event) { if (open.value && !menu.value?.contains(event.target)) { placeMenu(); settle() } }
 watch(() => props.disabled, value => { if (value) close() })
 onMounted(() => { document.addEventListener('pointerdown', outside); window.addEventListener('resize', reposition); window.addEventListener('scroll',reposition,true) })
 onUnmounted(() => { document.removeEventListener('pointerdown',outside); window.removeEventListener('resize',reposition); window.removeEventListener('scroll',reposition,true) })

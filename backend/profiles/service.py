@@ -124,6 +124,33 @@ class ProfileService:
             self._activate(store, row)
             return self._state(store, row)
 
+    def delete(self, profile_id, expected_revision):
+        """Remove the editable scheme, retaining published deployment evidence."""
+        with self._store(write=True) as store:
+            row = self._load(store, profile_id)
+            self._expected(row, expected_revision)
+            selected = store.connection.execute(
+                'SELECT profile_id FROM profile_editor_selection WHERE installation_id=?',
+                (row['installation_id'],)).fetchone()
+            selected_id = selected[0] if selected else None
+            if selected_id in (None, profile_id):
+                fallback = store.connection.execute(
+                    'SELECT profile_id FROM profile_drafts WHERE installation_id=? AND profile_id<>? ORDER BY rowid LIMIT 1',
+                    (row['installation_id'], profile_id)).fetchone()
+                selected_id = fallback[0] if fallback else None
+                if fallback:
+                    self._activate(store, self._load(store, selected_id))
+                else:
+                    store.connection.execute('DELETE FROM profile_editor_selection WHERE installation_id=?',
+                                             (row['installation_id'],))
+            changed = store.connection.execute('DELETE FROM profile_drafts WHERE profile_id=? AND revision=?',
+                                               (profile_id, expected_revision))
+            require(changed.rowcount == 1, 'PROFILE_REVISION_CONFLICT')
+            # profiles/profile_history are immutable inputs to existing plans and
+            # deployment history. Deleting an editor entry must not cascade into
+            # those records, the shared package library, or installed game files.
+            return {'deleted_profile_id': profile_id, 'selected_profile_id': selected_id}
+
     def clone(self, profile_id, expected_revision, name):
         with self._store(write=True) as store:
             row = self._load(store, profile_id)

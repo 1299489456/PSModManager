@@ -1,0 +1,19 @@
+.rich-text { overflow-wrap: anywhere; line-height: 1.8; }
+.rich-text > :first-child { margin-top: 0; }
+.rich-text > :last-child { margin-bottom: 0; }
+.rich-text p { margin: 8px 0 12px; }
+.rich-text h1,.rich-text h2,.rich-text h3,.rich-text h4 { color: var(--g-ink); font-weight: 650; line-height: 1.45; margin: 18px 0 8px; }
+.rich-text h1 { font-size: 1.4em; }.rich-text h2 { font-size: 1.25em; }.rich-text h3,.rich-text h4 { font-size: 1.1em; }
+.rich-text ul,.rich-text ol { padding-left: 24px; margin: 8px 0 12px; }
+.rich-text ul { list-style: disc; }.rich-text ol { list-style: decimal; }
+.rich-text li { margin: 3px 0; }
+.rich-text a { color: var(--g-leaf-3); text-decoration: underline; text-underline-offset: 3px; }
+.rich-text pre { overflow: auto; white-space: pre; padding: 12px 14px; margin: 12px 0; border: 1px solid var(--g-line); border-radius: 12px; background: var(--g-mint); }
+.rich-text code { font-family: Consolas, monospace; font-size: .92em; }
+.rich-text :not(pre) > code { padding: 2px 5px; border-radius: 5px; background: var(--g-mint); }
+.rich-text blockquote { margin: 12px 0; padding: 8px 14px; border-left: 3px solid var(--g-leaf-2); background: var(--g-mint); border-radius: 0 12px 12px 0; }
+.rich-text table { display: block; overflow: auto; border-collapse: collapse; margin: 12px 0; }
+.rich-text th,.rich-text td { padding: 7px 12px; border: 1px solid var(--g-line); text-align: left; }
+.rich-text th { background: var(--g-mint); }
+.rich-text img { max-width: 100%; max-height: 520px; border-radius: 14px; }
+.rich-text hr { margin: 18px 0; border: 0; border-top: 1px solid var(--g-line); }

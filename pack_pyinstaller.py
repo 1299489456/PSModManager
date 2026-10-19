@@ -17,6 +17,148 @@ ROOT = Path(__file__).resolve().parent
 PRODUCT = 'PSModManager'
 VERSION = '0.1.0'
 EXCLUDED_MANIFEST = ['build-manifest.json', 'SHA256SUMS.txt']
+NOTICE_ROOT = 'third_party/notices'
+DELIVERY_DOCUMENTS = ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'docs/development/known-limitations.md']
+OFFLINE_RESOURCES = 'backend/loaders/melonloader/resources'
+
+
+def delivery_documents(root):
+    return DELIVERY_DOCUMENTS + [path.relative_to(root).as_posix()
+        for path in sorted((root/'docs/user').glob('*.md'))]
+
+
+def notice_materials(root):
+    """Read the checked-in, version-bound license inventory; never fetch notices."""
+    source = root/NOTICE_ROOT
+    catalog = json.loads((source/'distribution-materials.json').read_text(encoding='utf-8'))
+    materials = {}
+    for component in catalog['components']:
+        if set(component['license_paths']) != {item['path'] for item in component['materials']}:
+            raise ValueError('Notice license_paths mismatch: '+component['name'])
+        for item in component['materials']:
+            relative = item['path']
+            path = PurePosixPath(relative)
+            if (not relative or '\\' in relative or ':' in relative or path.is_absolute()
+                    or any(part in ('', '.', '..') for part in relative.split('/'))):
+                raise ValueError('Invalid notice material path: '+relative)
+            target = source/relative
+            if not target.resolve().is_relative_to(source.resolve()):
+                raise ValueError('Redirected notice material: '+relative)
+            for entry in (target, *target.parents):
+                if entry == source.parent:
+                    break
+                if entry.is_symlink() or getattr(entry.lstat(), 'st_file_attributes', 0) & 0x400:
+                    raise ValueError('Redirected notice material: '+relative)
+            if target.stat().st_size != item['bytes'] or sha256(target) != item['sha256']:
+                raise ValueError('Notice material changed: '+relative)
+            if relative in materials and materials[relative] != item:
+                raise ValueError('Conflicting notice material: '+relative)
+            materials[relative] = item
+    if (not materials or catalog['components_count'] != len(catalog['components'])
+            or catalog['materials_count'] != len(materials)):
+        raise ValueError('Notice inventory count mismatch')
+    return catalog, materials
+
+
+def dependency_versions(packages):
+    return {re.sub('[-_.]+', '-', item['name']).lower(): (item['version'], item['role'])
+            for item in packages}
+
+
+def check_notice_baseline(baseline, *, python_version=None, packages=None,
+                          helper_runtime_version=None, frontend_packages=None):
+    differences = []
+    if python_version is not None and python_version != baseline['python_version']:
+        differences.append(f'Python {python_version} (expected {baseline["python_version"]})')
+    if packages is not None:
+        actual, expected = dependency_versions(packages), dependency_versions(baseline['dependencies'])
+        for name in sorted(actual.keys() | expected.keys()):
+            if actual.get(name) != expected.get(name):
+                differences.append(f'{name}: {actual.get(name)} (expected {expected.get(name)})')
+    if helper_runtime_version is not None and helper_runtime_version != baseline['helper_runtime_version']:
+        differences.append(f'helper runtime {helper_runtime_version} '
+                           f'(expected {baseline["helper_runtime_version"]})')
+    if frontend_packages is not None and frontend_packages != baseline['frontend_packages']:
+        for name in sorted(frontend_packages.keys() | baseline['frontend_packages'].keys()):
+            actual, expected = frontend_packages.get(name), baseline['frontend_packages'].get(name)
+            if actual != expected:
+                differences.append(f'frontend {name}: {actual} (expected {expected})')
+    if differences:
+        raise RuntimeError('Build differs from third_party/notices/build-baseline.json: '
+            + '; '.join(differences) + '. Update the notice texts, distribution-materials.json '
+            'and build-baseline.json for these versions before packaging; '
+            'see docs/development/README.md.')
+
+
+def preflight(root):
+    """Reject incomplete public checkouts before creating output or running builds."""
+    required = ['frontend/dist/index.html', 'frontend/package-lock.json',
+                'backend/app/resources/psmm-icon.ico',
+                *[OFFLINE_RESOURCES+'/'+name for name in ('toolchain.zip', 'manifest.json',
+                    'licenses/Cpp2IL-LICENSE.txt', 'licenses/UnityDependencies-README.md')],
+                NOTICE_ROOT+'/distribution-materials.json', NOTICE_ROOT+'/build-baseline.json',
+                'docs/user/quick-start.md', *delivery_documents(root)]
+    missing = [name for name in required if not (root/name).is_file() or (root/name).stat().st_size == 0]
+    if missing:
+        raise RuntimeError('Required offline build resources are missing: '+', '.join(sorted(set(missing)))
+            + '. Prepare the frontend dist and local toolchain first; use '
+            'tools/prepare_melonloader_offline.py --source <local-upstream-materials> '
+            'and docs/development/README.md. No download or installation was attempted.')
+    try:
+        catalog, materials = notice_materials(root)
+        baseline = json.loads((root/NOTICE_ROOT/'build-baseline.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise RuntimeError('Third-party notice materials are missing or invalid: '+str(exc)
+            + '. Restore or update third_party/notices; see docs/development/README.md.') from exc
+    packages = []
+    for package in baseline['dependencies']:
+        try:
+            version = metadata.version(package['name'])
+        except metadata.PackageNotFoundError:
+            version = None
+        packages.append(dict(package, version=version))
+    lock = json.loads((root/'frontend/package-lock.json').read_text(encoding='utf-8'))['packages']
+    frontend = {}
+    for name in baseline['frontend_packages']:
+        path = root/'frontend/node_modules'/name/'package.json'
+        installed = json.loads(path.read_text(encoding='utf-8'))['version'] if path.is_file() else None
+        locked = lock.get('node_modules/'+name, {}).get('version')
+        if installed != locked:
+            raise RuntimeError(f'Frontend {name}: installed {installed}, locked {locked}; '
+                'prepare the locked frontend dependencies and rebuild dist before packaging. '
+                'See docs/development/README.md; no installation was attempted.')
+        frontend[name] = installed
+    check_notice_baseline(baseline, python_version='.'.join(map(str, sys.version_info[:3])),
+                          packages=packages, frontend_packages=frontend)
+    return baseline, catalog, materials
+
+
+def delivery_materials(root, bundle, materials):
+    """Include distribution documents before binding the manifest and ZIP."""
+    for name in delivery_documents(root):
+        target = bundle/name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((root/name).read_bytes())
+    names = [*sorted(materials), 'distribution-materials.json']
+    for name in names:
+        target = bundle/'licenses'/name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((root/NOTICE_ROOT/name).read_bytes())
+    (bundle/'README-PORTABLE.txt').write_text(
+        'PSModManager 0.1.0 — Windows x64 便携版\n\n'
+        '完整解压 PSModManager 文件夹，再运行 PSModManager.exe。\n'
+        '请保留同目录的 _internal 和 PSModManager.WorkerHost.exe，不要只复制 EXE。\n\n'
+        '运行环境：Windows 10/11 x64、Microsoft .NET Framework 4.8+、\n'
+        'Microsoft Edge WebView2 Runtime。缺少时会提示，不会自动安装。\n'
+        '无需安装 Python、Node 或 .NET SDK；元数据 helper 带独立 .NET 运行时。\n\n'
+        '首次启动选择数据位置；默认 %LOCALAPPDATA%\\PSModManager（LocalAppData）。\n'
+        '以后可在“设置 → 数据位置”迁移到其他本地目录。删除程序目录不会清除数据或游戏 Mod。\n'
+        '不包含游戏、Mod、存档、凭据或 RimCrow 数据迁移；AI 与 Nexus 按需配置。\n\n'
+        '使用说明：docs/user/quick-start.md\n'
+        '备份与重装：docs/user/data-and-reinstall.md\n'
+        '已知限制：docs/development/known-limitations.md\n'
+        '许可与第三方材料：LICENSE、THIRD_PARTY_NOTICES.md、licenses/\n', encoding='utf-8-sig')
+    return ['licenses/'+name for name in names]
 
 
 def sha256(path):
@@ -31,6 +173,8 @@ def bundle_data(root, helper):
     """Explicit resource roots, not the workspace or imported game content."""
     paths = list((root/'frontend/dist').rglob('*'))
     paths += list((root/'backend/diagnostics/rules').glob('*.json'))
+    paths += list((root/'backend/loaders/melonloader/resources').rglob('*'))
+    paths += [root/'backend/app/resources/psmm-icon.ico']
     paths += list(helper.iterdir())
     output = []
     for path in paths:
@@ -125,27 +269,6 @@ def dependencies(work):
     return [canonical[key] for key in sorted(canonical)]
 
 
-def licenses(bundle, packages):
-    copied = []
-    python_license = Path(sys._base_executable).parent/'LICENSE.txt'
-    if python_license.is_file():
-        destination = bundle/'licenses/CPython/LICENSE.txt'
-        destination.parent.mkdir(parents=True,exist_ok=True)
-        destination.write_bytes(python_license.read_bytes())
-        copied.append(destination.relative_to(bundle).as_posix())
-    for package in packages:
-        distribution = metadata.distribution(package['name'])
-        for relative in distribution.files or []:
-            if relative.name.lower().startswith(('license','copying','notice')):
-                source = Path(distribution.locate_file(relative))
-                if source.is_file():
-                    destination = bundle/'licenses'/package['name']/relative.name
-                    destination.parent.mkdir(parents=True,exist_ok=True)
-                    destination.write_bytes(source.read_bytes())
-                    copied.append(destination.relative_to(bundle).as_posix())
-    return copied
-
-
 def run(command, output, env):
     with output.open('w',encoding='utf-8') as log:
         result = subprocess.run(list(map(str, command)), cwd=ROOT, env=env,
@@ -160,8 +283,7 @@ def build(output):
     output = output.resolve()
     if not output.is_relative_to(ROOT) or output==ROOT or output.exists():
         raise ValueError('Use a new output directory inside this workspace')
-    if not (ROOT/'frontend/dist/index.html').is_file():
-        raise RuntimeError('Existing frontend build is required; no automatic dependency install')
+    baseline, _, materials = preflight(ROOT)
     output.mkdir(parents=True)
     (output/'.psmm-build-owner.json').write_text(json.dumps(dict(product=PRODUCT,output=str(output))),encoding='utf-8')
     env = os.environ.copy()
@@ -170,29 +292,20 @@ def build(output):
         SOURCE_DATE_EPOCH='1791859200')
     run([sys.executable,ROOT/'tools/PSModManager.Metadata/build.py','--self-contained',
          '--output-dir',output/'helper'], output/'helper.log',env)
+    helper = json.loads((output/'helper/helper-build.json').read_text(encoding='utf-8'))
+    check_notice_baseline(baseline, helper_runtime_version=helper['runtime_version'])
     run([sys.executable,'-I','-m','PyInstaller','--noconfirm','--distpath',output/'dist',
          '--workpath',output/'pyi','--log-level','INFO',ROOT/'PSModManager.spec'],output/'pyinstaller.log',env)
     bundle = output/'dist'/PRODUCT
     packages = dependencies(output/'pyi/PSModManager')
-    license_paths = licenses(bundle, packages)
-    (bundle/'README-PORTABLE.txt').write_text(
-        'PSModManager 0.1.0 - Windows x64\n\n'
-        'Extract the whole PSModManager folder; run PSModManager.exe.\n'
-        'Required: Windows 10/11 x64, Microsoft .NET Framework 4.8 or later,\n'
-        'and Microsoft Edge WebView2 Runtime. Missing runtimes are reported;\n'
-        'nothing is installed automatically. Python, Node and dotnet SDK are not required.\n'
-        'The metadata helper includes its own .NET runtime. Keep _internal and\n'
-        'PSModManager.WorkerHost.exe beside the application.\n\n'
-        'Data: %LOCALAPPDATA%\\PSModManager (separate from program files).\n'
-        'No RimCrow data migration, original update channel, real games, Mods,\n'
-        'saves or credentials are included. AI is optional and configured by the user.\n'
-        'Uninstalling the portable folder does not remove LocalAppData.\n',encoding='utf-8')
-    helper = json.loads((output/'helper/helper-build.json').read_text(encoding='utf-8'))
+    check_notice_baseline(baseline, packages=packages)
+    license_paths = delivery_materials(ROOT, bundle, materials)
     inputs = ['main.py','PSModManager.spec','pack_pyinstaller.py','pyproject.toml','uv.lock',
               'frontend/package-lock.json','backend/scanning/worker_host.py','backend/scanning/worker_client.py',
               'tools/PSModManager.Metadata/build.py','tools/PSModManager.Metadata/Program.cs',
               'tools/PSModManager.Metadata/PSModManager.Metadata.csproj',
-              'tools/PSModManager.Metadata/console_host_main.py','frontend/dist/index.html']
+              'tools/PSModManager.Metadata/console_host_main.py','frontend/dist/index.html',
+              NOTICE_ROOT+'/build-baseline.json', NOTICE_ROOT+'/distribution-materials.json']
     manifest = dict(schema_version=1,product=PRODUCT,version=VERSION,target='windows-x64',
         build_utc=datetime.now(timezone.utc).isoformat(), packaging='PyInstaller onedir; shared _internal',
         requirements=['Windows 10/11 x64','.NET Framework 4.8+','WebView2 Runtime'],

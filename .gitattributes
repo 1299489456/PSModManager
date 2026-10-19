@@ -1,0 +1,5 @@
+# License inventories bind the exact upstream text bytes on Windows and Unix.
+third_party/notices/** -text
+*.png binary
+*.ico binary
+*.zip binary

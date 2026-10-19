@@ -261,10 +261,10 @@ test('failed cancel leaves the action visible and allows retry instead of trappi
   runtime.dispose()
 })
 
-test('suggestion card text is escaped and button flows have no plan approval or file path UI', () => {
+test('suggestion card renders reasons through safe Markdown and keeps explicit action buttons', () => {
   const component = readFileSync(new URL('./PlanCard.vue', import.meta.url), 'utf8')
   assert.match(component, /\{\{ suggestion\.display_name/)
-  assert.match(component, /\{\{ suggestion\.reason/)
+  assert.match(component, /v-html="diagnosticMarkdown\(suggestion.reason\)"/)
   assert.match(component, /\$emit\('execute', suggestion\.suggestion_id\)/)
-  assert.equal(/v-html|plan_hash|approval_id|批准|路径/.test(component), false)
+  assert.equal(/plan_hash|approval_id|批准|路径/.test(component), false)
 })

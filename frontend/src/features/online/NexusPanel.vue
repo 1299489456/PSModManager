@@ -1,14 +1,26 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import { ArrowLeft, CalendarClock, CloudDownload, Download, ExternalLink, FileArchive, Globe, KeyRound, Languages, Link2, Search, Sprout, ThumbsUp, X } from 'lucide-vue-next'
-import { createNexusRuntime, VIEWS } from './nexusRuntime.js'
+import { ArrowLeft, CalendarClock, ChevronDown, CloudDownload, Download, ExternalLink, FileArchive, Globe, KeyRound, Languages, Link2, Search, Sprout, ThumbsUp, X } from 'lucide-vue-next'
+import { canInstallFile, createNexusRuntime, VIEWS } from './nexusRuntime.js'
 import BbcodeView from './BbcodeView.js'
 
-const props = defineProps({ bridge: { type: Object, required: true }, active: Boolean })
+const props = defineProps({ bridge: { type: Object, required: true }, active: Boolean,
+  incoming: { type: Array, default: () => [] }, inboxError: String, installBlocked: Boolean })
 const emit = defineEmits(['downloaded'])
 const state = reactive({})
-const runtime = createNexusRuntime(props.bridge, state, value => emit('downloaded', value))
+const runtime = createNexusRuntime(props.bridge, state, value => emit('downloaded', value), { canInstall: () => !props.installBlocked })
+const confirmProtocol = ref(false)
+function registerProtocol() {
+  if (state.protocol?.conflict) confirmProtocol.value = true
+  else void runtime.registerProtocol()
+}
+async function replaceProtocol() { confirmProtocol.value = false; await runtime.registerProtocol(true) }
+watch(() => [props.incoming, props.installBlocked, state.settings?.configured, state.busy], () => runtime.incoming(props.incoming), { immediate: true })
 const root = ref(null), sentinel = ref(null)
+watch(() => state.pendingWebsite, async pending => {
+  if (pending) { await nextTick(); if (root.value) root.value.scrollTop = 0 }
+})
+const versionDialog = ref(null), installMenu = ref(null)
 const configured = computed(() => Boolean(state.settings?.configured))
 const accountLabel = computed(() => !state.settings ? '正在读取账户…' : !configured.value ? '未连接账户'
   : state.settings.account ? `${state.settings.account.name} · ${state.settings.account.premium ? 'Premium' : '普通账户'}` : '已连接')
@@ -48,7 +60,29 @@ async function back() {
   runtime.closeMod()
   await nextTick(); if (root.value) root.value.scrollTop = listScroll
 }
-function cardKey(event, mod) { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); void openMod(mod) } }
+function cardKey(event, mod) { if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); void openMod(mod) } }
+function closeInstallMenu(event) { if (!event.target.closest?.('.install-split')) installMenu.value = null }
+async function toggleInstallMenu(mod) {
+  installMenu.value = installMenu.value === mod.mod_id ? null : mod.mod_id
+  await nextTick()
+  const menu = root.value?.querySelector('.install-menu')
+  if (!menu) return
+  const rect = menu.getBoundingClientRect(), viewport = root.value.getBoundingClientRect()
+  const bottom = Math.min(viewport.bottom, window.innerHeight), top = Math.max(viewport.top, 0)
+  if (rect.bottom > bottom) root.value.scrollTop += rect.bottom - bottom + 8
+  else if (rect.top < top) root.value.scrollTop -= top - rect.top + 8
+}
+function chooseVersion(mod) { installMenu.value = null; void runtime.chooseVersion(mod) }
+function installLatest(mod) { installMenu.value = null; void runtime.installLatest(mod) }
+function dismissVersions(event) {
+  const rect = versionDialog.value.getBoundingClientRect()
+  if (event.target === versionDialog.value && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) runtime.closeVersions()
+}
+watch(() => state.versionsOpen, async open => {
+  await nextTick()
+  if (open && !versionDialog.value.open) versionDialog.value.showModal()
+  else if (!open && versionDialog.value.open) versionDialog.value.close()
+})
 // Keep loading while the end of the grid is in view.
 function watchEnd() {
   observer?.disconnect()
@@ -64,12 +98,39 @@ watch(() => props.active, active => {
   if (active && !opened) { opened = true; void runtime.open() }
   if (!active && !state.busy) { state.apiKey = ''; state.nxmUrl = '' }
 }, { immediate: true })
-onMounted(watchEnd)
-onUnmounted(() => { clearTimeout(searchTimer); observer?.disconnect(); void runtime.dispose() })
+onMounted(() => { watchEnd(); document.addEventListener('click', closeInstallMenu) })
+onUnmounted(() => { clearTimeout(searchTimer); observer?.disconnect(); document.removeEventListener('click', closeInstallMenu); void runtime.dispose() })
 </script>
 
 <template>
   <main ref="root" class="garden-nexus" data-testid="nexus-dialog" :aria-busy="state.busy || state.listLoading || state.detailLoading" aria-labelledby="nexus-title">
+    <section class="nexus-handoff garden-card" aria-label="官网链接接收" data-testid="nexus-handoff">
+      <div class="handoff-head handoff-local"><div><b>已在官网手动下载？</b><span>普通账户请在官网使用 Manual download，再选择下载好的文件安装；Premium 可在详情页直接下载。</span></div><button class="garden-btn green sm" data-testid="nexus-import-zip" :disabled="state.busy || installBlocked || Boolean(state.readyDownload)" @click="runtime.importLocal('zip')">选择已下载 ZIP</button><button class="garden-btn sm" data-testid="nexus-import-dll" :disabled="state.busy || installBlocked || Boolean(state.readyDownload)" @click="runtime.importLocal('dll')">选择已下载 DLL</button></div>
+      <details class="free-account" data-testid="nexus-protocol-options"><summary>可选：接收 nxm:// 管理器下载链接</summary>
+      <p>仅在官网提供“Mod manager download”入口时可用。启用接收不会让网页出现这个按钮；没有入口时请使用 Manual download。</p>
+      <div class="handoff-head"><div><b>官网链接接收</b><span>{{ state.protocol?.registered ? '已启用' : '未启用' }}</span></div>
+        <button v-if="state.protocol?.owned" class="garden-link" :disabled="state.busy" @click="runtime.unregisterProtocol">停用接收</button>
+        <button v-if="!state.protocol?.registered && !(state.protocol?.owned && state.protocol?.default_choice_required)" class="garden-btn sm" data-testid="nexus-register" :disabled="state.busy || !state.protocol?.available" @click="registerProtocol">启用官网链接接收</button>
+      </div>
+      <p v-if="state.protocol?.message" class="hint">{{ state.protocol.message }}</p>
+      <div v-if="state.protocol?.owned && state.protocol?.default_choice_required" class="handoff-confirm"><p>已添加 PSModManager；Windows 当前仍由其他程序接收。打开默认应用设置，搜索“nxm”并选择 PSModManager。</p><button class="garden-btn sm" @click="runtime.chooseDefault">打开默认应用设置</button><button class="garden-link" @click="runtime.refreshProtocol">已设置，重新检查</button></div>
+      <div v-else-if="state.protocol?.default_choice_required && !state.protocol?.owned" class="handoff-confirm"><button class="garden-link" @click="runtime.chooseDefault">打开默认应用设置</button><button class="garden-link" @click="runtime.refreshProtocol">重新检查</button></div>
+      <div v-if="confirmProtocol" class="handoff-confirm" role="alert"><p>当前 nxm:// 链接由其他程序接收。改用 PSModManager 后，其他游戏的链接不会由本管理器处理；停用时会恢复原有设置。</p><button class="garden-btn green sm" @click="replaceProtocol">确认改用 PSModManager</button><button class="garden-btn sm" @click="confirmProtocol = false">保留现有设置</button></div>
+      </details>
+      <p v-if="inboxError" class="nexus-error" role="alert">{{ inboxError }}</p>
+      <div v-if="state.pendingWebsite" class="handoff-wait" role="status" data-testid="nexus-website-wait">
+        <b>官网下载后导入 · {{ state.pendingWebsite.name }}</b><p>所选文件：{{ state.pendingWebsite.fileName || `文件 ${state.pendingWebsite.file_id}` }}。在官网点击 Manual download；下载完成后，使用上方按钮选择文件。安装时会重新识别文件中的 Mod 和版本。</p>
+        <button class="garden-link" @click="runtime.openWebsite">重新打开官网<ExternalLink :size="13"/></button><button class="garden-link" @click="runtime.cancelWebsite">关闭提示</button>
+        <details class="free-account"><summary>已有 nxm:// 授权链接</summary><input v-model="state.nxmUrl" type="password" autocomplete="off" aria-label="备用下载授权链接" placeholder="nxm://probablystolen/…" :disabled="state.busy"/><button class="garden-btn sm" :disabled="state.busy || !state.nxmUrl.trim()" @click="runtime.download({ file_id: state.pendingWebsite.file_id }, { mod_id: state.pendingWebsite.mod_id, name: state.pendingWebsite.name })">继续下载</button></details>
+      </div>
+      <div v-for="item in state.incoming" :key="item.id" class="handoff-receipt" data-testid="nexus-received">
+        <div><b>收到官网下载授权</b><span>Mod {{ item.mod_id }} · 文件 {{ item.file_id }}</span></div>
+        <button class="garden-btn green sm" :disabled="state.busy || !configured || installBlocked || Boolean(state.readyDownload)" @click="runtime.receive(item)">下载并安装</button><button class="garden-link" :disabled="state.busy" @click="runtime.discard(item)">忽略</button>
+      </div>
+      <p v-if="state.incoming.length && !configured" class="hint">请先在下方连接与网页相同的 Nexus 账户，再继续下载。</p>
+      <p v-if="installBlocked && (state.incoming.length || state.readyDownload)" class="hint">请先完成并关闭当前导入，或等待模组保存结束；下载授权会保留在队列中。</p>
+      <p v-if="state.readyDownload" class="working" role="status">下载完成，等待继续安装。</p>
+    </section>
     <template v-if="!detail">
       <div class="garden-intro">
         <div><h1 id="nexus-title">Nexus</h1><p>{{ state.loaded ? `Probably Stolen 在 Nexus Mods 上${state.appliedQuery ? `有 ${state.total} 个 Mod 与“${state.appliedQuery}”有关` : `共有 ${state.total} 个 Mod`}，点开卡片查看详情、下载或翻译介绍。` : '浏览 Probably Stolen 在 Nexus Mods 上的全部 Mod，点开卡片查看详情、下载或翻译介绍。' }}</p></div>
@@ -101,7 +162,7 @@ onUnmounted(() => { clearTimeout(searchTimer); observer?.disconnect(); void runt
         <div class="garden-toolbar-end"><button class="garden-btn" data-testid="nexus-browse" :disabled="!configured || state.listLoading" @click="runtime.browse">{{ state.loaded ? '刷新' : '加载列表' }}</button></div>
       </div>
 
-      <p v-if="state.busy" class="nexus-status" role="status" data-testid="nexus-progress"><Sprout :size="15" class="garden-seedling" aria-hidden="true"/>正在连接 Nexus…</p>
+      <p v-if="state.busy" class="nexus-status" role="status" data-testid="nexus-progress"><Sprout :size="15" class="garden-seedling" aria-hidden="true"/>{{ state.task?.stage === 'download' ? `正在下载 ${size(state.task.completed || 0)}…` : '正在连接 Nexus…' }}<button class="garden-link" @click="runtime.cancel">取消</button></p>
       <p v-else-if="state.notice" class="nexus-status" role="status">{{ state.notice }}</p>
       <p v-if="state.error" class="nexus-error" role="alert" data-testid="nexus-error">{{ state.error }}</p>
 
@@ -116,13 +177,20 @@ onUnmounted(() => { clearTimeout(searchTimer); observer?.disconnect(); void runt
           <div class="card-body">
             <h3>{{ mod.name }}</h3>
             <p class="byline"><img v-if="mod.avatar" :src="mod.avatar" alt="" loading="lazy" referrerpolicy="no-referrer"/><span>{{ mod.author || mod.uploader || '未知作者' }}</span></p>
-            <p class="summary">{{ mod.summary }}</p>
+            <div class="summary" @click="event => { if (event.target.closest('a,button')) event.stopPropagation() }"><BbcodeView :source="mod.summary || ''" :open="runtime.openLink"/></div>
           </div>
           <footer class="stats">
             <span title="下载次数"><Download :size="14" aria-hidden="true"/>{{ number(mod.downloads) }}</span>
             <span title="赞同数"><ThumbsUp :size="14" aria-hidden="true"/>{{ number(mod.endorsements) }}</span>
             <span class="when" :title="mod.updated">{{ ago(mod.updated) }}</span>
           </footer>
+          <div class="card-install" @click.stop @keydown.stop>
+            <div class="install-split" @keydown.esc.stop="installMenu = null">
+              <button class="garden-btn green install-main" data-testid="nexus-install-latest" title="安装最新版本" :disabled="state.busy || !configured" :aria-label="`安装 ${mod.name} 最新版本`" @click="installLatest(mod)"><Download :size="15"/>{{ state.installingModId === mod.mod_id ? '正在准备…' : '安装' }}</button>
+              <button class="garden-btn green install-arrow" :aria-label="`${mod.name} 安装选项`" :aria-expanded="installMenu === mod.mod_id" :disabled="state.busy || !configured" @click="toggleInstallMenu(mod)"><ChevronDown :size="16"/></button>
+              <div v-if="installMenu === mod.mod_id" class="install-menu"><button class="garden-btn" data-testid="nexus-choose-version" @click="chooseVersion(mod)">选择版本</button></div>
+            </div>
+          </div>
         </article>
         <template v-if="state.listLoading"><div v-for="n in (state.mods.length ? 4 : 8)" :key="`s${n}`" class="nexus-card skeleton" aria-hidden="true"><div class="cover"></div><div class="card-body"><i></i><i></i><i></i></div></div></template>
       </div>
@@ -176,7 +244,7 @@ onUnmounted(() => { clearTimeout(searchTimer); observer?.disconnect(); void runt
           </header>
           <p v-if="translation?.status === 'error'" class="nexus-error inline">{{ translation.error }}</p>
           <p v-if="showTranslated" class="translated-note">以下为 AI 译文，专有名词保留原文；如有出入以原文为准。<template v-if="translation.truncated">介绍过长，只翻译了前面部分。</template></p>
-          <p v-if="summaryText" class="lead">{{ summaryText }}</p>
+          <BbcodeView v-if="summaryText" class="lead" :source="summaryText" :open="runtime.openLink"/>
           <div v-if="state.detailLoading && detail.description == null" class="loading-lines" aria-label="正在读取介绍"><i></i><i></i><i></i><i></i></div>
           <BbcodeView v-else-if="descriptionText" :source="descriptionText" :open="runtime.openLink" data-testid="nexus-description"/>
           <p v-else-if="!state.detailLoading" class="hint">作者没有填写介绍。</p>
@@ -191,13 +259,13 @@ onUnmounted(() => { clearTimeout(searchTimer); observer?.disconnect(); void runt
             <article v-for="file in detail.files || []" :key="file.file_id" class="file-row">
               <span class="file-icon" aria-hidden="true"><FileArchive :size="18"/></span>
               <div><strong>{{ file.name }}</strong><small>{{ [fileLabels[file.category] || file.category, file.version && ver(file.version), size(file.size_bytes), file.uploaded && ago(file.uploaded)].filter(Boolean).join(' · ') }}</small></div>
-              <button v-if="file.supported" class="garden-btn green sm primary" :disabled="state.busy || !configured || file.size_bytes > 67108864" :title="!configured ? '先连接 Nexus 账户' : file.size_bytes > 67108864 ? '超过 64 MB' : ''" @click="runtime.download(file)">下载</button>
+              <button v-if="file.supported" class="garden-btn green sm primary" :disabled="state.busy || !configured || file.size_bytes > 67108864" :title="!configured ? '先连接 Nexus 账户' : file.size_bytes > 67108864 ? '超过 64 MB' : ''" @click="runtime.download(file)">安装</button>
               <span v-else class="tg off" :title="'PSMM 暂时只能直接导入 ZIP 或 DLL'">{{ (file.extension || '未知').toUpperCase() }} · 手动下载</span>
             </article>
             <p v-if="detail.files && !detail.files.length" class="hint">没有可下载的文件。</p>
             <details v-if="detail.files?.some(file => file.supported)" class="free-account">
-              <summary>普通账户怎么下载？</summary>
-              <p>Premium 账户可以直接下载。普通账户请在官网文件页点“使用管理器下载”，把得到的 nxm:// 链接粘贴到这里，再点“下载”。</p>
+              <summary>下载方式与备用链接</summary>
+              <p>Premium 可直接下载。普通账户点击“安装”后，在官网使用 Manual download，再用页面顶部的按钮选择已下载文件。只有官网提供管理器下载入口时，才能接收或粘贴 nxm:// 授权链接。</p>
               <input v-model="state.nxmUrl" type="password" autocomplete="off" aria-label="Nexus 管理器下载链接" placeholder="nxm://probablystolen/mods/…/files/…?key=…" :disabled="state.busy"/>
               <button class="garden-link" @click="runtime.openPage('files', detail.mod_id)">打开官网文件页<ExternalLink :size="13"/></button>
             </details>
@@ -225,11 +293,44 @@ onUnmounted(() => { clearTimeout(searchTimer); observer?.disconnect(); void runt
         <button class="garden-link" data-testid="nexus-official-link" @click="runtime.openPage('mod', detail.mod_id)">在 Nexus Mods 打开原页面<ExternalLink :size="13"/></button>
       </footer>
     </article>
+    <dialog ref="versionDialog" class="version-dialog" aria-labelledby="version-title" data-testid="nexus-versions" @cancel.prevent="runtime.closeVersions" @click="dismissVersions">
+      <template v-if="state.versions">
+        <header class="version-head"><div><h2 id="version-title">选择版本</h2><p>{{ state.versions.name }}</p></div><button class="garden-btn soft" aria-label="关闭版本选择" @click="runtime.closeVersions"><X :size="18"/></button></header>
+        <p v-if="state.busy" class="working" role="status"><Sprout :size="15" class="garden-seedling"/>{{ state.task?.stage === 'download' ? `正在下载 ${size(state.task.completed || 0)}…` : '正在读取文件…' }}<button class="garden-link" @click="runtime.cancel">取消</button></p>
+        <p v-if="state.error" class="nexus-error" role="alert">{{ state.error }}</p>
+        <p v-if="state.notice" class="hint">{{ state.notice }}</p>
+        <button v-if="state.versions.files == null && !state.busy" class="garden-btn" @click="runtime.chooseVersion(state.versions)">重新读取版本</button>
+        <div class="version-files">
+          <article v-for="file in state.versions.files || []" :key="file.file_id" class="file-row">
+            <span class="file-icon" aria-hidden="true"><FileArchive :size="18"/></span>
+            <div><strong>{{ file.name }}</strong><small>{{ [file.version ? ver(file.version) : '未标注版本', fileLabels[file.category] || file.category, size(file.size_bytes) || '大小未知', file.uploaded && ago(file.uploaded)].filter(Boolean).join(' · ') }}</small><BbcodeView v-if="file.description" class="file-description" :source="file.description" :open="runtime.openLink"/><small v-if="!canInstallFile(file)">{{ file.size_bytes > 67108864 ? '超过 64 MB，请到官网下载' : `${(file.extension || '未知').toUpperCase()} 格式，请到官网下载` }}</small></div>
+            <button class="garden-btn green sm" title="安装此版本" :disabled="state.busy || !configured || !canInstallFile(file)" @click="runtime.download(file, state.versions)">安装</button>
+          </article>
+        </div>
+        <p v-if="state.versions.files?.length === 0" class="hint">作者尚未提供可下载的文件。</p>
+        <details class="free-account" :open="Boolean(state.error)"><summary>下载方式与备用链接</summary><p>普通账户请在官网使用 Manual download，再选择已下载文件安装；Premium 可直接下载。仅在官网提供管理器下载入口时，可使用对应文件的 nxm:// 授权链接。</p><input v-model="state.nxmUrl" type="password" autocomplete="off" aria-label="版本下载授权链接" placeholder="nxm://probablystolen/mods/…/files/…?key=…" :disabled="state.busy"/></details>
+        <footer class="version-footer"><button class="garden-link" @click="runtime.openPage('files', state.versions.mod_id)">打开官网文件页<ExternalLink :size="13"/></button><button class="garden-btn" @click="runtime.closeVersions">{{ state.busy ? '取消并关闭' : '关闭' }}</button></footer>
+      </template>
+    </dialog>
   </main>
 </template>
 
 <style scoped>
 .garden-nexus{position:relative;overflow:auto;padding:4px 12px 30px;animation:garden-fade-up .5s var(--g-ease)}
+.nexus-handoff{padding:14px 20px;margin-bottom:14px}
+/* The page title stays first; the download inbox follows it in both list and detail views. */
+.garden-nexus{display:flex;flex-direction:column}
+.garden-nexus>*{flex-shrink:0}
+.garden-nexus>.garden-intro{order:-1}
+.handoff-local>div{flex-direction:column;align-items:flex-start!important;gap:2px!important}
+.handoff-local b{font-size:14.5px;color:var(--g-ink)}
+.nexus-handoff>.free-account{margin-top:8px}
+.handoff-head,.handoff-receipt{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.handoff-head>div,.handoff-receipt>div{flex:1;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.handoff-head span,.handoff-receipt span{font-size:14px;color:var(--g-text-3)}
+.handoff-wait,.handoff-confirm,.handoff-receipt{margin-top:14px;padding-top:14px;border-top:1px solid var(--g-line)}
+.handoff-wait p,.handoff-confirm p{font-size:14px;line-height:1.6;margin:8px 0}
+.handoff-wait>.garden-link,.handoff-confirm>.garden-btn{margin-right:16px}
 .account-pill{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 14px;border-radius:18px;border:1px solid #fde68a;background:#fffbeb;color:#92400e;font-size:13.5px;font-weight:600}
 .account-pill i{width:8px;height:8px;border-radius:50%;background:#f59e0b}
 .account-pill.ready{border-color:var(--g-line);background:#fff;color:var(--g-ink)}
@@ -241,7 +342,9 @@ onUnmounted(() => { clearTimeout(searchTimer); observer?.disconnect(); void runt
 .account summary span{margin-left:auto;font-size:13px;color:var(--g-text-3)}
 .account[open] summary{margin-bottom:12px}
 .account>p{margin:0 0 10px;font-size:13.5px;color:var(--g-text-3)}
-.steps{margin:4px 0 12px}
+.steps{justify-content:flex-start;gap:8px;margin:4px 0 12px}
+.steps li{width:auto;display:flex;align-items:center;gap:8px;padding:5px 14px 5px 5px;border-radius:999px;font-size:13px}
+.steps li b{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:#fff;font-size:12.5px}
 .key-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .key-row input,.free-account input{flex:1;min-width:220px;height:42px;padding:0 16px;border-radius:21px;border:1.5px solid var(--g-line-2);background:#fff;font:inherit;font-size:14px;color:var(--g-text)}
 .account-row{display:flex;align-items:center;gap:16px;margin-top:12px;font-size:13.5px;color:var(--g-text-2)}
@@ -275,6 +378,23 @@ onUnmounted(() => { clearTimeout(searchTimer); observer?.disconnect(); void runt
 .stats{display:flex;align-items:center;gap:14px;padding:10px 14px 12px;font-size:12.5px;color:var(--g-text-3)}
 .stats span{display:inline-flex;align-items:center;gap:5px}
 .stats .when{margin-left:auto}
+.nexus-card{overflow:visible}
+.nexus-card:has(.install-menu){z-index:2}
+.nexus-card .cover{border-radius:21px 21px 0 0}
+.card-install{padding:0 14px 14px;cursor:default}
+.install-split{position:relative;display:flex;width:max-content;margin-left:auto}
+.install-main{border-radius:18px 0 0 18px!important;padding-inline:18px!important}
+.install-arrow{border-radius:0 18px 18px 0!important;padding-inline:9px!important;border-left:1px solid rgba(255,255,255,.4)!important}
+.install-menu{position:absolute;right:0;top:calc(100% + 6px);min-width:136px;padding:5px;border-radius:16px;background:#fff;border:1px solid var(--g-line);box-shadow:var(--g-sh-lg);z-index:3}
+.install-menu .garden-btn{width:100%;justify-content:center;border:0}
+.garden-nexus dialog.version-dialog[open]{position:fixed;inset:0;margin:auto;width:min(580px,calc(100vw - 48px));max-height:calc(100vh - 64px);box-sizing:border-box;padding:22px;border:1px solid var(--g-line-2);border-radius:26px;background:var(--g-mint,#f0fdf4);color:var(--g-text);box-shadow:var(--g-sh-lg);animation:garden-fade-up .25s var(--g-ease)}
+.garden-nexus dialog.version-dialog[open]::before{display:none}
+.version-dialog::backdrop{background:rgba(20,60,40,.3);backdrop-filter:blur(4px)}
+.version-head{display:flex;justify-content:space-between;gap:18px;align-items:start;margin-bottom:18px}
+.version-head h2{font-size:20px;margin:0;color:var(--g-ink)}
+.version-head p{margin:5px 0 0;color:var(--g-text-2);overflow-wrap:anywhere}
+.version-files{background:#fff;border-radius:18px;padding:0 14px}
+.version-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:18px}
 .skeleton{cursor:default;animation:none}
 .skeleton .cover,.skeleton i,.loading-lines i{background:linear-gradient(90deg,#ecfdf3 25%,#f7fef9 50%,#ecfdf3 75%);background-size:200% 100%;animation:nexus-shimmer 1.4s linear infinite}
 .skeleton i{display:block;height:12px;border-radius:6px;margin:6px 0}
@@ -325,6 +445,7 @@ onUnmounted(() => { clearTimeout(searchTimer); observer?.disconnect(); void runt
 .file-row>div{min-width:0;flex:1}
 .file-row strong{display:block;font-size:14px;overflow-wrap:anywhere}
 .file-row small{display:block;margin-top:2px;font-size:12px;color:var(--g-text-3)}
+.file-description{font-size:12.5px;color:var(--g-text-2);margin-top:6px}
 .file-row .tg{flex:none;font-size:11px}
 .free-account{margin-top:10px;font-size:13px;color:var(--g-text-2)}
 .free-account summary{cursor:pointer;color:var(--g-leaf-3);font-weight:600}

@@ -86,4 +86,4 @@ G0～G5退出当前执行前置条件。旧状态、原人工意见和旧用例�
 
 ## 5. 原资料
 
-调整前全规格矩阵见 [备份](changes/20261012-scope-simplification/before/07-validation-matrix.md)。当前范围见 [01](01-product-scope.md)，执行方式见 [08](08-verification-guide.md) 和 [10](10-execution-guide.md)。
+调整前全规格矩阵见 Git 基线中的[备份](https://github.com/1299489456/PSModManager/blob/c4ee861fd5c999966aba367a2a51c9bc74b4ff73/docs/development/changes/20261012-scope-simplification/before/07-validation-matrix.md)。当前范围见 [01](01-product-scope.md)，执行方式见 [08](08-verification-guide.md) 和 [10](10-execution-guide.md)。

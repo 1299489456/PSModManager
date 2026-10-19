@@ -2259,7 +2259,7 @@ wheels = [
 ]
 
 [[package]]
-name = "rimcrow"
+name = "psmodmanager"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

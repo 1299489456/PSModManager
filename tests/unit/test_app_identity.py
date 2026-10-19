@@ -179,7 +179,8 @@ def test_frontend_is_local_and_self_contained():
     html = composition.desktop_html()
     assert 'connect-src &#39;none&#39;' in html or "connect-src 'none'" in html
     assert '<title>PSModManager</title>' in html
-    assert 'RimCrow' not in html
+    # Upstream copyright attribution is required in the bundled license view.
+    # Product identity is asserted by the exact title, not by banning that name.
     assert 'runtimeBridge' not in html
 
 

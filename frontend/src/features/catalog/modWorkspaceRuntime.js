@@ -8,6 +8,7 @@ function taskError(value) {
   return new Error(code ? `${message}（${code}）` : message)
 }
 export const workspaceStateText = value => ({ enabled: '已启用', disabled: '已停用', not_installed: '未安装', drifted: '文件已改变', unknown: '需要检查' })[value] || '已发现'
+export const canToggleMod = item => item.manageable !== false && !['unknown', 'drifted'].includes(item.state)
 
 export function fileTree(files) {
   const root = { children: [] }
@@ -102,7 +103,7 @@ export function createModWorkspaceRuntime(bridge, state = {}) {
   }
 
   function move(ids, enabled, beforeId = null) {
-    const unique = [...new Set(ids)].filter(id => state.items.some(item => item.id === id && item.manageable !== false && !['unknown', 'drifted'].includes(item.state)))
+    const unique = [...new Set(ids)].filter(id => state.items.some(item => item.id === id && canToggleMod(item)))
     if (!unique.length) return false
     const moving = new Set(unique), result = state.enabledIds.filter(id => !moving.has(id))
     if (enabled) {
@@ -118,6 +119,32 @@ export function createModWorkspaceRuntime(bridge, state = {}) {
     const changed = edit(result)
     if (changed && enabled && state.baseEnabled.some(id => !result.includes(id) && !moving.has(id)))
       state.notice = '已改选此版本；保存时会停用同一 Mod 的旧版本，旧方案的版本引用保留。'
+    return changed
+  }
+
+  function bulkSelection(enabled) {
+    if (!enabled) return { ids: state.enabledIds.filter(id => state.items.some(item => item.id === id && canToggleMod(item))), ambiguous: 0 }
+    const chosenPackages = new Set(state.items.filter(item => state.enabledIds.includes(item.id)).map(item => item.package_id).filter(Boolean))
+    const available = state.items.filter(item => canToggleMod(item) && !state.enabledIds.includes(item.id)
+      && (!item.package_id || !chosenPackages.has(item.package_id)))
+    const packages = new Map()
+    for (const item of available) if (item.package_id) {
+      const versions = packages.get(item.package_id) || []
+      versions.push(item); packages.set(item.package_id, versions)
+    }
+    // Prefer the last saved choice when re-enabling a package. With no chosen
+    // version, leave ambiguous packages for the user instead of guessing by ID.
+    const preferred = new Map([...packages].map(([id, versions]) => [id,
+      versions.find(item => state.baseEnabled.includes(item.id)) || (versions.length === 1 ? versions[0] : null)]))
+    return { ids: available.filter(item => !item.package_id || preferred.get(item.package_id)?.id === item.id).map(item => item.id),
+      ambiguous: [...preferred.values()].filter(item => !item).length }
+  }
+
+  function setAllEnabled(enabled) {
+    if (!state.loaded || state.loading || state.busy) return false
+    const { ids, ambiguous } = bulkSelection(enabled)
+    const changed = move(ids, enabled)
+    if (ambiguous) state.notice = `有 ${ambiguous} 个 Mod 包含多个未选版本，请单独选择要启用的版本。`
     return changed
   }
 
@@ -210,7 +237,7 @@ export function createModWorkspaceRuntime(bridge, state = {}) {
     return null
   }
 
-  return { refresh, setInstallation, move, select, save, reveal, uninstall,
+  return { refresh, setInstallation, move, bulkSelection, setAllEnabled, select, save, reveal, uninstall,
     undo: () => history('undo', 'redo'), redo: () => history('redo', 'undo'),
     discard() { if (!state.busy) { edit([...state.baseEnabled]); drafts.delete(state.installationId); state.notice = '已撤销未保存的选择。' } },
     async cancel() { for (const job of jobs) await job.cancel() },

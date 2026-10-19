@@ -169,7 +169,12 @@ class HistoryService:
                     handle = open_handle(Path(relative).name, parent=chain.handles[-1])
                     try:
                         info = _information(handle, False)
-                        if (f'{info[4]:x}' != frame['header']['installation_identity'].split(':', 1)[0]
+                        # Legacy backups move with the data root; sibling
+                        # transaction areas remain on the game's volume.
+                        expected_volume = (frame['header']['installation_identity'].split(':', 1)[0]
+                            if frame['header'].get('file_storage') is not None
+                            else dict(chain)[str(base).casefold()].split(':', 1)[0])
+                        if (f'{info[4]:x}' != expected_volume
                                 or ((info[5] << 32) | info[6]) != original['size']
                                 or strong_hash(handle) != operation.expected_before):
                             raise PlanRejected('ROLLBACK_BACKUP_CORRUPT')

@@ -1,8 +1,9 @@
 <script setup>
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { Package, Search, RefreshCw, X, Check, Undo2, TriangleAlert, Trash2, Sprout, Sun, Play, FileText, Gamepad2, LayoutGrid, List, ChevronLeft, ChevronRight } from 'lucide-vue-next'
-import { createModWorkspaceRuntime, fileTree, workspaceStateText } from './modWorkspaceRuntime.js'
+import { canToggleMod, createModWorkspaceRuntime, fileTree, workspaceStateText } from './modWorkspaceRuntime.js'
 import ModFileTree from './ModFileTree.vue'
+import SelectMenu from '../../shared/components/desktop/SelectMenu.vue'
 import { flip, flyLeaf } from './gardenMotion.js'
 
 const props = defineProps({ bridge: Object, installation: Object, active: { type: Boolean, default: true } })
@@ -19,13 +20,16 @@ const view = ref(stored.view === 'list' ? 'list' : 'cards')
 const sort = ref(['name', 'state', 'files'].includes(stored.sort) ? stored.sort : 'name')
 const pageSize = ref(PAGE_SIZES.includes(stored.pageSize) ? stored.pageSize : 24)
 const page = ref(1)
+const SORT_OPTIONS = [{ value: 'name', label: '名称' }, { value: 'state', label: '启用状态' }, { value: 'files', label: '文件数' }]
 watch([view, sort, pageSize], () => { try { localStorage.setItem(PREFERENCE_KEY, JSON.stringify({ view: view.value, sort: sort.value, pageSize: pageSize.value })) } catch { /* storage unavailable */ } })
 
 const locked = computed(() => state.loading || state.busy)
 const isEnabled = item => state.enabledIds.includes(item.id)
 const pending = item => isEnabled(item) !== state.baseEnabled.includes(item.id)
 const needsCare = item => ['unknown', 'drifted'].includes(item.state) || item.manageable === false || Boolean(item.message)
-const canMove = item => !locked.value && item.manageable !== false && !['unknown', 'drifted'].includes(item.state)
+const canMove = item => !locked.value && canToggleMod(item)
+const enableAll = computed(() => runtime.bulkSelection(true))
+const disableAll = computed(() => runtime.bulkSelection(false))
 const sourceRank = item => item.source === 'external' ? 1 : 0
 const query = computed(() => state.query.trim().toLocaleLowerCase())
 const matches = computed(() => state.items.filter(item => !query.value || `${item.display_name} ${item.version_raw || ''}`.toLocaleLowerCase().includes(query.value)))
@@ -89,7 +93,12 @@ function clearSearch() { state.query = ''; searchInput.value?.focus() }
 function open(item, event) {
   if (event?.target.closest('button,input,a,summary,select')) return
   confirmId.value = null
-  if (openId.value === item.id) return
+  if (openId.value === item.id) {
+    const target = event?.target, card = event?.currentTarget
+    const detail = card?.querySelector('.plant-open')
+    if (target === card && detail && event.clientY < detail.getBoundingClientRect().top) close()
+    return
+  }
   void flip(beds.value, () => { openId.value = item.id })
   void runtime.select(item.id)
 }
@@ -131,7 +140,8 @@ const typing = () => { const element = document.activeElement; return element?.t
 function keyboard(event) {
   if (!props.active || document.querySelector('dialog[open]')) return
   const key = event.key.toLowerCase()
-  if ((event.ctrlKey || event.metaKey) && key === 's') { event.preventDefault(); void runtime.save() }
+  if (key === 'escape' && openId.value) { event.preventDefault(); close() }
+  else if ((event.ctrlKey || event.metaKey) && key === 's') { event.preventDefault(); void runtime.save() }
   else if ((event.ctrlKey || event.metaKey) && key === 'f') { event.preventDefault(); searchInput.value?.focus(); searchInput.value?.select() }
   else if ((event.ctrlKey || event.metaKey) && key === 'z' && !typing()) { event.preventDefault(); runtime.undo() }
   else if (!typing() && event.key === 'PageDown') { event.preventDefault(); goPage(page.value + 1) }
@@ -152,6 +162,10 @@ defineExpose({ refresh: runtime.refresh, reveal, save: runtime.save, discard: ru
         <p v-else>先在右上角选择游戏安装。</p>
       </div>
       <div class="garden-intro-actions">
+        <div v-if="installation" class="workspace-bulk-actions" role="group" aria-label="批量启用状态">
+          <button type="button" class="garden-btn soft sm" data-testid="workspace-enable-all" :disabled="locked || !state.loaded || !enableAll.ids.length && !enableAll.ambiguous" title="启用整个列表中的可用 Mod，点击保存后生效" @click="runtime.setAllEnabled(true)">全部启用</button>
+          <button type="button" class="garden-btn soft sm" data-testid="workspace-disable-all" :disabled="locked || !state.loaded || !disableAll.ids.length" title="禁用整个列表中的可管理 Mod，点击保存后生效" @click="runtime.setAllEnabled(false)">全部禁用</button>
+        </div>
         <button class="garden-btn soft icon" data-testid="workspace-refresh" :disabled="locked || state.dirty || !installation" :title="state.dirty ? '先保存或撤销未保存的更改' : '重新读取游戏目录和包库'" aria-label="刷新" @click="runtime.refresh"><RefreshCw :size="16"/></button>
         <slot name="actions"></slot>
       </div>
@@ -185,7 +199,7 @@ defineExpose({ refresh: runtime.refresh, reveal, save: runtime.save, discard: ru
           <button v-if="counts.care" class="care" :class="{ on: filter === 'care' }" :aria-pressed="filter === 'care'" @click="setFilter('care')">需处理<span>{{ counts.care }}</span></button>
         </div>
         <div class="garden-toolbar-end">
-          <label class="garden-select"><span>排序</span><select v-model="sort" aria-label="排序方式"><option value="name">名称</option><option value="state">启用状态</option><option value="files">文件数</option></select></label>
+          <div class="garden-select"><span>排序</span><SelectMenu v-model="sort" aria-label="排序方式" :options="SORT_OPTIONS"/></div>
           <div class="garden-view-switch" role="group" aria-label="显示方式">
             <button type="button" :class="{ on: view === 'cards' }" :aria-pressed="view === 'cards'" title="卡片" aria-label="卡片视图" @click="setView('cards')"><LayoutGrid :size="16"/></button>
             <button type="button" :class="{ on: view === 'list' }" :aria-pressed="view === 'list'" title="列表" aria-label="列表视图" @click="setView('list')"><List :size="16"/></button>
@@ -204,7 +218,7 @@ defineExpose({ refresh: runtime.refresh, reveal, save: runtime.save, discard: ru
                 <article v-for="(item, index) in group.items" :key="item.id" class="plant" :class="{ off: !isEnabled(item), pend: pending(item), care: needsCare(item), open: openId === item.id, arrive: arrivedId === item.id }"
                   data-testid="workspace-mod-row" :data-mod-id="item.id" :data-state="item.state" tabindex="0" :aria-expanded="openId === item.id" :aria-label="item.display_name" :style="{ '--i': Math.min(index, 14) }"
                   @click="open(item, $event)" @keydown="cardKey($event, item)">
-                  <div class="plant-top">
+                  <div class="plant-top" :class="{ 'collapse-area': openId === item.id }" :title="openId === item.id ? '点击空白处收起详情' : undefined" @click.self.stop="openId === item.id ? close() : open(item)">
                     <span class="garden-pot" aria-hidden="true"><Package :size="20"/></span>
                     <span class="plant-sprout" aria-hidden="true"><svg viewBox="0 0 30 34" width="30" height="34" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 33V17"/><path d="M15 19C15 12 10 8 3 8c0 7 5 11 12 11z" fill="#bbf7d0"/><path d="M15 15c0-7 5-11 12-11 0 7-5 11-12 11z" fill="#86efac"/></svg></span>
                     <button type="button" class="leaf-switch" :aria-pressed="isEnabled(item)" :aria-label="`${isEnabled(item) ? '停用' : '启用'} ${item.display_name}`" :title="item.manageable === false ? '此项无法由 PSMM 启用或停用' : ''" :disabled="!canMove(item)" @click.stop="toggle(item, $event.currentTarget)"><span></span></button>
@@ -244,7 +258,7 @@ defineExpose({ refresh: runtime.refresh, reveal, save: runtime.save, discard: ru
               </template>
               <button type="button" class="pager-step" :disabled="page >= pageCount" aria-label="下一页" title="下一页（PageDown）" @click="goPage(page + 1)"><ChevronRight :size="16"/></button>
             </div>
-            <label class="garden-select"><span>每页</span><select v-model.number="pageSize" aria-label="每页数量"><option v-for="size in PAGE_SIZES" :key="size" :value="size">{{ size }}</option></select></label>
+            <div class="garden-select"><span>每页</span><SelectMenu :model-value="String(pageSize)" aria-label="每页数量" :options="PAGE_SIZES.map(size => ({ value: String(size), label: String(size) }))" @update:model-value="pageSize = Number($event)"/></div>
           </nav>
         </div>
 
@@ -271,3 +285,8 @@ defineExpose({ refresh: runtime.refresh, reveal, save: runtime.save, discard: ru
     </template>
   </main>
 </template>
+
+<style scoped>
+.workspace-bulk-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.plant-top.collapse-area{cursor:pointer}
+</style>

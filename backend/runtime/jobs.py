@@ -232,6 +232,10 @@ class JobManager:
                 del self._subscriptions[key]
             return len(keys)
 
+    def is_idle(self):
+        with self._lock:
+            return all(not job.thread.is_alive() for job in self._jobs.values())
+
     def close(self):
         with self._lock:
             self._closed = True

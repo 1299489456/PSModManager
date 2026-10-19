@@ -1,5 +1,7 @@
 # 核心任务文档调整安排
 
+> 以下是 2026-10-12 的历史安排；`before/` 快照保留在 [Git 基线 c4ee861](https://github.com/1299489456/PSModManager/tree/c4ee861fd5c999966aba367a2a51c9bc74b4ff73/docs/development/changes/20261012-scope-simplification/before)，不再随当前源码树重复保存。
+
 本次只调整 09/10/11 和 PS-00/01/02/03/05/06 任务卡，原始字节保存到 before/；不改变产品代码、台账或历史 evidence。
 
 1. 删除以 G0–G5、人工审核通过为后续开发前提的要求，保留历史记录和未验证事实。

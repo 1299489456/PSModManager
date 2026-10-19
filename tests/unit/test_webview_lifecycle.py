@@ -14,6 +14,27 @@ class ClosingEvent:
         return self
 
 
+def test_migration_close_veto_keeps_bridge_live_until_safe():
+    allowed, notices = [False], []
+    class Window:
+        def __init__(self):
+            self.events = SimpleNamespace(closing=ClosingEvent())
+        def evaluate_js(self, script):
+            return script
+        def destroy(self):
+            assert all(callback() is True for callback in self.events.closing.callbacks)
+    window = Window()
+    guard = install_callback_lifecycle_guard(window, lambda: notices.append('closed'), can_close=lambda: allowed[0])
+    assert guard.closing() is False
+    assert guard.stats['closing'] is False
+    assert not notices
+    assert window.evaluate_js('migration progress') == 'migration progress'
+    allowed[0] = True
+    assert guard.closing() is False
+    guard.join()
+    assert notices == ['closed']
+
+
 def test_dispatch_guard_retains_payload_and_only_wraps_library_return():
     expression = 'window.pywebview._returnValuesCallbacks["dispatch"]["12345"]({value: "a) [中文]"})'
     result = guard_dispatch_return(expression)

@@ -14,7 +14,7 @@ const pointerOrigin = ref(null), draggingCount = ref(0)
 const libraryDialog = ref(null), manifestDialog = ref(null), importName = ref(''), detailOrigin = ref(null)
 const contextMenu = ref(null), menu = ref(null), contextOrigin = ref(null)
 const planPreview = ref(false), planOrigin = ref(null)
-const applyDialog = ref(null), nameDialog = ref(null), replaceDialog = ref(null), exportDialog = ref(null)
+const applyDialog = ref(null), nameDialog = ref(null), replaceDialog = ref(null), exportDialog = ref(null), deleteDialog = ref(null)
 const naming = reactive({ mode: '', value: '', source: 'current' })
 const moreOpen = ref(false), moreMenu = ref(null), moreButton = ref(null)
 const pendingSource = ref(null)
@@ -162,6 +162,13 @@ async function confirmNaming() {
   else if (mode === 'clone') await store.clone(value)
 }
 function openReplace() { closeMore(); replaceDialog.value?.showModal() }
+function openDelete() { closeMore(); deleteDialog.value?.showModal() }
+function closeDelete() { if (!state.busy) { deleteDialog.value?.close(); nextTick(() => moreButton.value?.focus()) } }
+async function confirmDelete() {
+  if (!state.current || state.busy) return
+  const result = await store.deleteCurrent()
+  if (result) { deleteDialog.value?.close(); await nextTick(); (moreButton.value || root.value?.querySelector('[data-testid=profile-new]'))?.focus() }
+}
 async function confirmReplace() {
   if (!state.current || state.busy) return
   replaceDialog.value?.close()
@@ -204,14 +211,14 @@ watch(() => state.importPreview, async preview => {
 watch(() => props.installation?.installation_id, async id => {
   planPreview.value = false
   clearDrag(); closeContext(false); closeMore()
-  libraryDialog.value?.close(); manifestDialog.value?.close(); nameDialog.value?.close(); replaceDialog.value?.close()
+  libraryDialog.value?.close(); manifestDialog.value?.close(); nameDialog.value?.close(); replaceDialog.value?.close(); deleteDialog.value?.close()
   state.packageDetail = null; search.value = ''
   await store.setInstallation(id || null); picked.value = []; gesture.clear(); await refresh()
   if (id && pendingSource.value) await openSource(pendingSource.value)
 }, { immediate: true })
 // Coming back to the page picks up changes saved on the Mods page in the meantime.
 watch(() => props.active, active => { if (active && state.installationId && !state.busy) void refresh() })
-watch(() => state.current?.profile_id, () => { picked.value = []; closeContext(false) })
+watch(() => state.current?.profile_id, () => { picked.value = []; closeContext(false); deleteDialog.value?.close() })
 watch(() => state.busy, busy => { if (!busy && state.installationId && pendingSource.value) void openSource(pendingSource.value) })
 watch(() => state.applyPreview, async preview => { if (!preview) applyDialog.value?.close(); else { await nextTick(); applyDialog.value?.showModal() } })
 watch(() => state.exportText, async text => { if (!text) exportDialog.value?.close(); else { await nextTick(); exportDialog.value?.showModal() } })
@@ -284,6 +291,8 @@ defineExpose({ refresh, revealLibrary, openSource })
                 <button role="menuitem" data-testid="profile-export-preview" @click="fromMore(store.exportPreview)">查看清单内容</button>
                 <hr>
                 <button role="menuitem" data-testid="profile-plan-preview" :disabled="state.current.dirty || state.current.profile_revision == null" :title="state.current.dirty ? '先保存修改' : ''" @click="previewPlan">部署预览</button>
+                <hr>
+                <button role="menuitem" class="danger" data-testid="profile-delete" @click="openDelete">删除方案…</button>
               </div>
             </div>
           </div>
@@ -335,6 +344,12 @@ defineExpose({ refresh, revealLibrary, openSource })
         </div>
         <footer><button type="button" @click="closeNaming">取消</button><button type="submit" class="primary" :data-testid="naming.mode === 'create' ? (naming.source === 'current' ? 'profile-capture-new' : 'profile-create') : naming.mode === 'saveAs' ? 'profile-save-as-confirm' : naming.mode === 'rename' ? 'profile-rename' : 'profile-clone'" :disabled="state.busy || !naming.value.trim() || naming.mode === 'create' && naming.source === 'current' && workspaceDirty">{{ namingText[naming.mode].confirm }}</button></footer>
       </form>
+    </dialog>
+
+    <dialog ref="deleteDialog" class="sheet-dialog" data-testid="profile-delete-dialog" aria-labelledby="profile-delete-title" @cancel.prevent="closeDelete">
+      <header><h2 id="profile-delete-title">删除「{{ state.current?.name }}」？</h2><button class="close" aria-label="关闭" :disabled="state.busy" @click="closeDelete"><X :size="18"/></button></header>
+      <div class="sheet-body"><p>此方案{{ state.current?.dirty ? '及未保存的修改' : '' }}会被删除，无法撤销。游戏中的 Mod、包库文件和部署历史都会保留。</p><p v-if="state.error" role="alert" class="profile-error">{{ state.error }}</p></div>
+      <footer><button data-testid="profile-delete-cancel" autofocus :disabled="state.busy" @click="closeDelete">取消</button><button class="danger" data-testid="profile-delete-confirm" :disabled="state.busy" @click="confirmDelete">{{ state.busy ? '正在删除…' : '删除方案' }}</button></footer>
     </dialog>
 
     <dialog ref="replaceDialog" class="sheet-dialog" aria-labelledby="profile-replace-title" @cancel.prevent="replaceDialog.close()">

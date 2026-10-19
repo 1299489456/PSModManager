@@ -2,7 +2,8 @@
 // Garden title bar for the frameless window. Gestures are handed to Windows
 // through the closed `window.control` command; outside the desktop it is inert.
 import { onMounted, onUnmounted, ref } from 'vue'
-import { Sprout, Minus, Square, Copy, X } from 'lucide-vue-next'
+import { Minus, Square, Copy, X } from 'lucide-vue-next'
+import appIcon from '../shared/branding/psmm-icon-64.png?inline'
 
 const props = defineProps({ bridge: { type: Object, required: true } })
 const maximized = ref(false)
@@ -36,7 +37,7 @@ onUnmounted(() => { clearTimeout(syncTimer); window.removeEventListener('resize'
 
 <template>
   <header class="garden-titlebar" :class="{ maximized }" data-testid="window-titlebar" @mousedown="drag">
-    <span class="titlebar-logo" aria-hidden="true"><Sprout :size="15"/></span>
+    <img class="titlebar-logo" :src="appIcon" alt="" aria-hidden="true" draggable="false"/>
     <span class="titlebar-name">PSMM</span>
     <span class="titlebar-space"></span>
     <div class="titlebar-controls">

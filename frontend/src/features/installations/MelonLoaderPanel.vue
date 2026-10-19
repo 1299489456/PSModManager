@@ -13,10 +13,11 @@ const overviewMessage = computed(() => {
   return message.length > 100 ? '查看环境详情，定位缺少的文件或运行库。' : message
 })
 const onlineLabel = computed(() => `${state.snapshot?.status === 'installed' ? '重新下载安装' : '下载安装'} MelonLoader ${state.snapshot?.recommended_version || '0.7.3'}`)
-const progressText = computed(() => state.task?.state === 'cancelling' ? '正在取消…' : state.task?.stage === 'downloading' || state.task?.stage === 'download' ? '正在下载 MelonLoader…' : state.refreshing ? '正在检测环境…' : '正在安装 MelonLoader…')
+const progressText = computed(() => state.task?.state === 'cancelling' ? '正在取消…' : state.operation === 'repair' ? '正在离线修复生成依赖…' : state.task?.stage === 'downloading' || state.task?.stage === 'download' ? '正在下载 MelonLoader…' : state.refreshing ? '正在检测环境…' : '正在安装 MelonLoader…')
 const progress = computed(() => melonLoaderProgress(state.task))
 function openDetails() { dialog.value?.showModal() }
 function closeDetails() { dialog.value?.close(); nextTick(() => detailButton.value?.focus()) }
+defineExpose({ refresh: runtime.refresh })
 watch(() => props.installation?.installation_id, id => { dialog.value?.close(); void runtime.setInstallation(id) }, { immediate: true })
 onUnmounted(() => runtime.dispose())
 </script>
@@ -36,6 +37,7 @@ onUnmounted(() => runtime.dispose())
           <p v-if="state.error" class="loader-error" role="alert" data-testid="loader-error">{{ state.error }}</p>
         </div>
         <button v-if="state.snapshot && state.snapshot.status !== 'installed'" class="garden-btn amber sm" data-testid="loader-install" :disabled="!runtime.canInstall()" @click="runtime.install">{{ onlineLabel }}</button>
+        <button v-if="state.snapshot?.generation_dependencies?.can_repair" class="garden-btn amber sm" data-testid="loader-repair-banner" :disabled="!runtime.canRepair()" @click="runtime.repair">离线修复依赖</button>
         <button class="garden-btn soft sm" @click="openDetails">查看环境</button>
       </div>
       <p v-else-if="state.notice" class="garden-notice loader-notice" role="status">{{ state.notice }}</p>
@@ -45,6 +47,7 @@ onUnmounted(() => runtime.dispose())
       <div class="dialog-body">
         <p class="dialog-summary">{{ summary }}</p>
         <p v-if="state.snapshot?.message" class="hint">{{ state.snapshot.message }}</p>
+        <div v-if="state.snapshot?.generation_dependencies?.can_repair" class="loader-install-options"><button class="primary" data-testid="loader-repair" :disabled="!runtime.canRepair()" @click="runtime.repair">离线修复生成依赖</button><span class="hint">从管理器内置资源恢复，无需联网</span></div>
         <ul class="loader-checks" data-testid="loader-checks">
           <li v-for="check in state.snapshot?.checks || []" :key="check.id" :data-check="check.id" :data-status="check.status"><div><strong>{{ check.label }}</strong><span :class="['check-status', check.status]">{{ melonLoaderCheckText(check.status) }}</span></div><p>{{ check.detail }}</p><a v-if="check.help_url" :href="check.help_url" target="_blank" rel="noopener noreferrer">官方安装说明与下载 ↗</a></li>
         </ul>

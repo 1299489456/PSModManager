@@ -3,8 +3,12 @@ import { computed } from 'vue'
 import { BadgeCheck, Blocks, Globe, Scale, ShieldCheck, Sparkles } from 'lucide-vue-next'
 import licenseText from '../../../LICENSE?raw'
 import noticesText from '../../../THIRD_PARTY_NOTICES.md?raw'
+import { createSafeMarkdown } from '../shared/lib/safeMarkdown.js'
+import '../shared/lib/richText.css'
 
 defineProps({ version: { type: String, default: '' } })
+// Relative links point inside the portable package, not the web; keep their text only.
+const noticesHtml = createSafeMarkdown().render(noticesText.replace(/\[([^\]]+)\]\((?!https?:)[^)]+\)/g, '$1'))
 // Every copyright line of LICENSE: this project's and the upstream notice MIT requires us to keep.
 const copyrights = computed(() => licenseText.split('\n').map(line => line.trim()).filter(line => /^Copyright/i.test(line)))
 // Main components shipped with the portable build; the full list is in the notices below.
@@ -31,7 +35,7 @@ const features = [
   ['方案', '保存一组 Mod 的启停和版本，随时切换、应用到游戏，导出清单或含 Mod 文件的整合包。'],
   ['Nexus', '浏览和搜索 Nexus 上本游戏的全部 Mod，查看详情、AI 翻译介绍，下载后预览再导入。'],
   ['日志', '连续阅读游戏和 PSMM 日志，查找、只看错误，让 AI 分析原因并给出可确认的操作建议。'],
-  ['其他', '检查和安装 MelonLoader、编辑 Mod 配置、保存后一键启动游戏、本地数据检查。'],
+  ['其他', '检查和安装 MelonLoader、保存后一键启动游戏、迁移数据目录、本地数据检查。'],
 ]
 </script>
 
@@ -92,7 +96,7 @@ const features = [
     </article>
 
     <article class="garden-card wide">
-      <details class="fulltext"><summary>第三方说明（全文）</summary><pre data-testid="third-party-text">{{ noticesText.trim() }}</pre></details>
+      <details class="fulltext"><summary>第三方说明（全文）</summary><div class="rich-text notices" data-testid="third-party-text" v-html="noticesHtml"></div></details>
     </article>
   </div>
 </template>
@@ -107,6 +111,14 @@ const features = [
 .fulltext{margin-top:12px}
 .fulltext summary{cursor:pointer;font-size:13.5px;font-weight:600;color:var(--g-leaf-3)}
 .fulltext pre{max-height:360px;overflow:auto;margin:10px 0 0;padding:14px 16px;border-radius:14px;background:#f6f8f6;border:1px solid #e2ebe5;font:12.5px/1.6 Consolas,monospace;white-space:pre-wrap;color:var(--g-text-2)}
+.notices{max-height:520px;overflow:auto;margin-top:10px;padding:16px 20px;border-radius:16px;background:#fbfdfb;border:1px solid #e2f3e8;font-size:13.5px;color:var(--g-text-2)}
+.notices :deep(h1){font-size:18px}.notices :deep(h2){font-size:16px;margin-top:22px}
+.notices :deep(table){width:100%;border-collapse:collapse;margin:10px 0 16px;font-size:12.5px;display:table}
+.notices :deep(th),.notices :deep(td){padding:6px 10px;border-bottom:1px solid #e3f5e9;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+.notices :deep(th){background:var(--g-mint);color:var(--g-ink);font-weight:650;position:sticky;top:-16px}
+.notices :deep(tr:hover td){background:#f6fdf8}
+.notices :deep(code){display:inline;white-space:normal;padding:1px 6px;border-radius:6px;background:#eef7f1;font:12px Consolas,monospace;color:var(--g-ink)}
+.notices :deep(a){color:var(--g-leaf-3);text-decoration:underline;text-decoration-color:rgba(34,197,94,.4);text-underline-offset:3px}
 .plain{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px;font-size:13.5px;line-height:1.65;color:var(--g-text-2)}
 .plain li::marker{color:var(--g-leaf-2)}
 .feature-list{display:grid;grid-template-columns:72px 1fr;gap:8px 14px;margin:8px 0 0;font-size:13.5px;line-height:1.65}

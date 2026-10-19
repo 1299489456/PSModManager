@@ -47,7 +47,7 @@
 | `config.read/save` | PS-03-05 选定的壁纸 Mod 字段读取与普通保存，不经过计划批准 |
 | `game.launch/status` | PS-03-06 固定安装的直接启动与进程状态，普通按钮调用，无运行历史前置 |
 
-上述旧批准、HMAC、代次、MAC journal、lease 和恢复状态是当前实现细节，保留在代码及 [调整前契约](changes/20261012-scope-simplification/before/03-data-contracts.md) 中。它们不再定义首版用户必须经历的流程。文档调整不允许调用者伪造批准或绕过当前后端；后续普通入口要统一修改消费者和服务接线。
+上述旧批准、HMAC、代次、MAC journal、lease 和恢复状态是当前实现细节，保留在代码及 Git 基线中的[调整前契约](https://github.com/1299489456/PSModManager/blob/c4ee861fd5c999966aba367a2a51c9bc74b4ff73/docs/development/changes/20261012-scope-simplification/before/03-data-contracts.md)中。它们不再定义首版用户必须经历的流程。文档调整不允许调用者伪造批准或绕过当前后端；后续普通入口要统一修改消费者和服务接线。
 
 游戏启动已通过 PS-03-06 的合成进程/实际桌面入口验证；真实游戏和 AI provider 仍以具体运行及授权记录为准。
 

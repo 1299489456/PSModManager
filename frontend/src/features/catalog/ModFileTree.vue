@@ -6,7 +6,7 @@ const size = value => value == null ? '' : value < 1024 ? `${value} B` : value <
 <template>
   <ul class="file-tree">
     <li v-for="node in nodes" :key="node.path">
-      <details v-if="!node.file" open><summary><Folder :size="15"/><span>{{ node.name }}</span></summary><ModFileTree :nodes="node.children"/></details>
+      <details v-if="!node.file" class="tree-dir" open><summary><Folder :size="15"/><span>{{ node.name }}</span></summary><ModFileTree :nodes="node.children"/></details>
       <div v-else class="tree-file" :title="node.path"><File :size="14"/><span>{{ node.name }}</span><small>{{ size(node.file.size) }}</small></div>
     </li>
   </ul>

@@ -1,0 +1,1835 @@
+{
+  "schema_version": 1,
+  "distribution_relative_root": "licenses",
+  "components": [
+    {
+      "name": "annotated-types",
+      "version": "0.7.0",
+      "role": "bundled_dependency",
+      "component": "annotated-types",
+      "source": "https://github.com/annotated-types/annotated-types",
+      "license": "see supplied text",
+      "license_paths": [
+        "annotated-types/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "annotated-types/LICENSE",
+          "sha256": "fe1049884b1a0d9342901e88e07f32925d24b3121d9972b6a6805fb9824b095d",
+          "bytes": 1083
+        }
+      ]
+    },
+    {
+      "name": "anyio",
+      "version": "4.12.1",
+      "role": "bundled_dependency",
+      "component": "anyio",
+      "source": "https://github.com/agronholm/anyio",
+      "license": "MIT",
+      "license_paths": [
+        "anyio/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "anyio/LICENSE",
+          "sha256": "5361ac9dc58f2ef5fd2e9b09c68297c17f04950909bbc8023bdb82eacf22c2b0",
+          "bytes": 1081
+        }
+      ]
+    },
+    {
+      "name": "attrs",
+      "version": "25.4.0",
+      "role": "bundled_dependency",
+      "component": "attrs",
+      "source": "https://github.com/python-attrs/attrs",
+      "license": "MIT",
+      "license_paths": [
+        "attrs/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "attrs/LICENSE",
+          "sha256": "882115c95dfc2af1eeb6714f8ec6d5cbcabf667caff8729f42420da63f714e9f",
+          "bytes": 1109
+        }
+      ]
+    },
+    {
+      "name": "backports.tarfile",
+      "version": "1.2.0",
+      "role": "bundled_dependency",
+      "component": "backports.tarfile",
+      "source": "https://github.com/jaraco/backports.tarfile",
+      "license": "see supplied text",
+      "license_paths": [
+        "backports.tarfile/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "backports.tarfile/LICENSE",
+          "sha256": "86da0f01aeae46348a3c3d465195dc1ceccde79f79e87769a64b8da04b2a4741",
+          "bytes": 1023
+        }
+      ]
+    },
+    {
+      "name": "bottle",
+      "version": "0.13.4",
+      "role": "bundled_dependency",
+      "component": "bottle",
+      "source": "https://github.com/bottlepy/bottle",
+      "license": "MIT",
+      "license_paths": [
+        "bottle/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "bottle/LICENSE",
+          "sha256": "af150257b1f7cce92b6207854f2e8f90ea9ae52d7cac758d13a47bd12e2a2443",
+          "bytes": 1066
+        }
+      ]
+    },
+    {
+      "name": "certifi",
+      "version": "2026.6.17",
+      "role": "bundled_dependency",
+      "component": "certifi",
+      "source": "https://github.com/certifi/python-certifi",
+      "license": "MPL-2.0",
+      "license_paths": [
+        "certifi/LICENSE",
+        "MPL-2.0/LICENSE.txt"
+      ],
+      "material_source_urls": [
+        "https://www.mozilla.org/MPL/2.0/index.txt"
+      ],
+      "materials": [
+        {
+          "path": "certifi/LICENSE",
+          "sha256": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7",
+          "bytes": 989
+        },
+        {
+          "path": "MPL-2.0/LICENSE.txt",
+          "sha256": "3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04",
+          "bytes": 16726
+        }
+      ]
+    },
+    {
+      "name": "cffi",
+      "version": "2.0.0",
+      "role": "bundled_dependency",
+      "component": "cffi",
+      "source": "https://github.com/python-cffi/cffi",
+      "license": "MIT",
+      "license_paths": [
+        "cffi/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "cffi/LICENSE",
+          "sha256": "5ba24ddc57067f9249add644c3afc41a5d6dc37e23433ef759d95df370b0af63",
+          "bytes": 1123
+        }
+      ]
+    },
+    {
+      "name": "click",
+      "version": "8.3.1",
+      "role": "bundled_dependency",
+      "component": "click",
+      "source": "https://github.com/pallets/click/",
+      "license": "BSD-3-Clause",
+      "license_paths": [
+        "click/LICENSE.txt"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "click/LICENSE.txt",
+          "sha256": "9a8ad106a394e853bfe21f42f4e72d592819a22805d991b5f3275029292b658d",
+          "bytes": 1475
+        }
+      ]
+    },
+    {
+      "name": "clr_loader",
+      "version": "0.2.10",
+      "role": "bundled_dependency",
+      "component": "clr_loader",
+      "source": "https://github.com/pythonnet/clr-loader",
+      "license": "MIT",
+      "license_paths": [
+        "clr_loader/LICENSE"
+      ],
+      "material_source_urls": [
+        "https://raw.githubusercontent.com/pythonnet/clr-loader/v0.2.10/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "clr_loader/LICENSE",
+          "sha256": "b00f9a4b112b44f91276ad8388ed470ad36668ff80f56f15e1e6981c85e6d23d",
+          "bytes": 1079
+        }
+      ]
+    },
+    {
+      "name": "colorama",
+      "version": "0.4.6",
+      "role": "bundled_dependency",
+      "component": "colorama",
+      "source": "https://github.com/tartley/colorama",
+      "license": "see supplied text",
+      "license_paths": [
+        "colorama/LICENSE.txt"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "colorama/LICENSE.txt",
+          "sha256": "cac35c02686e5d04a5a7140bfb3b36e73aed496656e891102e428886d7930318",
+          "bytes": 1491
+        }
+      ]
+    },
+    {
+      "name": "h11",
+      "version": "0.16.0",
+      "role": "bundled_dependency",
+      "component": "h11",
+      "source": "https://github.com/python-hyper/h11",
+      "license": "MIT",
+      "license_paths": [
+        "h11/LICENSE.txt"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "h11/LICENSE.txt",
+          "sha256": "37db5bb85926db28a427a25867f10b1232003aea1be69ccb851138adb8e6f361",
+          "bytes": 1124
+        }
+      ]
+    },
+    {
+      "name": "httpcore",
+      "version": "1.0.9",
+      "role": "bundled_dependency",
+      "component": "httpcore",
+      "source": "https://www.encode.io/httpcore/",
+      "license": "BSD-3-Clause",
+      "license_paths": [
+        "httpcore/LICENSE.md"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "httpcore/LICENSE.md",
+          "sha256": "fdcb59154c74cbaba16a11242f7740bea9f23d6feb5547917d8c5f94a80392a5",
+          "bytes": 1518
+        }
+      ]
+    },
+    {
+      "name": "httpx",
+      "version": "0.28.1",
+      "role": "bundled_dependency",
+      "component": "httpx",
+      "source": "https://github.com/encode/httpx",
+      "license": "BSD-3-Clause",
+      "license_paths": [
+        "httpx/LICENSE.md"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "httpx/LICENSE.md",
+          "sha256": "4ec59d544f12b5f539a3a716fd321ac58ccd8030b465221f2c880200cdf28d8d",
+          "bytes": 1508
+        }
+      ]
+    },
+    {
+      "name": "idna",
+      "version": "3.11",
+      "role": "bundled_dependency",
+      "component": "idna",
+      "source": "https://github.com/kjd/idna",
+      "license": "BSD-3-Clause",
+      "license_paths": [
+        "idna/LICENSE.md"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "idna/LICENSE.md",
+          "sha256": "b7a336abf3b04e180ec065cdd16e705d079e1cc7a14f910aa6e9187f36b9cd87",
+          "bytes": 1541
+        }
+      ]
+    },
+    {
+      "name": "importlib_metadata",
+      "version": "8.7.1",
+      "role": "bundled_dependency",
+      "component": "importlib_metadata",
+      "source": "https://github.com/python/importlib_metadata",
+      "license": "Apache-2.0",
+      "license_paths": [
+        "importlib_metadata/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "importlib_metadata/LICENSE",
+          "sha256": "458502e12d97bbf64438606a20044aa85eb05fb0a8a807bb35dbec253fd1fc04",
+          "bytes": 10278
+        }
+      ]
+    },
+    {
+      "name": "jaraco.classes",
+      "version": "3.4.0",
+      "role": "bundled_dependency",
+      "component": "jaraco.classes",
+      "source": "https://github.com/jaraco/jaraco.classes",
+      "license": "see supplied text",
+      "license_paths": [
+        "jaraco.classes/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "jaraco.classes/LICENSE",
+          "sha256": "86da0f01aeae46348a3c3d465195dc1ceccde79f79e87769a64b8da04b2a4741",
+          "bytes": 1023
+        }
+      ]
+    },
+    {
+      "name": "jaraco.context",
+      "version": "6.1.2",
+      "role": "bundled_dependency",
+      "component": "jaraco.context",
+      "source": "https://github.com/jaraco/jaraco.context",
+      "license": "MIT",
+      "license_paths": [
+        "jaraco.context/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "jaraco.context/LICENSE",
+          "sha256": "9755a18519666e5f0f4cae3daad3d7012bcae48a600b31237d75e9fe134e6683",
+          "bytes": 1076
+        }
+      ]
+    },
+    {
+      "name": "jaraco.functools",
+      "version": "4.5.0",
+      "role": "bundled_dependency",
+      "component": "jaraco.functools",
+      "source": "https://github.com/jaraco/jaraco.functools",
+      "license": "MIT",
+      "license_paths": [
+        "jaraco.functools/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "jaraco.functools/LICENSE",
+          "sha256": "9755a18519666e5f0f4cae3daad3d7012bcae48a600b31237d75e9fe134e6683",
+          "bytes": 1076
+        }
+      ]
+    },
+    {
+      "name": "Jinja2",
+      "version": "3.1.6",
+      "role": "bundled_dependency",
+      "component": "Jinja2",
+      "source": "https://github.com/pallets/jinja/",
+      "license": "see supplied text",
+      "license_paths": [
+        "Jinja2/LICENSE.txt"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "Jinja2/LICENSE.txt",
+          "sha256": "3b49dcee4105eb37bac10faf1be260408fe85d252b8e9df2e0979fc1e094437b",
+          "bytes": 1475
+        }
+      ]
+    },
+    {
+      "name": "keyring",
+      "version": "25.7.0",
+      "role": "bundled_dependency",
+      "component": "keyring",
+      "source": "https://github.com/jaraco/keyring",
+      "license": "MIT",
+      "license_paths": [
+        "keyring/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "keyring/LICENSE",
+          "sha256": "5a57cb4db85e2a2dd88c290628908add57e3451449e0a9a71fdfb38776fd759d",
+          "bytes": 1076
+        }
+      ]
+    },
+    {
+      "name": "markdown-it-py",
+      "version": "4.0.0",
+      "role": "bundled_dependency",
+      "component": "markdown-it-py",
+      "source": "https://github.com/executablebooks/markdown-it-py",
+      "license": "see supplied text",
+      "license_paths": [
+        "markdown-it-py/LICENSE",
+        "markdown-it-py/LICENSE.markdown-it"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "markdown-it-py/LICENSE",
+          "sha256": "4a2260d6e2cd0f5a151a1e86dbfe7d3ed552b1e2beabf9941c1ba5c49cbce484",
+          "bytes": 1078
+        },
+        {
+          "path": "markdown-it-py/LICENSE.markdown-it",
+          "sha256": "792c48c5a849a15fdf9e37e8bcf9e6d1dd13b32b46c642a748a0a46a9919d473",
+          "bytes": 1073
+        }
+      ]
+    },
+    {
+      "name": "MarkupSafe",
+      "version": "3.0.3",
+      "role": "bundled_dependency",
+      "component": "MarkupSafe",
+      "source": "https://github.com/pallets/markupsafe/",
+      "license": "BSD-3-Clause",
+      "license_paths": [
+        "MarkupSafe/LICENSE.txt"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "MarkupSafe/LICENSE.txt",
+          "sha256": "4631ec0db5fd90a547e336817264c6798214338146f8ac94b4a57f96ee8c9ec4",
+          "bytes": 1503
+        }
+      ]
+    },
+    {
+      "name": "mdurl",
+      "version": "0.1.2",
+      "role": "bundled_dependency",
+      "component": "mdurl",
+      "source": "https://github.com/executablebooks/mdurl",
+      "license": "see supplied text",
+      "license_paths": [
+        "mdurl/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "mdurl/LICENSE",
+          "sha256": "7c605df6e28667a9603118e98274f64a49ce3eed0d26fccce9534a345e0ef955",
+          "bytes": 2338
+        }
+      ]
+    },
+    {
+      "name": "more-itertools",
+      "version": "11.1.0",
+      "role": "bundled_dependency",
+      "component": "more-itertools",
+      "source": "https://github.com/more-itertools/more-itertools",
+      "license": "MIT",
+      "license_paths": [
+        "more-itertools/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "more-itertools/LICENSE",
+          "sha256": "09f1c8c9e941af3e584d59641ea9b87d83c0cb0fd007eb5ef391a7e2643c1a46",
+          "bytes": 1053
+        }
+      ]
+    },
+    {
+      "name": "packaging",
+      "version": "26.2",
+      "role": "bundled_dependency",
+      "component": "packaging",
+      "source": "https://github.com/pypa/packaging",
+      "license": "Apache-2.0 OR BSD-2-Clause",
+      "license_paths": [
+        "packaging/LICENSE",
+        "packaging/LICENSE.APACHE",
+        "packaging/LICENSE.BSD"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "packaging/LICENSE",
+          "sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48",
+          "bytes": 197
+        },
+        {
+          "path": "packaging/LICENSE.APACHE",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+          "bytes": 10174
+        },
+        {
+          "path": "packaging/LICENSE.BSD",
+          "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5",
+          "bytes": 1344
+        }
+      ]
+    },
+    {
+      "name": "pillow",
+      "version": "12.2.0",
+      "role": "bundled_dependency",
+      "component": "pillow",
+      "source": "https://python-pillow.github.io",
+      "license": "MIT-CMU",
+      "license_paths": [
+        "pillow/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "pillow/LICENSE",
+          "sha256": "75bb81b58f9b39786eeb2e56a1eb829aae501042d49e1dc766ca187b6ce9656f",
+          "bytes": 78014
+        }
+      ]
+    },
+    {
+      "name": "proxy_tools",
+      "version": "0.1.0",
+      "role": "bundled_dependency",
+      "component": "proxy_tools",
+      "source": "http://github.com/jtushman/proxy_tools",
+      "license": "MIT",
+      "license_paths": [
+        "proxy_tools/LICENSE.txt"
+      ],
+      "material_source_urls": [
+        "https://raw.githubusercontent.com/jtushman/proxy_tools/master/LICENSE.txt"
+      ],
+      "materials": [
+        {
+          "path": "proxy_tools/LICENSE.txt",
+          "sha256": "a428fb8a2e762af3eb0a6edbbb88e9b42ccfee80fd9b423958bcacf9b9abbfe4",
+          "bytes": 1436
+        }
+      ]
+    },
+    {
+      "name": "pycparser",
+      "version": "3.0",
+      "role": "bundled_dependency",
+      "component": "pycparser",
+      "source": "https://github.com/eliben/pycparser",
+      "license": "BSD-3-Clause",
+      "license_paths": [
+        "pycparser/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "pycparser/LICENSE",
+          "sha256": "0c846399369ea76ddd7b5c44fe6d16497415fcf015f5cbb508c24bf98b81c5b1",
+          "bytes": 1543
+        }
+      ]
+    },
+    {
+      "name": "pydantic",
+      "version": "2.12.5",
+      "role": "bundled_dependency",
+      "component": "pydantic",
+      "source": "https://github.com/pydantic/pydantic",
+      "license": "MIT",
+      "license_paths": [
+        "pydantic/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "pydantic/LICENSE",
+          "sha256": "a9e186f3ca16b5eef84318e7a701721351a00cb7b8ae3a4394b67b49e3529ef3",
+          "bytes": 1129
+        }
+      ]
+    },
+    {
+      "name": "pydantic_core",
+      "version": "2.41.5",
+      "role": "bundled_dependency",
+      "component": "pydantic_core",
+      "source": "https://github.com/pydantic/pydantic-core",
+      "license": "MIT",
+      "license_paths": [
+        "pydantic_core/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "pydantic_core/LICENSE",
+          "sha256": "fbe7f615f18d135c07000e5a86325db27f42c7729699ef166ac1f7a3f4586bf4",
+          "bytes": 1101
+        }
+      ]
+    },
+    {
+      "name": "Pygments",
+      "version": "2.19.2",
+      "role": "bundled_dependency",
+      "component": "Pygments",
+      "source": "https://pygments.org",
+      "license": "BSD-2-Clause",
+      "license_paths": [
+        "Pygments/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "Pygments/LICENSE",
+          "sha256": "a9d66f1d526df02e29dce73436d34e56e8632f46c275bbdffc70569e882f9f17",
+          "bytes": 1331
+        }
+      ]
+    },
+    {
+      "name": "pyinstaller",
+      "version": "6.19.0",
+      "role": "build",
+      "component": "pyinstaller",
+      "source": "https://pyinstaller.org",
+      "license": "GPLv2-or-later with a special exception which allows to use PyInstaller to build and distribute non-free programs (including commercial ones)",
+      "license_paths": [
+        "pyinstaller/COPYING.txt"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "pyinstaller/COPYING.txt",
+          "sha256": "dcf75fdb959db1e3b41c0f8505069d2ece781b5ec6b3d0a4d30975cfc6580245",
+          "bytes": 32138
+        }
+      ]
+    },
+    {
+      "name": "pyinstaller-hooks-contrib",
+      "version": "2026.1",
+      "role": "build",
+      "component": "pyinstaller-hooks-contrib",
+      "source": "https://github.com/pyinstaller/pyinstaller-hooks-contrib",
+      "license": "see supplied text",
+      "license_paths": [
+        "pyinstaller-hooks-contrib/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "pyinstaller-hooks-contrib/LICENSE",
+          "sha256": "91d0baaff00773038e72c0a1fc9d5d2d38706b7a2b9c04f34296608f931b9cd0",
+          "bytes": 27666
+        }
+      ]
+    },
+    {
+      "name": "pytest",
+      "version": "9.0.3",
+      "role": "bundled_dependency",
+      "component": "pytest",
+      "source": "https://docs.pytest.org/en/latest/",
+      "license": "MIT",
+      "license_paths": [
+        "pytest/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "pytest/LICENSE",
+          "sha256": "ca836a5f9ecca3b2f350230faa20a48fb8b145653b5568d784862df864706b9b",
+          "bytes": 1091
+        }
+      ]
+    },
+    {
+      "name": "python-dotenv",
+      "version": "1.2.1",
+      "role": "bundled_dependency",
+      "component": "python-dotenv",
+      "source": "https://github.com/theskumar/python-dotenv",
+      "license": "BSD-3-Clause",
+      "license_paths": [
+        "python-dotenv/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "python-dotenv/LICENSE",
+          "sha256": "80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9",
+          "bytes": 1556
+        }
+      ]
+    },
+    {
+      "name": "pythonnet",
+      "version": "3.0.5",
+      "role": "bundled_dependency",
+      "component": "pythonnet",
+      "source": "https://pythonnet.github.io/",
+      "license": "MIT",
+      "license_paths": [
+        "pythonnet/LICENSE"
+      ],
+      "material_source_urls": [
+        "https://raw.githubusercontent.com/pythonnet/pythonnet/v3.0.5/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "pythonnet/LICENSE",
+          "sha256": "e1dc3a6ff017a6800dc27a7220500f512b95fbcd996d38ebbbff85c693245369",
+          "bytes": 1104
+        }
+      ]
+    },
+    {
+      "name": "pywebview",
+      "version": "6.2.1",
+      "role": "bundled_dependency",
+      "component": "pywebview",
+      "source": "https://pywebview.flowrl.com/",
+      "license": "BSD 3-Clause License",
+      "license_paths": [
+        "pywebview/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "pywebview/LICENSE",
+          "sha256": "4a988dd3598832cd3653de20dc33cb677d0fb53ab5551c879ca31280ae653675",
+          "bytes": 1518
+        }
+      ]
+    },
+    {
+      "name": "pywin32",
+      "version": "311",
+      "role": "bundled_dependency",
+      "component": "pywin32",
+      "source": "https://github.com/mhammond/pywin32",
+      "license": "PSF",
+      "license_paths": [
+        "pywin32/license.txt"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "pywin32/license.txt",
+          "sha256": "c3bdfa1152a9b9d404ddc90b817e1b6945803879ac53a14d2dde30d677f883bd",
+          "bytes": 1569
+        }
+      ]
+    },
+    {
+      "name": "pywin32-ctypes",
+      "version": "0.2.3",
+      "role": "bundled_dependency",
+      "component": "pywin32-ctypes",
+      "source": "https://github.com/enthought/pywin32-ctypes",
+      "license": "BSD-3-Clause",
+      "license_paths": [
+        "pywin32-ctypes/LICENSE.txt"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "pywin32-ctypes/LICENSE.txt",
+          "sha256": "dfa83b3e2709adfcdb838d9ad55823ca674abb780e60563d9dd9544ccbf785e9",
+          "bytes": 1644
+        }
+      ]
+    },
+    {
+      "name": "rich",
+      "version": "14.3.3",
+      "role": "bundled_dependency",
+      "component": "rich",
+      "source": "https://github.com/Textualize/rich",
+      "license": "MIT",
+      "license_paths": [
+        "rich/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "rich/LICENSE",
+          "sha256": "deed7c17a4318158190a3ea239cc879a5a50271cebb98ae7025f48fbe58dca15",
+          "bytes": 1056
+        }
+      ]
+    },
+    {
+      "name": "setuptools",
+      "version": "69.5.1",
+      "role": "bundled_dependency",
+      "component": "setuptools",
+      "source": "https://github.com/pypa/setuptools",
+      "license": "see supplied text",
+      "license_paths": [
+        "setuptools/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "setuptools/LICENSE",
+          "sha256": "86da0f01aeae46348a3c3d465195dc1ceccde79f79e87769a64b8da04b2a4741",
+          "bytes": 1023
+        }
+      ]
+    },
+    {
+      "name": "sniffio",
+      "version": "1.3.1",
+      "role": "bundled_dependency",
+      "component": "sniffio",
+      "source": "https://github.com/python-trio/sniffio",
+      "license": "MIT OR Apache-2.0",
+      "license_paths": [
+        "sniffio/LICENSE",
+        "sniffio/LICENSE.APACHE2",
+        "sniffio/LICENSE.MIT"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "sniffio/LICENSE",
+          "sha256": "652c878488d1456361e08c3f8607fd7ba59892a14103d15cce4ff93c85b5cc8b",
+          "bytes": 185
+        },
+        {
+          "path": "sniffio/LICENSE.APACHE2",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358
+        },
+        {
+          "path": "sniffio/LICENSE.MIT",
+          "sha256": "3e6dae555eb92787fc82d1d48355677f454c7f65aeb38d3f9e72bf9a3daf034b",
+          "bytes": 1046
+        }
+      ]
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.15.0",
+      "role": "bundled_dependency",
+      "component": "typing_extensions",
+      "source": "https://github.com/python/typing_extensions",
+      "license": "PSF-2.0",
+      "license_paths": [
+        "typing_extensions/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "typing_extensions/LICENSE",
+          "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf",
+          "bytes": 13936
+        }
+      ]
+    },
+    {
+      "name": "typing-inspection",
+      "version": "0.4.2",
+      "role": "bundled_dependency",
+      "component": "typing-inspection",
+      "source": "https://github.com/pydantic/typing-inspection",
+      "license": "MIT",
+      "license_paths": [
+        "typing-inspection/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "typing-inspection/LICENSE",
+          "sha256": "804b59b25f2c31bd278f9202a19ae49a3945aa2664387e2d0a128c7cacc61ec3",
+          "bytes": 1090
+        }
+      ]
+    },
+    {
+      "name": "zipp",
+      "version": "3.23.0",
+      "role": "bundled_dependency",
+      "component": "zipp",
+      "source": "https://github.com/jaraco/zipp",
+      "license": "MIT",
+      "license_paths": [
+        "zipp/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "zipp/LICENSE",
+          "sha256": "5a57cb4db85e2a2dd88c290628908add57e3451449e0a9a71fdfb38776fd759d",
+          "bytes": 1076
+        }
+      ]
+    },
+    {
+      "name": "zstandard",
+      "version": "0.25.0",
+      "role": "bundled_dependency",
+      "component": "zstandard",
+      "source": "https://github.com/indygreg/python-zstandard",
+      "license": "BSD-3-Clause",
+      "license_paths": [
+        "zstandard/LICENSE"
+      ],
+      "material_source_urls": [],
+      "materials": [
+        {
+          "path": "zstandard/LICENSE",
+          "sha256": "c15b28f8866500bd3d607c739e87710aa5c47627aa30a0573948414564ff1da2",
+          "bytes": 1511
+        }
+      ]
+    },
+    {
+      "component": "CPython",
+      "version": "3.11.14",
+      "role": "bundled_runtime",
+      "source": "https://github.com/python/cpython/tree/v3.11.14",
+      "license": "PSF and included notices",
+      "license_paths": [
+        "CPython/LICENSE.txt"
+      ],
+      "material_source_urls": [],
+      "name": "CPython",
+      "materials": [
+        {
+          "path": "CPython/LICENSE.txt",
+          "sha256": "886a0ead2d89030ee62dbff52b04e47ab91998341295bb9c56fb952b4e081c7a",
+          "bytes": 25066
+        }
+      ]
+    },
+    {
+      "component": ".NET runtime",
+      "version": "10.0.11",
+      "role": "bundled_helper_runtime",
+      "source": "https://github.com/dotnet/runtime",
+      "license": "MIT and included third party notices",
+      "license_paths": [
+        "dotnet/LICENSE.txt",
+        "dotnet/THIRD-PARTY-NOTICES.txt"
+      ],
+      "material_source_urls": [],
+      "name": ".NET runtime",
+      "materials": [
+        {
+          "path": "dotnet/LICENSE.txt",
+          "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b",
+          "bytes": 1139
+        },
+        {
+          "path": "dotnet/THIRD-PARTY-NOTICES.txt",
+          "sha256": "6d15e10a101c6bfff2ab4429ed061bf76c456fc4b23ad6b03e0d0f8377148a21",
+          "bytes": 78041
+        }
+      ]
+    },
+    {
+      "component": "PSModManager / RimCrow-derived code",
+      "version": "0.1.0",
+      "role": "product",
+      "source": "local project LICENSE",
+      "license": "MIT; Copyright (c) 2026 RimCrow contributors",
+      "license_paths": [
+        "PSModManager/LICENSE"
+      ],
+      "material_source_urls": [],
+      "name": "PSModManager / RimCrow-derived code",
+      "materials": [
+        {
+          "path": "PSModManager/LICENSE",
+          "sha256": "96ce940979889e92d4659bc3b3a3b1494d3635c1724497372eb235f1ec690e92",
+          "bytes": 1077
+        }
+      ]
+    },
+    {
+      "component": "WebView2 SDK",
+      "version": "1.0.3856.49",
+      "role": "bundled_webview_binding_loader",
+      "source": "https://www.nuget.org/packages/Microsoft.Web.WebView2/1.0.3856.49",
+      "license": "Microsoft BSD-style SDK license",
+      "license_paths": [
+        "WebView2-SDK/LICENSE.txt"
+      ],
+      "material_source_urls": [
+        "https://www.nuget.org/packages/Microsoft.Web.WebView2/1.0.3856.49/License"
+      ],
+      "name": "WebView2 SDK",
+      "materials": [
+        {
+          "path": "WebView2-SDK/LICENSE.txt",
+          "sha256": "0af8f1b807512aae39c2ac1aa4d0cae65cabecb6fd554b8439a5162a0d6eca55",
+          "bytes": 1487
+        }
+      ]
+    },
+    {
+      "component": "domJSON",
+      "version": "0.1.2",
+      "role": "bundled_pywebview_js",
+      "source": "https://github.com/azaslavsky/domJSON",
+      "license": "MIT",
+      "license_paths": [
+        "domJSON/LICENSE.txt",
+        "domJSON/NOTICE.txt"
+      ],
+      "material_source_urls": [
+        "https://raw.githubusercontent.com/azaslavsky/domJSON/master/README.md"
+      ],
+      "name": "domJSON",
+      "materials": [
+        {
+          "path": "domJSON/LICENSE.txt",
+          "sha256": "0dfe3f142b907a45d562b028f923a8ca2458a734b37f68b0d1226d658c7a5972",
+          "bytes": 1082
+        },
+        {
+          "path": "domJSON/NOTICE.txt",
+          "sha256": "17d54a747af8e87b1f6c1726aefeebe9554ffdae3808b6b2cc84f6c43ff9a466",
+          "bytes": 235
+        }
+      ]
+    },
+    {
+      "component": "Native Promise Only",
+      "version": "0.8.1",
+      "role": "bundled_pywebview_js",
+      "source": "https://github.com/getify/native-promise-only",
+      "license": "MIT",
+      "license_paths": [
+        "Native-Promise-Only/LICENSE.txt",
+        "Native-Promise-Only/NOTICE.txt"
+      ],
+      "material_source_urls": [
+        "https://raw.githubusercontent.com/spdx/license-list-data/main/text/MIT.txt"
+      ],
+      "name": "Native Promise Only",
+      "materials": [
+        {
+          "path": "Native-Promise-Only/LICENSE.txt",
+          "sha256": "5d7f774c07126247e647c1b6af1ab17ebef947d1953e10be05b3cabf8b093fcb",
+          "bytes": 1064
+        },
+        {
+          "path": "Native-Promise-Only/NOTICE.txt",
+          "sha256": "0b1b3e24168897c8e1158881449b6b4fecbd44162d53a0f1746dbf13453f646f",
+          "bytes": 102
+        }
+      ]
+    },
+    {
+      "component": "Symbol-ES6",
+      "version": "0.1.2",
+      "role": "bundled_pywebview_js",
+      "source": "https://github.com/rousan/symbol-es6",
+      "license": "MIT",
+      "license_paths": [
+        "Symbol-ES6/LICENSE",
+        "Symbol-ES6/NOTICE.txt"
+      ],
+      "material_source_urls": [
+        "https://raw.githubusercontent.com/rousan/symbol-es6/master/LICENSE"
+      ],
+      "name": "Symbol-ES6",
+      "materials": [
+        {
+          "path": "Symbol-ES6/LICENSE",
+          "sha256": "dd58d6d8434209a2fcb59d4d3a5415467349e04dc2c64c406748c8bdb44462b1",
+          "bytes": 1067
+        },
+        {
+          "path": "Symbol-ES6/NOTICE.txt",
+          "sha256": "c11402c833d7b512098e89c621aa3ea655df18784924deeb2fb65ca09a6c5c12",
+          "bytes": 205
+        }
+      ]
+    },
+    {
+      "component": "OpenSSL",
+      "version": "3.5.5",
+      "role": "bundled_cpython_native",
+      "source": "https://github.com/openssl/openssl/tree/openssl-3.5.5",
+      "license": "Apache-2.0",
+      "license_paths": [
+        "OpenSSL/LICENSE.txt"
+      ],
+      "material_source_urls": [
+        "https://raw.githubusercontent.com/openssl/openssl/openssl-3.5.5/LICENSE.txt"
+      ],
+      "name": "OpenSSL",
+      "materials": [
+        {
+          "path": "OpenSSL/LICENSE.txt",
+          "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a",
+          "bytes": 10175
+        }
+      ]
+    },
+    {
+      "component": "SQLite",
+      "version": "3.50.4",
+      "role": "bundled_cpython_native",
+      "source": "https://www.sqlite.org/copyright.html",
+      "license": "public domain",
+      "license_paths": [
+        "SQLite/NOTICE.txt"
+      ],
+      "material_source_urls": [
+        "https://www.sqlite.org/copyright.html"
+      ],
+      "name": "SQLite",
+      "materials": [
+        {
+          "path": "SQLite/NOTICE.txt",
+          "sha256": "fb9ee570b83ddda284ac5c280e84cad4f52b81a96d19e177f7954aa161e412c0",
+          "bytes": 187
+        }
+      ]
+    },
+    {
+      "component": "Expat",
+      "version": "2.7.3",
+      "role": "bundled_cpython_native",
+      "source": "https://github.com/libexpat/libexpat",
+      "license": "MIT",
+      "license_paths": [
+        "Expat/COPYING"
+      ],
+      "material_source_urls": [
+        "https://raw.githubusercontent.com/libexpat/libexpat/master/COPYING"
+      ],
+      "name": "Expat",
+      "materials": [
+        {
+          "path": "Expat/COPYING",
+          "sha256": "73cc92f80889ab23c7287b1a11dd50fdec190c3f26ebe5938c579043817d651e",
+          "bytes": 1144
+        }
+      ]
+    },
+    {
+      "component": "zlib",
+      "version": "1.3.1",
+      "role": "bundled_cpython_native",
+      "source": "https://github.com/madler/zlib/tree/v1.3.1",
+      "license": "zlib",
+      "license_paths": [
+        "zlib/LICENSE"
+      ],
+      "material_source_urls": [
+        "https://raw.githubusercontent.com/madler/zlib/v1.3.1/LICENSE"
+      ],
+      "name": "zlib",
+      "materials": [
+        {
+          "path": "zlib/LICENSE",
+          "sha256": "845efc77857d485d91fb3e0b884aaa929368c717ae8186b66fe1ed2495753243",
+          "bytes": 1002
+        }
+      ]
+    },
+    {
+      "component": "libffi",
+      "version": "not recorded; libffi-8.dll",
+      "role": "bundled_cpython_native",
+      "source": "https://github.com/libffi/libffi",
+      "license": "MIT",
+      "license_paths": [
+        "libffi/LICENSE"
+      ],
+      "material_source_urls": [
+        "https://raw.githubusercontent.com/libffi/libffi/master/LICENSE"
+      ],
+      "name": "libffi",
+      "materials": [
+        {
+          "path": "libffi/LICENSE",
+          "sha256": "17b64dc60f3b6897a60f971e288b973f655c2edcdf08b25f3c3dd5549857881c",
+          "bytes": 1132
+        }
+      ]
+    },
+    {
+      "component": "liblzma",
+      "version": "not recorded; linked in _lzma.pyd",
+      "role": "bundled_cpython_native",
+      "source": "https://github.com/tukaani-project/xz",
+      "license": "public domain and 0BSD (see upstream COPYING)",
+      "license_paths": [
+        "liblzma/COPYING",
+        "liblzma/COPYING.0BSD"
+      ],
+      "material_source_urls": [
+        "https://raw.githubusercontent.com/tukaani-project/xz/master/COPYING",
+        "https://raw.githubusercontent.com/tukaani-project/xz/master/COPYING.0BSD"
+      ],
+      "name": "liblzma",
+      "materials": [
+        {
+          "path": "liblzma/COPYING",
+          "sha256": "616a3ad264ce29b8f1cb97e53037b139d406899ca8d1f799651e17bfa09830b8",
+          "bytes": 3119
+        },
+        {
+          "path": "liblzma/COPYING.0BSD",
+          "sha256": "0b01625d853911cd0e2e088dcfb743261034a091bb379246cb25a14cc4c74bf1",
+          "bytes": 607
+        }
+      ]
+    },
+    {
+      "component": "Microsoft VC/UCRT/API runtime DLLs",
+      "version": "original CPython binary payload",
+      "role": "bundled_cpython_native",
+      "source": "https://learn.microsoft.com/en-us/visualstudio/releases/2022/redistribution",
+      "license": "Microsoft Distributable Code terms in CPython license",
+      "license_paths": [
+        "CPython/LICENSE.txt"
+      ],
+      "material_source_urls": [],
+      "name": "Microsoft VC/UCRT/API runtime DLLs",
+      "materials": [
+        {
+          "path": "CPython/LICENSE.txt",
+          "sha256": "886a0ead2d89030ee62dbff52b04e47ab91998341295bb9c56fb952b4e081c7a",
+          "bytes": 25066
+        }
+      ]
+    },
+    {
+      "name": "psutil",
+      "version": "7.2.2",
+      "role": "bundled_dependency",
+      "component": "psutil",
+      "source": "https://github.com/giampaolo/psutil",
+      "license": "BSD-3-Clause",
+      "license_paths": [
+        "psutil/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "psutil/LICENSE",
+          "sha256": "c7adc4d5d1337a548b967421f1fbe258b93033a0417708fd6f4e38f8ecbceb80",
+          "bytes": 1577
+        }
+      ]
+    },
+    {
+      "name": "Cpp2IL",
+      "version": "2022.1.0-pre-release.21",
+      "role": "offline_generation_resource",
+      "source": "https://github.com/SamboyCoding/Cpp2IL",
+      "license": "MIT",
+      "license_paths": [
+        "Cpp2IL/Cpp2IL-LICENSE.txt"
+      ],
+      "materials": [
+        {
+          "path": "Cpp2IL/Cpp2IL-LICENSE.txt",
+          "bytes": 1066,
+          "sha256": "1a80d1b99e958385045da1e383a105895d1c997ef2b36448430dbfe3763fe670"
+        }
+      ]
+    },
+    {
+      "name": "UnityDependencies",
+      "version": "2021.3.45",
+      "role": "offline_generation_resource",
+      "source": "https://github.com/LavaGang/MelonLoader.UnityDependencies",
+      "license": "Unity Software terms; upstream notice",
+      "license_paths": [
+        "UnityDependencies/UnityDependencies-README.md"
+      ],
+      "materials": [
+        {
+          "path": "UnityDependencies/UnityDependencies-README.md",
+          "bytes": 1489,
+          "sha256": "977456191ae1d951726502bc2901055ff6c6ebdfca9d828773f68061736b58e0"
+        }
+      ]
+    },
+    {
+      "name": "dompurify",
+      "version": "3.4.12",
+      "role": "frontend_dependency_notices",
+      "source": "git://github.com/cure53/DOMPurify.git",
+      "license": "(MPL-2.0 OR Apache-2.0)",
+      "license_paths": [
+        "frontend/dompurify/LICENSE",
+        "frontend/dompurify/LICENSE-MPL",
+        "frontend/dompurify/src/license_header"
+      ],
+      "materials": [
+        {
+          "path": "frontend/dompurify/LICENSE",
+          "bytes": 11358,
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+        },
+        {
+          "path": "frontend/dompurify/LICENSE-MPL",
+          "bytes": 16726,
+          "sha256": "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85"
+        },
+        {
+          "path": "frontend/dompurify/src/license_header",
+          "bytes": 192,
+          "sha256": "5803fa925ae1703b9c752921c95a321570e6cabf06fcf2de895ddaf1687cebef"
+        }
+      ]
+    },
+    {
+      "name": "markdown-it",
+      "version": "14.3.0",
+      "role": "frontend_dependency_notices",
+      "source": "markdown-it/markdown-it",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/markdown-it/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/markdown-it/LICENSE",
+          "bytes": 1073,
+          "sha256": "792c48c5a849a15fdf9e37e8bcf9e6d1dd13b32b46c642a748a0a46a9919d473"
+        }
+      ]
+    },
+    {
+      "name": "uc.micro",
+      "version": "2.1.0",
+      "role": "frontend_dependency_notices",
+      "source": "markdown-it/uc.micro",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/uc.micro/LICENSE.txt"
+      ],
+      "materials": [
+        {
+          "path": "frontend/uc.micro/LICENSE.txt",
+          "bytes": 1077,
+          "sha256": "483acb265f182907d1caf6cff9c16c96f31325ed23792832cc5d8b12d5f88c8a"
+        }
+      ]
+    },
+    {
+      "name": "punycode.js",
+      "version": "2.3.1",
+      "role": "frontend_dependency_notices",
+      "source": "https://github.com/mathiasbynens/punycode.js.git",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/punycode.js/LICENSE-MIT.txt"
+      ],
+      "materials": [
+        {
+          "path": "frontend/punycode.js/LICENSE-MIT.txt",
+          "bytes": 1077,
+          "sha256": "483acb265f182907d1caf6cff9c16c96f31325ed23792832cc5d8b12d5f88c8a"
+        }
+      ]
+    },
+    {
+      "name": "mdurl",
+      "version": "2.0.0",
+      "role": "frontend_dependency_notices",
+      "source": "markdown-it/mdurl",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/mdurl/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/mdurl/LICENSE",
+          "bytes": 2303,
+          "sha256": "6b6a356c4337e2446841f30f3cdf7e7023af8c5260b5e347c0f987b9f6aa2644"
+        }
+      ]
+    },
+    {
+      "name": "linkify-it",
+      "version": "5.0.2",
+      "role": "frontend_dependency_notices",
+      "source": "markdown-it/linkify-it",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/linkify-it/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/linkify-it/LICENSE",
+          "bytes": 1058,
+          "sha256": "95e3f7f0e81e9b4940cdfaa1956aaff5e4dfd2fb1565041e7c78eb9a606f23e3"
+        }
+      ]
+    },
+    {
+      "name": "entities",
+      "version": "4.5.0",
+      "role": "frontend_dependency_notices",
+      "source": "git://github.com/fb55/entities.git",
+      "license": "BSD-2-Clause",
+      "license_paths": [
+        "frontend/entities/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/entities/LICENSE",
+          "bytes": 1260,
+          "sha256": "cb992345949ccd6e8394b2cd6c465f7b897c864f845937dbf64e8997f389e164"
+        }
+      ]
+    },
+    {
+      "name": "argparse",
+      "version": "2.0.1",
+      "role": "frontend_dependency_notices",
+      "source": "nodeca/argparse",
+      "license": "Python-2.0",
+      "license_paths": [
+        "frontend/argparse/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/argparse/LICENSE",
+          "bytes": 12775,
+          "sha256": "de4d1f2d2ad5ad0cfd1657a106476b31cb5db5ef9d1ff842b237c0c81f0c8a23"
+        }
+      ]
+    },
+    {
+      "name": "lucide-vue-next",
+      "version": "0.562.0",
+      "role": "frontend_dependency_notices",
+      "source": "https://github.com/lucide-icons/lucide.git",
+      "license": "ISC",
+      "license_paths": [
+        "frontend/lucide-vue-next/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/lucide-vue-next/LICENSE",
+          "bytes": 2004,
+          "sha256": "3c57143f22dac950efebf84002e360bba5458c7b90fe583b0667aaaef1a7256e"
+        }
+      ]
+    },
+    {
+      "name": "vue",
+      "version": "3.5.40",
+      "role": "frontend_dependency_notices",
+      "source": "git+https://github.com/vuejs/core.git",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/vue/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/vue/LICENSE",
+          "bytes": 1091,
+          "sha256": "1bb85cc9b13b81ef41c81c51866172fc345e0503c86726a6755b796590b70175"
+        }
+      ]
+    },
+    {
+      "name": "@vue/server-renderer",
+      "version": "3.5.40",
+      "role": "frontend_dependency_notices",
+      "source": "git+https://github.com/vuejs/core.git",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/@vue/server-renderer/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/@vue/server-renderer/LICENSE",
+          "bytes": 1091,
+          "sha256": "1bb85cc9b13b81ef41c81c51866172fc345e0503c86726a6755b796590b70175"
+        }
+      ]
+    },
+    {
+      "name": "@vue/compiler-ssr",
+      "version": "3.5.40",
+      "role": "frontend_dependency_notices",
+      "source": "git+https://github.com/vuejs/core.git",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/@vue/compiler-ssr/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/@vue/compiler-ssr/LICENSE",
+          "bytes": 1091,
+          "sha256": "1bb85cc9b13b81ef41c81c51866172fc345e0503c86726a6755b796590b70175"
+        }
+      ]
+    },
+    {
+      "name": "@vue/shared",
+      "version": "3.5.40",
+      "role": "frontend_dependency_notices",
+      "source": "git+https://github.com/vuejs/core.git",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/@vue/shared/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/@vue/shared/LICENSE",
+          "bytes": 1091,
+          "sha256": "1bb85cc9b13b81ef41c81c51866172fc345e0503c86726a6755b796590b70175"
+        }
+      ]
+    },
+    {
+      "name": "@vue/compiler-dom",
+      "version": "3.5.40",
+      "role": "frontend_dependency_notices",
+      "source": "git+https://github.com/vuejs/core.git",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/@vue/compiler-dom/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/@vue/compiler-dom/LICENSE",
+          "bytes": 1091,
+          "sha256": "1bb85cc9b13b81ef41c81c51866172fc345e0503c86726a6755b796590b70175"
+        }
+      ]
+    },
+    {
+      "name": "@vue/compiler-core",
+      "version": "3.5.40",
+      "role": "frontend_dependency_notices",
+      "source": "git+https://github.com/vuejs/core.git",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/@vue/compiler-core/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/@vue/compiler-core/LICENSE",
+          "bytes": 1091,
+          "sha256": "1bb85cc9b13b81ef41c81c51866172fc345e0503c86726a6755b796590b70175"
+        }
+      ]
+    },
+    {
+      "name": "source-map-js",
+      "version": "1.2.1",
+      "role": "frontend_dependency_notices",
+      "source": "7rulnik/source-map-js",
+      "license": "BSD-3-Clause",
+      "license_paths": [
+        "frontend/source-map-js/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/source-map-js/LICENSE",
+          "bytes": 1526,
+          "sha256": "6cb0631f71c7749763fd3dd1d5bee52dd1070ec17f2edc1710079ad070bd2fbd"
+        }
+      ]
+    },
+    {
+      "name": "estree-walker",
+      "version": "2.0.2",
+      "role": "frontend_dependency_notices",
+      "source": "https://github.com/Rich-Harris/estree-walker",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/estree-walker/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/estree-walker/LICENSE",
+          "bytes": 1126,
+          "sha256": "8a6dcbabe7179f9c8489c08a7d874d0f1e093ae7449e03756ccf87cb9d0e296e"
+        }
+      ]
+    },
+    {
+      "name": "@babel/parser",
+      "version": "7.29.7",
+      "role": "frontend_dependency_notices",
+      "source": "https://github.com/babel/babel.git",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/@babel/parser/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/@babel/parser/LICENSE",
+          "bytes": 1086,
+          "sha256": "2e97627cb278aa7556fb9e8817368302301a595b6c7582512b8d74c57b773652"
+        }
+      ]
+    },
+    {
+      "name": "@babel/types",
+      "version": "7.29.7",
+      "role": "frontend_dependency_notices",
+      "source": "https://github.com/babel/babel.git",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/@babel/types/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/@babel/types/LICENSE",
+          "bytes": 1106,
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76"
+        }
+      ]
+    },
+    {
+      "name": "@babel/helper-validator-identifier",
+      "version": "7.29.7",
+      "role": "frontend_dependency_notices",
+      "source": "https://github.com/babel/babel.git",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/@babel/helper-validator-identifier/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/@babel/helper-validator-identifier/LICENSE",
+          "bytes": 1106,
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76"
+        }
+      ]
+    },
+    {
+      "name": "@babel/helper-string-parser",
+      "version": "7.29.7",
+      "role": "frontend_dependency_notices",
+      "source": "https://github.com/babel/babel.git",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/@babel/helper-string-parser/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/@babel/helper-string-parser/LICENSE",
+          "bytes": 1106,
+          "sha256": "117da2af0d4ce0fe1c8e19b5cff9dcd806adf973d328d27b11d4448c4ff24f76"
+        }
+      ]
+    },
+    {
+      "name": "@vue/runtime-dom",
+      "version": "3.5.40",
+      "role": "frontend_dependency_notices",
+      "source": "git+https://github.com/vuejs/core.git",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/@vue/runtime-dom/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/@vue/runtime-dom/LICENSE",
+          "bytes": 1091,
+          "sha256": "1bb85cc9b13b81ef41c81c51866172fc345e0503c86726a6755b796590b70175"
+        }
+      ]
+    },
+    {
+      "name": "@vue/runtime-core",
+      "version": "3.5.40",
+      "role": "frontend_dependency_notices",
+      "source": "git+https://github.com/vuejs/core.git",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/@vue/runtime-core/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/@vue/runtime-core/LICENSE",
+          "bytes": 1091,
+          "sha256": "1bb85cc9b13b81ef41c81c51866172fc345e0503c86726a6755b796590b70175"
+        }
+      ]
+    },
+    {
+      "name": "@vue/reactivity",
+      "version": "3.5.40",
+      "role": "frontend_dependency_notices",
+      "source": "git+https://github.com/vuejs/core.git",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/@vue/reactivity/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/@vue/reactivity/LICENSE",
+          "bytes": 1091,
+          "sha256": "1bb85cc9b13b81ef41c81c51866172fc345e0503c86726a6755b796590b70175"
+        }
+      ]
+    },
+    {
+      "name": "csstype",
+      "version": "3.2.3",
+      "role": "frontend_dependency_notices",
+      "source": "https://github.com/frenic/csstype",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/csstype/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/csstype/LICENSE",
+          "bytes": 1062,
+          "sha256": "11d55bd4541c75ee7879547ac49089c489163dae49551389713c3d026cab383e"
+        }
+      ]
+    },
+    {
+      "name": "@vue/compiler-sfc",
+      "version": "3.5.40",
+      "role": "frontend_dependency_notices",
+      "source": "git+https://github.com/vuejs/core.git",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/@vue/compiler-sfc/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/@vue/compiler-sfc/LICENSE",
+          "bytes": 1091,
+          "sha256": "1bb85cc9b13b81ef41c81c51866172fc345e0503c86726a6755b796590b70175"
+        }
+      ]
+    },
+    {
+      "name": "postcss",
+      "version": "8.5.21",
+      "role": "frontend_dependency_notices",
+      "source": "postcss/postcss",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/postcss/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/postcss/LICENSE",
+          "bytes": 1095,
+          "sha256": "5be1f3465bba68a626777f984878814aaf35e7ef8e9fd314d469bcf887050fb8"
+        }
+      ]
+    },
+    {
+      "name": "picocolors",
+      "version": "1.1.1",
+      "role": "frontend_dependency_notices",
+      "source": "alexeyraspopov/picocolors",
+      "license": "ISC",
+      "license_paths": [
+        "frontend/picocolors/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/picocolors/LICENSE",
+          "bytes": 787,
+          "sha256": "6582629e2979466878f6014313dcc2f3756c9616148682227ce3063dde310750"
+        }
+      ]
+    },
+    {
+      "name": "nanoid",
+      "version": "3.3.16",
+      "role": "frontend_dependency_notices",
+      "source": "ai/nanoid",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/nanoid/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/nanoid/LICENSE",
+          "bytes": 1095,
+          "sha256": "da4db1480d9beea3483a2eda5c53b22238d0827d57da162b48f122e04d2d9987"
+        }
+      ]
+    },
+    {
+      "name": "magic-string",
+      "version": "0.30.21",
+      "role": "frontend_dependency_notices",
+      "source": "git+https://github.com/Rich-Harris/magic-string.git",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/magic-string/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/magic-string/LICENSE",
+          "bytes": 1051,
+          "sha256": "1cbe51b907662f6cb1492b16c359384a595180bf0e4d101603ed525e75c4e484"
+        }
+      ]
+    },
+    {
+      "name": "@jridgewell/sourcemap-codec",
+      "version": "1.5.5",
+      "role": "frontend_dependency_notices",
+      "source": "git+https://github.com/jridgewell/sourcemaps.git",
+      "license": "MIT",
+      "license_paths": [
+        "frontend/@jridgewell/sourcemap-codec/LICENSE"
+      ],
+      "materials": [
+        {
+          "path": "frontend/@jridgewell/sourcemap-codec/LICENSE",
+          "bytes": 1080,
+          "sha256": "769d154fbde32a915af110b1123650bc79f4cbe675acc66e005265bf069c6c6c"
+        }
+      ]
+    }
+  ],
+  "components_count": 94,
+  "materials_count": 106,
+  "note": "License text snapshot for the locked build; frontend notices include the dependency closure of Vue, Lucide, Markdown-it and DOMPurify. No runtime binaries are stored here."
+}

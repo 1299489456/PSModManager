@@ -46,6 +46,7 @@ export function createProfileStore(bridge, state) {
       if (!disposed && token === generation) {
         const messages = {
           PROFILE_REVISION_CONFLICT: '配置已在其他窗口修改，请刷新配置后编辑。',
+          PROFILE_NOT_FOUND: '方案已被删除，请刷新方案列表。',
           PROFILE_SOURCE_CHANGED: '清单文件已改变，请重新选择文件并核对预览。',
           PROFILE_SOURCE_EXPIRED: '文件选择已过期，请重新选择清单。',
           PROFILE_PREVIEW_CHANGED: '清单预览已失效，请重新选择文件并核对。',
@@ -108,6 +109,23 @@ export function createProfileStore(bridge, state) {
       if (valid()) accept(profile)
     }) },
     select(id) { return run(async valid => { const result = await call('profile.select', { profile_id: id }); if (valid()) { accept(result); state.exportText = '' } }) },
+    deleteCurrent() { if (!state.current) return; return run(async valid => {
+      const name = state.current.name
+      const result = await call('profile.delete', revisionPayload())
+      if (!valid()) return
+      state.profiles = state.profiles.filter(item => item.profile_id !== result.deleted_profile_id)
+      state.current = null; state.exportText = ''; state.applyPreview = null; state.packageDetail = null
+      state.notice = `已删除「${name}」。游戏中的 Mod 和包库文件保持不变。`
+      if (result.selected_profile_id) {
+        try {
+          const selected = await call('profile.get', { profile_id: result.selected_profile_id })
+          if (valid()) accept(selected)
+        } catch {
+          if (valid()) state.error = '方案已删除，但未能读取其他方案，请刷新列表。'
+        }
+      }
+      return result
+    }) },
     create(name) { if (!name.trim() || !state.installationId) return; return run(async valid => { const result = await call('profile.create', { installation_id: state.installationId, name: name.trim() }); if (valid()) accept(result) }) },
     clone(name) { if (!state.current || !name.trim()) return; return run(async valid => { const result = await call('profile.clone', { ...revisionPayload(), name: name.trim() }); if (valid()) accept(result) }) },
     saveAs(name) { if (!state.current || !name.trim()) return; return run(async valid => {

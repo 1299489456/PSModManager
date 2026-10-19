@@ -2,20 +2,33 @@
 
 本说明对应本地 Windows x64 便携交付材料。PSModManager 以 MIT 许可开源，[LICENSE](LICENSE) 写明 `Copyright (c) 2026 PSMM contributors`，并按 MIT 要求保留上游 `Copyright (c) 2026 RimCrow contributors` 和 MIT 原文；第三方组件仍适用各自许可。
 
-便携包内的 `licenses/` 保存许可正文和原有 NOTICE；`licenses/distribution-materials.json` 记录组件版本、来源、材料路径、摘要及提取方式。本文中的许可路径相对便携包根，在源代码工作区中不代表这些依赖已复制到项目根。
+便携包内的 `licenses/` 保存许可正文和原有 NOTICE；`licenses/distribution-materials.json` 记录组件版本、来源、材料路径、摘要及提取方式。源码仓库在 `third_party/notices/` 保存这些文本材料，打包入口直接复制到便携包，并按 `build-baseline.json` 核对 Python、前端依赖和 helper 运行时版本。本文中的 `licenses/` 路径相对便携包根。
+
+## IL2CPP 离线生成依赖
+
+离线恢复资源位于 `_internal/backend/loaders/melonloader/resources/`，清单记录官方来源、具体版本、目标路径、大小和完整性校验值；不含本游戏文件、存档、Mod 或预生成的游戏程序集。
+
+公开源码不包含 `toolchain.zip` 或其中的工具链二进制，仅保留准备脚本、来源清单和许可说明。构建者须先按上游许可自行准备相应材料，再用 `tools/prepare_melonloader_offline.py` 生成本地离线资源；打包脚本不会下载材料，缺少资源时会停止。生成本地包不改变下述 Unity 库的授权条件。
+
+- Cpp2IL `2022.1.0-pre-release.21` 和配套 `Cpp2IL.Plugin.StrippedCodeRegSupport.dll` 来自 [Cpp2IL 官方发布](https://github.com/SamboyCoding/Cpp2IL/releases/tag/2022.1.0-pre-release.21)，项目采用 MIT，正文见资源目录 `licenses/Cpp2IL-LICENSE.txt`。独立工具的自包含运行时及附带组件仍适用各自许可。
+- Unity `2021.3.45` 生成依赖及原始 `Managed.zip` 来自 [MelonLoader.UnityDependencies 官方发布](https://github.com/LavaGang/MelonLoader.UnityDependencies/releases/tag/2021.3.45)。这些库属于 Unity Software，适用 Unity Terms of Service 和 Unity Software Additional Terms；不能把仓库生成器的 Apache-2.0 当成这些库的许可。上游完整声明见资源目录 `licenses/UnityDependencies-README.md`。本地测试交付不代表取得公开再分发授权。
 
 ## 当前前端
 
-实际入口为 `frontend/index.html` → `src/app/main.js`。运行组件为 Vue 3.5.40（包括同版本 `@vue/shared`、`@vue/reactivity`、`@vue/runtime-core`、`@vue/runtime-dom`）和 lucide-vue-next 0.562.0。当前 CSS 使用本项目 `desktop.css`，未引入 Tailwind 或 tw-animate-css；旧 `package.json` 中列出的其他前端依赖不能视作本次全部分发组件。
+实际入口为 `frontend/index.html` → `src/app/main.js`。当前使用 Vue 3.5.40（包括同版本 `@vue/shared`、`@vue/reactivity`、`@vue/runtime-core`、`@vue/runtime-dom`）、lucide-vue-next 0.562.0、Markdown-it 14.3.0 和 DOMPurify 3.4.12；后两项用于富文本处理。样式来自本项目 `desktop.css` 和 `garden.css`，未引入 Tailwind 或 tw-animate-css。
+
+前端许可材料覆盖上述四个入口依赖的 31 个依赖包，包括 Markdown-it 的 `argparse`、`entities`、`linkify-it`、`mdurl`、`punycode.js`、`uc.micro`，以及 Vue 编译相关依赖。该集合包含构建时依赖，不代表每个包都进入浏览器运行代码；逐项版本与来源见 `licenses/distribution-materials.json`，不将旧 `package.json` 中的全部声明视作分发清单。
 
 | 组件 | 版本 | 来源与许可 | 便携包许可材料 |
 |---|---|---|---|
 | Vue 及上述运行模块 | 3.5.40 | [Vue](https://github.com/vuejs/core)，MIT | `licenses/frontend/vue/LICENSE`；同目录下 `vue-*/LICENSE` |
 | lucide-vue-next | 0.562.0 | [Lucide](https://github.com/lucide-icons/lucide)，ISC；含 Feather 的 MIT 版权 | `licenses/frontend/lucide-vue-next/LICENSE` |
+| Markdown-it | 14.3.0 | [Markdown-it](https://github.com/markdown-it/markdown-it)，MIT | `licenses/frontend/markdown-it/LICENSE`；依赖包位于 `licenses/frontend/` 各自目录 |
+| DOMPurify | 3.4.12 | [DOMPurify](https://github.com/cure53/DOMPurify)，MPL-2.0 或 Apache-2.0 双许可 | `licenses/frontend/dompurify/LICENSE`、`LICENSE-MPL`、`src/license_header` |
 
 ## Python、窗口和 helper
 
-Python 组件版本来自原便携包构建清单，而非开发环境所有已安装依赖。已有供应商许可按原文件复制；缺失的独立许可已补入交付材料。PyInstaller 构建工具及其随程序带入的 bootloader 适用 `COPYING.txt` 内的例外说明。表格位于本文后半部分。
+Python 组件版本以锁定的构建基线及实际 PyInstaller 分析结果为准，而非开发环境所有已安装依赖。两者不一致时，打包停止并要求更新许可材料。已有供应商许可按原文件复制；缺失的独立许可已补入交付材料。PyInstaller 构建工具及其随程序带入的 bootloader 适用 `COPYING.txt` 内的例外说明。表格位于本文后半部分。
 
 | 组件 | 版本/范围 | 来源与许可 | 便携包许可材料 |
 |---|---|---|---|

@@ -4,11 +4,15 @@ import { reduceTask, terminalStates } from './reducer.js'
 const payloadFields = {
   'app.info': [], 'app.check': [], 'task.snapshot': ['task_id'], 'task.cancel': ['task_id'],
   'app.theme.get': [], 'app.theme.set': ['theme_id'],
+  'app.storage.status': [], 'app.storage.choose': [], 'app.storage.accept': [],
+  'app.storage.start': ['target'], 'app.storage.restart': [],
   'window.control': ['op'],
   'nexus.settings.get': [], 'nexus.settings.save': ['api_key', 'remember'],
   'nexus.settings.clear': [], 'nexus.account': [], 'nexus.browse': ['view'],
   'nexus.files': ['mod_id'], 'nexus.mod': ['mod_id'], 'nexus.translate': ['mod_id'],
   'nexus.download': ['mod_id', 'file_id'], 'nexus.open': ['page'],
+  'nexus.protocol.status': [], 'nexus.protocol.register': ['replace'], 'nexus.protocol.unregister': [],
+  'nexus.protocol.choose_default': [], 'nexus.inbox.list': [], 'nexus.inbox.download': ['id'], 'nexus.inbox.discard': ['id'],
   'ai.settings.get': [], 'ai.settings.save': ['provider', 'base_url', 'model', 'remember'],
   'ai.credentials.clear': [], 'ai.test': [], 'ai.chat.send': ['question'],
   'ai.chat.get': ['session_id'], 'ai.chat.clear': ['session_id'], 'ai.chat.export': ['session_id'],
@@ -20,6 +24,7 @@ const payloadFields = {
   'ai.suggestion.resolve': ['session_id', 'suggestion_id'],
   'game.launch': ['installation_id'], 'game.status': ['installation_id'],
   'loader.status': ['installation_id'], 'loader.install': ['installation_id'],
+  'loader.repair': ['installation_id'],
   'loader.choose': ['installation_id'], 'loader.install_local': ['installation_id', 'source_handle'],
   'mod.list': ['installation_id'],
   'mod.workspace': ['installation_id'],
@@ -55,6 +60,7 @@ const payloadFields = {
   'profile.get': ['profile_id'], 'profile.select': ['profile_id'],
   'profile.edit': ['profile_id', 'expected_revision', 'action'],
   'profile.clone': ['profile_id', 'expected_revision', 'name'],
+  'profile.delete': ['profile_id', 'expected_revision'],
   'profile.commit': ['profile_id', 'expected_revision'],
   'compatibility.check': ['profile_id', 'expected_revision'],
   'plan.create': ['profile_id', 'expected_revision', 'idempotency_key'],
@@ -73,7 +79,7 @@ const payloadFields = {
   'package.import_commit': ['preview_id', 'preview_hash', 'display_name'],
 }
 const optionalFields = {
-  'nexus.download': ['nxm_url'], 'nexus.open': ['mod_id', 'url'], 'nexus.browse': ['offset', 'query'],
+  'nexus.download': ['nxm_url'], 'nexus.open': ['mod_id', 'file_id', 'url'], 'nexus.browse': ['offset', 'query'],
   'profile.capture': ['profile_id', 'expected_revision'],
   'package.import_version': ['version_raw', 'package_id'],
   'ai.settings.save': ['api_key'],
@@ -119,10 +125,15 @@ export function createBridge({ transport, pollInterval = 200 } = {}) {
     if (!fields || !payload || Array.isArray(payload) || typeof payload !== 'object' || Object.keys(payload).some(key => !allowed.includes(key)) || fields.some(key => !Object.hasOwn(payload, key))) throw new BridgeError('INVALID_REQUEST')
     if (command === 'ai.chat.send' && Object.hasOwn(payload, 'selected_evidence_id') && !Object.hasOwn(payload, 'installation_id')) throw new BridgeError('INVALID_REQUEST')
     for (const key of Object.keys(payload)) {
+      if (command === 'app.storage.start' && key === 'target') {
+        if (typeof payload[key] !== 'string' || !payload[key].trim() || payload[key].length > 4096) throw new BridgeError('INVALID_REQUEST')
+        continue
+      }
       if (command.startsWith('nexus.')) {
         const value = payload[key]
         const valid = key === 'api_key' ? typeof value === 'string' && value.trim().length > 0 && value.length <= 4096
-          : key === 'remember' ? typeof value === 'boolean'
+          : ['remember', 'replace'].includes(key) ? typeof value === 'boolean'
+          : key === 'id' ? typeof value === 'string' && /^[a-f0-9]{32}$/.test(value)
           : key === 'view' ? ['latest_updated', 'latest_added', 'downloads', 'endorsements'].includes(value)
           : ['mod_id', 'file_id'].includes(key) ? Number.isSafeInteger(value) && value > 0
           : key === 'offset' ? Number.isSafeInteger(value) && value >= 0 && value <= 10000
@@ -241,7 +252,7 @@ export function createBridge({ transport, pollInterval = 200 } = {}) {
     try { response = await transport({ schema_version: 1, request_id, command, payload }) }
     catch { throw new BridgeError('TRANSPORT_UNAVAILABLE') }
     if (!response || response.request_id !== request_id || typeof response.ok !== 'boolean') throw new BridgeError('INVALID_RESPONSE')
-    if (!response.ok) throw new BridgeError(typeof response.error?.code === 'string' ? response.error.code : 'INVALID_RESPONSE', ['config.', 'game.', 'loader.', 'mod.', 'ai.', 'nexus.', 'profile.', 'package.'].some(prefix => command.startsWith(prefix)) ? response.error?.message : undefined)
+    if (!response.ok) throw new BridgeError(typeof response.error?.code === 'string' ? response.error.code : 'INVALID_RESPONSE', ['app.storage.', 'config.', 'game.', 'loader.', 'mod.', 'ai.', 'nexus.', 'profile.', 'package.'].some(prefix => command.startsWith(prefix)) ? response.error?.message : undefined)
     return response.data
   }
   function watchTask(taskId, onUpdate, onError = () => {}) {

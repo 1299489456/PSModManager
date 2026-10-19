@@ -28,6 +28,8 @@ FORBIDDEN_FILENAMES = {
     'main.py', 'settings.py',
 }
 FORBIDDEN_SUFFIXES = {'.db', '.sqlite', '.sqlite3', '.key', '.pem', '.pfx', '.p12'}
+OFFLINE_RESOURCE_PREFIX = '_internal/backend/loaders/melonloader/resources/'
+OFFLINE_RESOURCE_FILES = {'manifest.json', 'toolchain.zip', 'licenses/Cpp2IL-LICENSE.txt', 'licenses/UnityDependencies-README.md'}
 
 
 def _safe_relative(value):
@@ -59,7 +61,11 @@ def _assert_no_private_or_game_files(root):
     files = _files(root)
     for relative in files:
         path = PurePosixPath(relative)
-        assert not (set(part.casefold() for part in path.parts[:-1]) & FORBIDDEN_DIRECTORIES), (
+        directories = set(part.casefold() for part in path.parts[:-1]) & FORBIDDEN_DIRECTORIES
+        if relative.startswith(OFFLINE_RESOURCE_PREFIX):
+            assert relative[len(OFFLINE_RESOURCE_PREFIX):] in OFFLINE_RESOURCE_FILES, relative
+            directories -= {'melonloader'}  # Fixed vendor resources, not an installed game tree.
+        assert not directories, (
             f'Private, game, or development directory in payload: {relative}')
         assert path.name.casefold() not in FORBIDDEN_FILENAMES, f'Forbidden payload: {relative}'
         if relative == '_internal/certifi/cacert.pem':
@@ -175,6 +181,18 @@ def test_portable_frontend_assets_and_rules_are_complete(portable_root):
     assert packaged == source, 'Packaged diagnostic rules differ from current product rules'
     assert packaged['defaults']['automatic_actions'] == []
     assert len(packaged['rules']) >= 10
+
+
+def test_portable_contains_bound_offline_generation_resources(portable_root):
+    from backend.loaders.melonloader.offline import OfflineToolchain
+    resources = portable_root / OFFLINE_RESOURCE_PREFIX
+    manifest = OfflineToolchain(resources).manifest()
+    assert len(manifest['files']) == 67
+    with zipfile.ZipFile(resources / 'toolchain.zip') as archive:
+        assert set(archive.namelist()) == {row['path'] for row in manifest['files']}
+        assert archive.testzip() is None
+    assert 'MIT License' in (resources / 'licenses/Cpp2IL-LICENSE.txt').read_text('utf-8')
+    assert 'Unity Software' in (resources / 'licenses/UnityDependencies-README.md').read_text('utf-8')
 
 
 def test_portable_metadata_helper_contains_its_runtime(portable_root):

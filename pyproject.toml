@@ -1,7 +1,7 @@
 [project]
-name = "rimcrow"
+name = "psmodmanager"
 version = "0.1.0"
-description = "Add your description here"
+description = "Windows desktop Mod manager for Probably Stolen"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

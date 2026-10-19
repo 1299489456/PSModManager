@@ -15,6 +15,8 @@ _HIT = {'drag': 2, 'resize_w': 10, 'resize_e': 11, 'resize_n': 12, 'resize_nw': 
         'resize_ne': 14, 'resize_s': 15, 'resize_sw': 16, 'resize_se': 17}
 _WM_CLOSE, _WM_NCLBUTTONDOWN, _WM_SYSCOMMAND, _SC_MINIMIZE = 0x0010, 0x00A1, 0x0112, 0xF020
 _SWP_NOZORDER, _SWP_NOACTIVATE, _MONITOR_DEFAULTTONEAREST = 0x0004, 0x0010, 2
+_GWL_STYLE, _WS_MINIMIZEBOX, _WS_SYSMENU = -16, 0x00020000, 0x00080000
+_SWP_NOSIZE, _SWP_NOMOVE, _SWP_FRAMECHANGED = 0x0001, 0x0002, 0x0020
 
 
 class _MonitorInfo(ctypes.Structure):
@@ -34,6 +36,22 @@ class WindowFrame:
         self._user32.SetWindowPos.argtypes = [wintypes.HWND, wintypes.HWND, ctypes.c_int, ctypes.c_int,
                                               ctypes.c_int, ctypes.c_int, wintypes.UINT]
         self._user32.MonitorFromWindow.restype = wintypes.HANDLE
+        self._user32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
+        self._user32.GetWindowLongW.restype = wintypes.LONG
+        self._user32.SetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int, wintypes.LONG]
+        self._user32.SetWindowLongW.restype = wintypes.LONG
+
+    def initialize(self):
+        # WinForms FormBorderStyle.None removes these shell capabilities. Restore
+        # them without WS_CAPTION: taskbar clicks can minimize the frameless app.
+        hwnd = self._hwnd()
+        style = self._user32.GetWindowLongW(hwnd, _GWL_STYLE)
+        wanted = style | _WS_MINIMIZEBOX | _WS_SYSMENU
+        if wanted != style:
+            self._user32.SetWindowLongW(hwnd, _GWL_STYLE, wanted)
+            self._user32.SetWindowPos(hwnd, None, 0, 0, 0, 0,
+                                      _SWP_NOSIZE | _SWP_NOMOVE | _SWP_NOZORDER | _SWP_NOACTIVATE | _SWP_FRAMECHANGED)
+        self.apply_style()
 
     def _hwnd(self):
         native = getattr(self._window, 'native', None)
@@ -115,4 +133,14 @@ class WindowFrame:
             self.apply_style(True)
         self._user32.ReleaseCapture()
         lparam = (point.y & 0xFFFF) << 16 | (point.x & 0xFFFF)
-        self._user32.SendMessageW(hwnd, _WM_NCLBUTTONDOWN, _HIT[operation], lparam)
+        # With WS_SYSMENU but no WS_THICKFRAME, Windows refuses the size loop
+        # (its system menu has no Size entry). Drop the bit for the duration of
+        # the modal resize; SendMessage returns when the mouse is released.
+        style = self._user32.GetWindowLongW(hwnd, _GWL_STYLE) if operation != 'drag' else 0
+        if style & _WS_SYSMENU:
+            self._user32.SetWindowLongW(hwnd, _GWL_STYLE, style & ~_WS_SYSMENU)
+        try:
+            self._user32.SendMessageW(hwnd, _WM_NCLBUTTONDOWN, _HIT[operation], lparam)
+        finally:
+            if style & _WS_SYSMENU:
+                self._user32.SetWindowLongW(hwnd, _GWL_STYLE, self._user32.GetWindowLongW(hwnd, _GWL_STYLE) | _WS_SYSMENU)

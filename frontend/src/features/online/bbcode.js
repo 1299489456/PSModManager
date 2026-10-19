@@ -1,6 +1,22 @@
 // Nexus Mod descriptions are BBCode. This parser builds a plain tree of known
 // tags; anything else stays literal text, so nothing from a description is ever
 // injected as HTML. Rendering lives in BbcodeView.js.
+import MarkdownIt from 'markdown-it'
+
+const markdown = new MarkdownIt({ html: false })
+function markdownCodeRanges(input) {
+  const lines = [0]
+  for (let i = 0; i < input.length; i++) if (input[i] === '\n') lines.push(i + 1)
+  const ranges = markdown.parse(input, {}).filter(token => ['fence', 'code_block'].includes(token.type))
+    .map(token => [lines[token.map[0]], lines[token.map[1]] ?? input.length])
+  const ticks = [...input.matchAll(/`+/g)].filter(match => !ranges.some(([start, end]) => match.index >= start && match.index < end))
+  for (let i = 0; i < ticks.length; i++) {
+    const end = ticks.findIndex((tick, index) => index > i && tick[0].length === ticks[i][0].length)
+    if (end < 0) continue
+    ranges.push([ticks[i].index, ticks[end].index + ticks[end][0].length]); i = end
+  }
+  return ranges.sort((a, b) => a[0] - b[0])
+}
 
 const BLOCK = new Set(['center', 'left', 'right', 'justify', 'list', 'quote', 'code', 'spoiler', 'line', 'hr', 'table', 'tr', 'td', 'th', 'heading', 'h1', 'h2', 'h3', 'img', 'youtube', '*'])
 const KNOWN = new Set([...BLOCK, 'b', 'i', 'u', 's', 'strike', 'size', 'color', 'font', 'url', 'email', 'sup', 'sub'])
@@ -37,6 +53,8 @@ export function youtubeLink(value) {
 export function parseBbcode(source) {
   const root = { t: 'root', c: [] }, stack = [root]
   const input = String(source ?? '')
+  const codeRanges = markdownCodeRanges(input)
+  let rangeIndex = 0
   let count = 0, last = 0, match
   const top = () => stack.at(-1)
   const text = value => { if (value && count++ < MAX_NODES) { const c = top().c, previous = c.at(-1); if (previous?.t === 'text') previous.v += value; else c.push({ t: 'text', v: value }) } }
@@ -48,6 +66,8 @@ export function parseBbcode(source) {
   }
   TAG.lastIndex = 0
   while ((match = TAG.exec(input))) {
+    while (codeRanges[rangeIndex] && codeRanges[rangeIndex][1] <= match.index) rangeIndex++
+    if (codeRanges[rangeIndex] && codeRanges[rangeIndex][0] <= match.index) continue
     const [raw, slash, rawName, arg] = match
     const name = rawName.toLowerCase()
     text(input.slice(last, match.index))

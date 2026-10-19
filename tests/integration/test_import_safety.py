@@ -60,6 +60,45 @@ def empty_failure(context, service):
         assert not context.store.list(entity)
 
 
+@pytest.mark.parametrize('readme', [False, True])
+def test_safe_metadata_dll_has_no_install_review_findings_despite_general_guidance(app, tmp_path, dll, readme):
+    _, service = app
+    entries = [('Mods/Demo.dll', dll.read_bytes())]
+    if readme:
+        entries.append(('README.md', b'# Synthetic mod documentation'))
+    result = preview(service, archive(tmp_path, entries))
+    assert result['version']['identity_source'] == 'embedded_metadata'
+    assert result['version']['version_source'] == 'embedded_metadata'
+    assert result['warnings']  # Retain the existing manual-preview guidance.
+    assert result['install_review_reasons'] == []
+    assert not (dll.parent / 'executed.txt').exists()
+
+
+@pytest.mark.parametrize(('name', 'reason'), [
+    ('unknown.bin', 'UNSUPPORTED_TARGET'),
+    ('Mods/Demo/settings.cfg', 'NON_IMMUTABLE_FILE'),
+    ('UserData/settings.json', 'UNSUPPORTED_TARGET'),
+])
+def test_install_review_checks_risky_files_beyond_first_page(app, tmp_path, dll, name, reason):
+    _, service = app
+    entries = [('Mods/Demo.dll', dll.read_bytes())]
+    entries.extend((f'Mods/Demo/asset-{i}.png', b'synthetic asset') for i in range(20))
+    entries.append((name, b'synthetic review-only content'))
+    result = preview(service, archive(tmp_path, entries))
+    assert len(result['files']) == 20
+    assert reason in result['install_review_reasons']
+    assert service.page(result['preview_id'], 20)['install_review_reasons'] == result['install_review_reasons']
+
+
+def test_install_review_retains_unknown_dll_and_metadata_diagnostic_findings():
+    value = dict(preview_id='preview', preview_hash='manifest', display_name='Synthetic', files=[dict(
+        path='Mods/Unknown.dll', size=1, sha256='a' * 64, target_root_kind='mods', relative_path='Unknown.dll',
+        lifecycle='immutable', ownership='external', roles=['unknown'], parser_status='native',
+        analysis={'diagnostics': [{'code': 'MELON_INFO_UNREADABLE'}]})])
+    result = ImportService._page(value, 0, 20)
+    assert result['install_review_reasons'] == ['METADATA_DIAGNOSTICS', 'UNRECOGNIZED_DLL']
+
+
 @pytest.mark.parametrize('kind', ['dll', 'directory', 'zip'])
 def test_case024_installed_mod_source_imports_readonly_copy_without_adoption(app, tmp_path, dll, kind):
     context, service = app

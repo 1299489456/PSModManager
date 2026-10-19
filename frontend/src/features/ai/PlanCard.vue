@@ -1,5 +1,7 @@
 <script setup>
 import { modActionText } from '../catalog/modManagerRuntime.js'
+import { diagnosticMarkdown } from './diagnosticMarkdown.js'
+import '../../shared/lib/richText.css'
 defineProps({ suggestion: { type: Object, required: true }, busy: Boolean, active: Boolean, cancelling: Boolean })
 defineEmits(['execute', 'cancel'])
 </script>
@@ -9,7 +11,7 @@ defineEmits(['execute', 'cancel'])
     <strong data-testid="ai-suggestion-name">{{ suggestion.display_name || '未命名 Mod' }}</strong>
     <small>版本 {{ suggestion.version_raw ?? '未知' }}{{ suggestion.kind === 'workspace' ? ' · 当前 Mod 列表' : ' · 包库版本' }}</small>
     <p class="impact">{{ suggestion.action === 'disable' ? '停用后下次启动游戏不再加载；恢复副本保留，可重新启用。' : suggestion.action === 'install' ? '将此版本安装并启用到当前游戏。' : '将此 Mod 加入当前游戏的加载列表。' }}</p>
-    <p data-testid="ai-suggestion-reason">{{ suggestion.reason }}</p>
+    <div class="rich-text" data-testid="ai-suggestion-reason" v-html="diagnosticMarkdown(suggestion.reason)"></div>
     <div class="actions"><button data-testid="ai-suggestion-action" :disabled="busy || suggestion.status === 'completed'" @click="$emit('execute', suggestion.suggestion_id)">{{ suggestion.status === 'completed' ? '已完成' : modActionText(suggestion.action) }}</button><span v-if="active" role="status" data-testid="ai-suggestion-progress">{{ cancelling ? '正在取消，请等待文件状态核对…' : '正在核对并执行…' }}</span><button v-if="active" data-testid="ai-action-cancel" :disabled="cancelling" @click="$emit('cancel')">取消</button></div>
     <p v-if="suggestion.result" class="result" data-testid="ai-action-notice" role="status">{{ suggestion.result }}</p>
     <p v-if="suggestion.error" class="error" data-testid="ai-action-error" role="alert">{{ suggestion.error }}</p>

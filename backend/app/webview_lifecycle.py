@@ -21,10 +21,11 @@ def guard_dispatch_return(script):
 class CallbackLifecycle:
     """Keep native script continuations inside the lifetime of the UI loop."""
 
-    def __init__(self, window, on_closing=None):
+    def __init__(self, window, on_closing=None, can_close=None):
         self._window = window
         self._evaluate = window.evaluate_js
         self._on_closing = on_closing
+        self._can_close = can_close
         self._condition = threading.Condition()
         self._closing = False
         self._active = 0
@@ -58,6 +59,10 @@ class CallbackLifecycle:
                 self._condition.notify_all()
 
     def closing(self):
+        # A veto must precede draining/closing the bridge: otherwise the window
+        # stays visible but can no longer receive migration progress or restart.
+        if self._can_close is not None and self._can_close() is False:
+            return False
         with self._condition:
             if self._ready_to_close:
                 return True
@@ -101,8 +106,8 @@ class CallbackLifecycle:
             raise RuntimeError('Window exited with pending JavaScript callbacks')
 
 
-def install_callback_lifecycle_guard(window, on_closing=None):
-    lifecycle = CallbackLifecycle(window, on_closing)
+def install_callback_lifecycle_guard(window, on_closing=None, *, can_close=None):
+    lifecycle = CallbackLifecycle(window, on_closing, can_close)
     window.evaluate_js = lifecycle.evaluate
     window.events.closing += lifecycle.closing
     window._psmm_callback_lifecycle = lifecycle

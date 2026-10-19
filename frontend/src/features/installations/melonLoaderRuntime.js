@@ -128,6 +128,30 @@ export function createMelonLoaderRuntime(bridge, state = {}) {
     return !disposed && Boolean(state.installationId) && !working() && state.snapshot?.can_install === true
   }
 
+  function canRepair() {
+    return !disposed && Boolean(state.installationId) && !working() && state.snapshot?.generation_dependencies?.can_repair === true
+  }
+
+  async function repair() {
+    if (!canRepair()) return false
+    const token = ++generation, id = state.installationId
+    Object.assign(state, { busy: true, task: null, error: '', notice: '', operation: 'repair' })
+    try {
+      const result = await call('loader.repair', { installation_id: id }, token, id)
+      if (!current(token, id)) return false
+      if (!result || typeof result.repaired !== 'boolean' || !Number.isSafeInteger(result.files_written)) throw new Error('修复结果尚未确认，请重新检测。')
+      state.snapshot = readStatus(result.status)
+      state.notice = result.warning || (state.snapshot.generation_dependencies?.ready
+        ? '生成依赖已就绪，修复过程无需联网。' : state.snapshot.generation_dependencies?.message || '请检查生成依赖状态。')
+      return state.snapshot.generation_dependencies?.ready === true
+    } catch (error) {
+      if (current(token, id)) state.error = error.message || '离线修复未完成，请重试。'
+      return false
+    } finally {
+      if (current(token, id)) { state.busy = false; state.operation = '' }
+    }
+  }
+
   async function install(local = false) {
     if (!canInstall()) return false
     const token = ++generation, id = state.installationId
@@ -181,5 +205,5 @@ export function createMelonLoaderRuntime(bridge, state = {}) {
     detach()
   }
 
-  return { setInstallation, refresh, canInstall, install: () => install(false), installLocal: () => install(true), cancel, dispose }
+  return { setInstallation, refresh, canInstall, canRepair, repair, install: () => install(false), installLocal: () => install(true), cancel, dispose }
 }

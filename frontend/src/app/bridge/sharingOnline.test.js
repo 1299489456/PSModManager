@@ -5,6 +5,22 @@ import { createBridge, BridgeError } from './client.js'
 const id = '11111111-1111-4111-8111-111111111111'
 const transport = async request => ({ request_id: request.request_id, ok: true, data: request.payload })
 
+test('NXM bridge accepts bounded receipts, explicit registration and selected file website links', async () => {
+  const bridge = createBridge({ transport })
+  for (const command of ['nexus.protocol.status', 'nexus.protocol.unregister', 'nexus.protocol.choose_default', 'nexus.inbox.list']) await bridge.request(command)
+  await bridge.request('nexus.protocol.register', { replace: false })
+  await bridge.request('nexus.protocol.register', { replace: true })
+  for (const command of ['nexus.inbox.download', 'nexus.inbox.discard']) {
+    assert.deepEqual(await bridge.request(command, { id: 'a'.repeat(32) }), { id: 'a'.repeat(32) })
+    await assert.rejects(bridge.request(command, { id: 'nxm://secret' }), BridgeError)
+    await assert.rejects(bridge.request(command, { id: 'a'.repeat(32), nxm_url: 'secret' }), BridgeError)
+  }
+  await assert.rejects(bridge.request('nexus.protocol.register', { replace: 'yes' }), BridgeError)
+  await assert.rejects(bridge.request('nexus.protocol.register', { replace: false, command: 'arbitrary.exe' }), BridgeError)
+  await bridge.request('nexus.open', { page: 'files', mod_id: 81, file_id: 11 })
+  await bridge.dispose()
+})
+
 test('sharing, capture and updates expose bound identities but never filesystem authority', async () => {
   const bridge = createBridge({ transport })
   await bridge.request('profile.capture', { installation_id: id, name: '保存列表', profile_id: id, expected_revision: 2 })

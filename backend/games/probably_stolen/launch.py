@@ -16,8 +16,9 @@ class LaunchRejected(ValueError):
 
 
 class LaunchService:
-    def __init__(self, guards):
+    def __init__(self, guards, *, prepare_launch=None):
         self.guards = guards
+        self.prepare_launch = prepare_launch
         self._lock = threading.RLock()
         self._records = {}
         self._closed = False
@@ -81,6 +82,12 @@ class LaunchService:
                 with self.guards.operation(installation_id, 'launch') as session:
                     validated = True
                     root = Path(session.installation.canonical_root)
+                    if self.prepare_launch is not None:
+                        from backend.loaders.melonloader.service import LoaderError
+                        try:
+                            self.prepare_launch(session)
+                        except LoaderError as exc:
+                            raise LaunchRejected(exc.code) from None
                     executable = root / EXE
                     with pinned_chain(root) as chain, pinned_file(executable, execute=True) as image:
                         if file_identity(_information(image, False)) != session.process.exe_identity:

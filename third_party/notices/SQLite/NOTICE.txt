@@ -1,0 +1,6 @@
+SQLite 3.50.4
+
+SQLite code is in the public domain, as stated by its publisher:
+https://www.sqlite.org/copyright.html
+
+This file is a distribution attribution, not a replacement license.

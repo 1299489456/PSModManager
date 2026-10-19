@@ -35,7 +35,7 @@ _DETAIL = ('query($mod:ID!,$game:ID!,$files:ID!){mod(modId:$mod,gameId:$game){' 
 MESSAGES = {
     'NEXUS_KEY_REQUIRED': '先填写自己的 Nexus 个人 API Key，再加载在线列表。',
     'NEXUS_AUTH_FAILED': 'Nexus 未接受此 API Key，请重新填写。',
-    'NEXUS_DOWNLOAD_AUTH': '普通账户需在官网生成管理器下载链接，再粘贴 nxm:// 链接；Premium 账户可直接下载。',
+    'NEXUS_DOWNLOAD_AUTH': '普通账户请在官网使用 Manual download，下载后选择本地文件安装。Premium 账户可直接下载；只有官网提供管理器下载入口时才能使用 nxm 授权链接。',
     'NEXUS_RATE_LIMIT': 'Nexus 请求次数已达上限，请稍后重试。',
     'NEXUS_UNAVAILABLE': '暂时无法连接 Nexus，请检查网络后重试。',
     'NEXUS_RESPONSE_INVALID': 'Nexus 返回的数据格式不完整，请稍后重试。',
@@ -387,11 +387,13 @@ class NexusService:
                 'supported': Path(name).suffix.lower() in ('.zip', '.dll')})
         return {'mod_id': mod_id, 'files': rows, 'truncated': len(data['files']) > 40}
 
-    def download(self, mod_id, file_id, nxm_url='', *, check=lambda: None, progress=lambda *a: None, commit=None):
+    def download(self, mod_id, file_id, nxm_url='', *, check=lambda: None, progress=lambda *a: None, commit=None, website_fallback=False):
         self._check(check)
         account = self.account(check)
         params = nxm_authorization(nxm_url, mod_id, file_id, account['user_id']) if nxm_url else {}
         if not account['premium'] and not params:
+            if website_fallback:
+                return {'requires_website': True, 'mod_id': mod_id, 'file_id': file_id}
             raise NexusError('NEXUS_DOWNLOAD_AUTH')
         info = self._json(f'games/{GAME}/mods/{mod_id}/files/{file_id}.json', check)
         if not isinstance(info, dict):

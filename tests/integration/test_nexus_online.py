@@ -172,6 +172,50 @@ def test_free_account_needs_website_authorization(service):
     assert len(service.requests)==1 and not service.grants
 
 
+def test_free_desktop_download_requests_website_without_issuing_download_url(service):
+    configured(service)
+    service.queue.append(Response({'user_id': 7, 'name': 'Owned', 'is_premium': False}))
+    result = service.value.download(81, 11, website_fallback=True)
+    assert result == {'requires_website': True, 'mod_id': 81, 'file_id': 11}
+    assert len(service.requests) == 1 and not service.grants
+
+
+def test_received_authorization_failure_can_retry_then_success_is_consumed(service):
+    from backend.online.api import commands, Empty, Receipt
+    from backend.online.nxm_protocol import NxmInbox
+    configured(service)
+    inbox = NxmInbox()
+    url = f'nxm://probablystolen/mods/81/files/11?key=owned-token&expires={int(time.time()+300)}&user_id=7'
+    inbox.add(url)
+    task = SimpleNamespace(check_cancelled=lambda: None, commit=lambda work: work(), progress=lambda *a: None)
+    context = SimpleNamespace(nxm_inbox=inbox, nexus=service.value,
+                              jobs=SimpleNamespace(start=lambda request_id, worker: worker(task)))
+    api = commands(context)
+    item = api['nexus.inbox.list'][1]('list', Empty())['items'][0]
+    assert 'owned-token' not in json.dumps(item)
+    service.queue.append(OSError('synthetic offline'))
+    result = api['nexus.inbox.download'][1]('first', Receipt(**{'id': item['id']}))
+    assert result['ok'] is False and result['code'] == 'NEXUS_UNAVAILABLE'
+    assert inbox.peek()['items'] == [item]
+    download_responses(service, premium=False)
+    result = api['nexus.inbox.download'][1]('retry', Receipt(id=item['id']))
+    assert result['ok'] and result['source_handle']
+    assert inbox.peek()['items'] == []
+    duplicate = api['nexus.inbox.download'][1]('again', Receipt(id=item['id']))
+    assert not duplicate['ok'] and duplicate['code'] == 'NEXUS_URL_REJECTED'
+    assert len(service.grants) == 1
+    assert 'owned-token' not in json.dumps(result)
+
+
+def test_website_open_targets_selected_file_and_reports_browser_failure(monkeypatch):
+    from backend.online.api import commands, Open
+    urls = []
+    monkeypatch.setattr('backend.online.api.webbrowser.open', lambda url: urls.append(url) or False)
+    result = commands(SimpleNamespace())['nexus.open'][1]('open', Open(page='files', mod_id=81, file_id=11))
+    assert result == {'opened': False}
+    assert urls == ['https://www.nexusmods.com/probablystolen/mods/81?tab=files&file_id=11']
+
+
 def test_free_authorized_nxm_is_bound_to_game_file_account_and_expiry(service):
     configured(service);download_responses(service,premium=False)
     url=f'nxm://probablystolen/mods/81/files/11?key=owned-token&expires={int(time.time()+300)}&user_id=7'
@@ -274,7 +318,7 @@ def test_stop_releases_job_waiting_for_connection_and_never_starts_next_request(
 def test_key_button_opens_current_web_settings_not_retired_authenticated_endpoint(monkeypatch):
     from backend.online.api import commands, Open
     urls = []
-    monkeypatch.setattr('backend.online.api.webbrowser.open', urls.append)
+    monkeypatch.setattr('backend.online.api.webbrowser.open', lambda url: urls.append(url) or True)
     _, handler = commands(SimpleNamespace())['nexus.open']
     assert handler('owned-login', Open(page='keys')) == {'opened': True}
     assert urls == ['https://www.nexusmods.com/settings/api-keys']

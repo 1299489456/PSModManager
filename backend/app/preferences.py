@@ -41,7 +41,7 @@ class Preferences:
         return {'theme_id': theme_id}
 
     def update(self, field, value):
-        if field not in {'theme_id', 'ai'}:
+        if field not in {'theme_id', 'ai', 'storage_setup_complete', 'storage_previous_root'}:
             raise ValueError('Unsupported preference')
         # The parent is pinned against rename/junction substitution. The new
         # file is created exclusively and only replaces our fixed config name.

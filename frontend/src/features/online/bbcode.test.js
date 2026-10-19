@@ -26,6 +26,14 @@ test('code is literal and unclosed tags end at the input', () => {
   assert.equal(tree.c[1].t, 'quote')
 })
 
+test('Markdown code fences and inline code preserve literal BBCode examples', () => {
+  const source = '## 用法\n```text\n[b]literal[/b]\n```\n`[url]literal[/url]`\n[b]真正加粗[/b]'
+  const tree = parseBbcode(source)
+  assert.deepEqual(tags(tree), ['root', 'b'])
+  assert.match(tree.c[0].v, /\[b\]literal\[\/b\]/)
+  assert.match(tree.c[0].v, /\[url\]literal\[\/url\]/)
+})
+
 test('tables keep rows and cells', () => {
   const tree = parseBbcode('[table][tr][th]按键[/th][th]功能[/th][/tr][tr][td]Ctrl+R[/td][td]整理[/td][/tr][/table]')
   assert.deepEqual(tags(tree), ['root', 'table', 'tr', 'th', 'th', 'tr', 'td', 'td'])

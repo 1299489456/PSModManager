@@ -37,7 +37,7 @@ PS-03-07 的 `ModManager → mod.list/mod.action → ModService → planner/exec
 | `frontend/src/app/`、`frontend/src/features/` | 沿用列表/详情/导入 UI，简化日常动作入口 |
 | `tests/`、`scripts/` | 按受影响行为选择检查，不扩大为全任务统一审批 |
 
-具体当前实现以源码为准；旧数据/API 详细原文见 [契约备份](changes/20261012-scope-simplification/before/03-data-contracts.md)。
+具体当前实现以源码为准；旧数据/API 详细原文见 Git 基线中的[契约备份](https://github.com/1299489456/PSModManager/blob/c4ee861fd5c999966aba367a2a51c9bc74b4ff73/docs/development/changes/20261012-scope-simplification/before/03-data-contracts.md)。
 
 ## 4. 基本边界
 

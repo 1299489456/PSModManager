@@ -22,6 +22,9 @@ obj/
 /.preview/
 /.playwright-mcp/
 /docs/development/evidence/
+/docs/development/current-local-delivery.json
+/docs/development/build-manifest.json
+/docs/development/changes/20261012-scope-simplification/before/
 
 # Local game/Mod sources, runtime state and exported schemes
 /资料/
@@ -60,6 +63,8 @@ api_key.txt
 
 # Archives, temporary files and editor/OS state
 *.zip
+# Prepare the vendor recovery archive locally; it is not project-owned source.
+/backend/loaders/melonloader/resources/toolchain.zip
 *.7z
 *.rar
 *.log
@@ -73,3 +78,9 @@ api_key.txt
 /.vscode/
 Thumbs.db
 Desktop.ini
+
+# Local icon candidates and exported artwork; runtime icons live under src/resources.
+/图标成品/
+/绿色三模块生态图标.png
+/绿芽模块收纳图标-1.png
+/三模块绿芯萌芽图标-2.png

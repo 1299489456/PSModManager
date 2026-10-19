@@ -4,6 +4,7 @@ import { Play, Gamepad2, RefreshCw } from 'lucide-vue-next'
 import { createGameLaunchRuntime, gameLaunchStatusText } from './gameLaunchRuntime.js'
 
 const props = defineProps({ bridge: { type: Object, required: true }, installation: { type: Object, default: null }, disabled: Boolean, beforeLaunch: Function, saveFirst: Boolean, pending: { type: Number, default: 0 } })
+const emit = defineEmits(['launch-checked'])
 const state = reactive({})
 const preparing = ref(false)
 const runtime = createGameLaunchRuntime(props.bridge, state)
@@ -18,7 +19,10 @@ async function launch() {
   const installationId = props.installation?.installation_id
   try {
     if (props.beforeLaunch && await props.beforeLaunch() !== true) return
-    if (installationId === props.installation?.installation_id) await runtime.launch()
+    if (installationId === props.installation?.installation_id) {
+      await runtime.launch()
+      if (installationId === props.installation?.installation_id) emit('launch-checked')
+    }
   } catch { state.error = '启动前保存未完成，请先保存 Mod 选择后再试。' }
   finally { preparing.value = false }
 }

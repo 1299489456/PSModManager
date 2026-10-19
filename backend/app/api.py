@@ -26,6 +26,10 @@ class ThemePayload(Empty):
     theme_id: Literal['obsidian-cyan', 'graphite-ash', 'win11-mica']
 
 
+class StorageTarget(Empty):
+    target: str = Field(min_length=1, max_length=4096)
+
+
 class AISettingsPayload(Empty):
     provider: Literal['openai_compatible']
     base_url: str = Field(min_length=1,max_length=2048)
@@ -246,6 +250,9 @@ class EvidenceReadPayload(UseInstallationPayload):
 
 
 MESSAGES = {
+    'LOADER_GENERATION_UNSUPPORTED': 'IL2CPP 生成依赖尚未就绪，未启动游戏。请打开 MelonLoader 环境详情，检查版本并修复依赖。',
+    'LOADER_OFFLINE_PACKAGE_INVALID': '管理器内置生成依赖包缺失或损坏，请重新完整解压最新版管理器，再修复依赖。',
+    'LOADER_REPAIR_REQUIRED': '依赖修复未完成，请关闭占用程序后在 MelonLoader 环境详情中重新修复。',
     'GAME_LAUNCH_FAILED': '无法启动游戏，请检查可执行文件、权限和所需运行环境。',
     'GAME_IMAGE_CHANGED': '游戏程序已变化，未执行新进程；请重新选择安装。',
     'GAME_ALREADY_RUNNING': '游戏已在运行，未重复启动。',
@@ -315,6 +322,8 @@ MESSAGES.update(AI_MESSAGES)
 MESSAGES.update(WORKSPACE_MESSAGES)
 from backend.online.nexus import MESSAGES as NEXUS_MESSAGES
 MESSAGES.update(NEXUS_MESSAGES)
+from .storage_location import MESSAGES as STORAGE_MESSAGES
+MESSAGES.update(STORAGE_MESSAGES)
 
 
 class DesktopApi:
@@ -363,6 +372,11 @@ class DesktopApi:
             'assistant.propose_plan': (PlanProposal, self._assistant_propose_plan),
             'assistant.inspect_plan': (PlanPage, self._assistant_inspect_plan),
             'app.info': (Empty, lambda request_id, payload: self._app_info()),
+            'app.storage.status': (Empty, lambda _,p: context.storage.status()),
+            'app.storage.choose': (Empty, lambda _,p: {'target': context.choose_storage_folder()}),
+            'app.storage.accept': (Empty, lambda _,p: context.storage.accept()),
+            'app.storage.start': (StorageTarget, lambda _,p: context.storage.start(p.target)),
+            'app.storage.restart': (Empty, lambda _,p: context.storage.restart()),
             'app.theme.get': (Empty, lambda _, p: context.preferences.theme()),
             'window.control': (WindowPayload, lambda _, p: self._window_control(p.op)),
             'app.theme.set': (ThemePayload, lambda _, p: context.preferences.set_theme(p.theme_id)),
@@ -378,6 +392,8 @@ class DesktopApi:
             'loader.choose': (UseInstallationPayload, lambda _,p: self._loader_choose(str(p.installation_id))),
             'loader.install': (UseInstallationPayload, lambda rid,p: self._loader_install(rid,p)),
             'loader.install_local': (LoaderLocalPayload, lambda rid,p: self._loader_install(rid,p)),
+            'loader.repair': (UseInstallationPayload, lambda rid,p: self._loader_job(rid, lambda task: context.loader.repair(
+                str(p.installation_id), check=task.check_cancelled, progress=task.progress, commit=task.commit))),
             'package.adopt_preview': (UseInstallationPayload, self._package_preview),
             'package.adopt_files': (AdoptionPagePayload, lambda _,p: context.packages.preview_page(str(p.snapshot_id),p.offset,p.limit)),
             'package.adopt': (AdoptPackagePayload, self._package_adopt),
@@ -389,6 +405,7 @@ class DesktopApi:
             'profile.select': (ProfileIdentity, lambda _,p: context.profiles.select(str(p.profile_id))),
             'profile.edit': (ProfileEdit, lambda _,p: context.profiles.edit(str(p.profile_id),p.expected_revision,p.action)),
             'profile.clone': (ProfileClone, lambda _,p: context.profiles.clone(str(p.profile_id),p.expected_revision,p.name)),
+            'profile.delete': (ProfileRevision, lambda _,p: context.profiles.delete(str(p.profile_id),p.expected_revision)),
             'profile.commit': (ProfileRevision, self._profile_commit),
             'compatibility.check': (CompatibilityPayload, self._compatibility_check),
             'profile.export': (ProfileIdentity, lambda _,p: {'manifest':context.profiles.export(str(p.profile_id))}),
@@ -453,6 +470,10 @@ class DesktopApi:
             with self._lock:
                 if self._closed:
                     return failure('RUNTIME_CLOSED')
+                storage = getattr(self._context, 'storage', None)
+                if (storage is not None and storage.blocked and request['command'] not in
+                        {'app.storage.status', 'app.storage.restart', 'window.control'}):
+                    return failure('STORAGE_BUSY')
                 if request['command'] not in self._commands:
                     return failure('UNSUPPORTED_COMMAND')
                 schema, handler = self._commands[request['command']]
@@ -758,6 +779,7 @@ class DesktopApi:
     def _app_info(self):
         paths = self._context.paths
         return dict(name=APP_NAME, version=APP_VERSION, data_root=str(paths.root),
+                    storage_first_run=self._context.storage.status()['first_run'],
                     config_path=str(paths.config), database_path=str(paths.database), log_path=str(paths.log),
                     keyring_service=KEYRING_SERVICE, update_source=UPDATE_SOURCE,
                     latest_check_task_id=self._latest_check_task_id)

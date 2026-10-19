@@ -306,9 +306,26 @@ class ImportService:
     @staticmethod
     def _page(value, offset, limit):
         files = [{key: row[key] for key in ('path','size','sha256','target_root_kind','relative_path','lifecycle','ownership','roles','parser_status')} for row in value['files'][offset:offset + limit]]
+        # `warnings` includes general handling guidance retained for existing
+        # consumers. Automatic installation uses these full-inventory findings,
+        # never translated warning text or only the currently displayed page.
+        review = set()
+        for row in value['files']:
+            if versions.library_attachment(row):
+                continue
+            if row['target_root_kind'] not in {'mods', 'plugins', 'user_libs'}:
+                review.add('UNSUPPORTED_TARGET')
+            if row['lifecycle'] != 'immutable':
+                review.add('NON_IMMUTABLE_FILE')
+            if row['path'].lower().endswith('.dll'):
+                if row['parser_status'] != 'managed' or 'unknown' in row['roles']:
+                    review.add('UNRECOGNIZED_DLL')
+                if row.get('analysis', {}).get('diagnostics'):
+                    review.add('METADATA_DIAGNOSTICS')
         return dict(preview_id=value['preview_id'], preview_hash=value['preview_hash'], display_name=value['display_name'],
                     files=files, total=len(value['files']), next_offset=offset + limit if offset + limit < len(value['files']) else None,
                     version=value.get('version'), version_candidates=value.get('version_candidates', []),
+                    install_review_reasons=sorted(review),
                     can_commit=True, warnings=['根目录说明文档仅保存在包库，随整合包分享，不部署到游戏。未知归属文件不会自动启用。'])
 
     def page(self, preview_id, offset=0, limit=20):

@@ -28,7 +28,7 @@ PS-03-04 的旧范围 BLOCKED 和失败测试保持历史事实，但不再阻�
 
 ## 4. 需求目录
 
-编号继续保留以兼容现有任务索引。下表是当前范围；旧要求及估算见 [原文备份](changes/20261012-scope-simplification/before/01-product-scope.md)。
+编号继续保留以兼容现有任务索引。下表是当前范围；旧要求及估算见 Git 基线中的[原文备份](https://github.com/1299489456/PSModManager/blob/c4ee861fd5c999966aba367a2a51c9bc74b4ff73/docs/development/changes/20261012-scope-simplification/before/01-product-scope.md)。
 
 | ID | 当前要求 |
 |---|---|

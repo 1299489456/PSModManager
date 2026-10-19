@@ -101,6 +101,32 @@ def test_case036_repeated_launch_does_not_create_second_process(launch_app):
     assert (game / 'launch-count.txt').read_text() == 'started\n'
 
 
+def test_loader_preparation_runs_under_launch_guard_before_child_creation(launch_app):
+    context, installation_id, game = launch_app
+    calls = []
+    def prepare(session):
+        session.check()
+        assert not (game / 'launch-probe.txt').exists()
+        calls.append(session.installation.canonical_root)
+    context.launcher.prepare_launch = prepare
+    assert ok(context, 'game.launch', installation_id)['state'] == 'running'
+    wait_for(lambda: (game / 'launch-probe.txt').exists())
+    assert len(calls) == 1 and Path(calls[0]) == game
+
+
+def test_loader_preparation_error_is_actionable_and_never_creates_child(launch_app):
+    from backend.loaders.melonloader.service import LoaderError
+    context, installation_id, game = launch_app
+    def prepare(session):
+        raise LoaderError('LOADER_GENERATION_UNSUPPORTED', 'Internal fixture detail')
+    context.launcher.prepare_launch = prepare
+    response = rpc(context, 'game.launch', installation_id)
+    assert not response['ok']
+    assert response['error']['code'] == 'LOADER_GENERATION_UNSUPPORTED'
+    assert '环境详情' in response['error']['message']
+    assert not (game / 'launch-probe.txt').exists()
+
+
 @pytest.mark.parametrize('exit_code', [0, 7, 259])
 def test_case036_reports_actual_exit_code_and_can_launch_again(launch_app, exit_code):
     context, installation_id, game = launch_app

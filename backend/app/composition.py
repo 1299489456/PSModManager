@@ -105,6 +105,11 @@ class DesktopContext:
         self.choose_import_source = lambda kind: None
         self.choose_loader_source = lambda: None
         self.choose_installation_folder = lambda kind: None
+        self.choose_storage_folder = lambda: None
+        self.request_restart = lambda root: None
+        self.storage = None
+        self._services_closed = False
+        self.restart_root = None
 
     def initialize(self):
         paths = self.paths
@@ -112,6 +117,11 @@ class DesktopContext:
         from .preferences import Preferences
         self.preferences = Preferences(paths)
         config = self.preferences.read_config()
+        from .storage_location import StorageLocation
+        self.storage = StorageLocation(self, first_run=(not paths.config.exists() or
+            config.get('storage_setup_complete') is False))
+        if not paths.config.exists():
+            config['storage_setup_complete'] = False
         paths.root.mkdir(parents=True, exist_ok=True)
         # The same typed repositories back the desktop and direct verification.
         # Imported lazily so importing the entry point never opens a database.
@@ -144,7 +154,7 @@ class DesktopContext:
         from backend.deployments.config import ConfigService
         self.mod_configs = ConfigService(paths, self.deployment_guards)
         from backend.games.probably_stolen.launch import LaunchService
-        self.launcher = LaunchService(self.deployment_guards)
+        self.launcher = LaunchService(self.deployment_guards, prepare_launch=self.loader.prepare_launch)
         from backend.deployments.planner import PlanService, PlanProposalConsumer
         self.plans = PlanService(paths, self.deployment_guards)
         self.plan_proposals = PlanProposalConsumer(self.plans)
@@ -194,10 +204,19 @@ class DesktopContext:
         self.logger.addHandler(handler)
         self.logger.info('startup product=%s version=%s keyring=%s updater=disabled', APP_NAME, APP_VERSION, KEYRING_SERVICE)
 
-    def close(self):
+    def close(self, *, keep_api=False, keep_store=False):
         failure = None
-        if self.api is not None:
+        if self.api is not None and not keep_api:
             self.api._close()
+        if self._services_closed:
+            if self.jobs is not None:
+                self.jobs.close()
+                self.jobs = None
+            if self.store is not None and not keep_store:
+                self.store.close()
+                self.store = None
+            return
+        self._services_closed = True
         if self.ai is not None:
             self.ai.close()
         if self.launcher is not None:
@@ -212,7 +231,7 @@ class DesktopContext:
                 self.jobs.close()
             except Exception:
                 failure = RuntimeError('后台任务未能在关闭期限内停止')
-            finally:
+            else:
                 self.jobs = None
         if self.nexus is not None and failure is None:
             try:
@@ -227,10 +246,10 @@ class DesktopContext:
             except Exception:
                 failure = RuntimeError('导入暂存清理未完成；已保留文件，请查看本地记录')
             self.imports = None
-        if self.store is not None:
-            if self.profiles is not None:
-                self.profiles.close()
-                self.profiles = None
+        if self.profiles is not None:
+            self.profiles.close()
+            self.profiles = None
+        if self.store is not None and not keep_store:
             self.store.close()
             self.store = None
         if self.logger:
@@ -307,16 +326,19 @@ def page_resource_allowed(url, is_image, method):
             and port in (None, 443) and not uri.username and not uri.password)
 
 
-def run_desktop(data_root=None, protected_roots=()):
+def run_desktop(data_root=None, protected_roots=(), *, nxm_inbox=None, storage_locator=None):
     paths = resolve_paths(data_root, protected_roots)
     version = webview_runtime_version()
     html = desktop_html()
     import webview
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
     context = DesktopContext(paths)
+    context.nxm_inbox = nxm_inbox
     callback_lifecycle = None
     try:
         context.initialize()
+        context.storage.locator = storage_locator
+        context.storage.protected_roots = tuple(protected_roots)
         context.logger.info('webview2=%s', version)
         webview.settings.update(ALLOW_DOWNLOADS=False, ALLOW_FILE_URLS=False,
                                 OPEN_EXTERNAL_LINKS_IN_BROWSER=True, REMOTE_DEBUGGING_PORT=None)
@@ -328,15 +350,42 @@ def run_desktop(data_root=None, protected_roots=()):
                                        frameless=True, easy_drag=False)
         from .window_frame import WindowFrame
         context.window_frame = WindowFrame(window)
-        window.events.shown += context.window_frame.apply_style
+        def request_restart(root):
+            context.restart_root = root
+            # Return the bridge acknowledgement before closing the WebView.
+            import threading
+            timer = threading.Timer(.4, lambda: context.window_frame.control('close'))
+            timer.start()
+        context.request_restart = request_restart
+        window.events.shown += context.window_frame.initialize
+        if nxm_inbox is not None:
+            def wake_for_download():
+                # Restore via WinForms so the WebView layout follows the native state.
+                def show():
+                    from System.Windows.Forms import FormWindowState
+                    if window.native.WindowState == FormWindowState.Minimized:
+                        window.native.WindowState = FormWindowState.Normal
+                    window.native.Show()
+                    window.native.Activate()
+                context.window_frame._on_ui(show)
+            window.events.shown += lambda: nxm_inbox.set_wake(wake_for_download)
         from .native_drop import install_native_drop
         install_native_drop(window, context)
         from .webview_lifecycle import install_callback_lifecycle_guard
-        callback_lifecycle = install_callback_lifecycle_guard(window, context.api._close)
+        def can_close_storage():
+            if (context.storage.status()['phase'] == 'copying' or
+                    context.storage.blocked and context.jobs is not None and not context.jobs.is_idle()):
+                return False
+        def closing():
+            if nxm_inbox is not None:
+                nxm_inbox.stop_accepting()
+            context.api._close()
+        callback_lifecycle = install_callback_lifecycle_guard(window, closing, can_close=can_close_storage)
         def choose_folder(kind):
             selected = window.create_file_dialog(webview.FileDialog.FOLDER)
             return selected[0] if selected else None
         context.choose_installation_folder = choose_folder
+        context.choose_storage_folder = lambda: choose_folder('storage')
         def choose_import(kind):
             if kind == 'directory':
                 selected = window.create_file_dialog(webview.FileDialog.FOLDER)
@@ -382,14 +431,18 @@ def run_desktop(data_root=None, protected_roots=()):
         window.events.before_show += lambda: install_navigation_guard(window, context.logger)
         window.events.before_load += context.api._page_loading
         window.events.closed += context.api._close
+        # Window and taskbar icon; the packaged EXE carries the same icon.
+        icon = Path(__file__).resolve().parent / 'resources/psmm-icon.ico'
         webview.start(gui='edgechromium', debug=False, http_server=False, private_mode=False,
-                      storage_path=str(paths.webview))
+                      storage_path=str(paths.webview), icon=str(icon) if icon.is_file() else None)
         if getattr(window, '_psmm_startup_error', None):
             raise RuntimeError(window._psmm_startup_error)
-        return 0
+        return {'restart_root': context.restart_root} if context.restart_root else 0
     finally:
         try:
             if callback_lifecycle is not None:
                 callback_lifecycle.join()
         finally:
+            if context.storage is not None:
+                context.storage.wait()
             context.close()

@@ -1,0 +1,361 @@
+{
+  "schema_version": 1,
+  "loader_version": "0.7.3",
+  "dumper_version": "2022.1.0-pre-release.21",
+  "unity_version": "2021.3.45",
+  "archive": "toolchain.zip",
+  "sources": [
+    {
+      "component": "Cpp2IL",
+      "version": "2022.1.0-pre-release.21",
+      "url": "https://github.com/SamboyCoding/Cpp2IL/releases/download/2022.1.0-pre-release.21/Cpp2IL-2022.1.0-pre-release.21-Windows.exe"
+    },
+    {
+      "component": "Cpp2IL.Plugin.StrippedCodeRegSupport",
+      "version": "2022.1.0-pre-release.21",
+      "url": "https://github.com/SamboyCoding/Cpp2IL/releases/download/2022.1.0-pre-release.21/Cpp2IL.Plugin.StrippedCodeRegSupport.dll"
+    },
+    {
+      "component": "UnityDependencies",
+      "version": "2021.3.45",
+      "url": "https://github.com/LavaGang/MelonLoader.UnityDependencies/releases/download/2021.3.45/Managed.zip"
+    }
+  ],
+  "files": [
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/Cpp2IL/Cpp2IL.exe",
+      "size": 15137811,
+      "sha256": "663fb432433b4371fd1ee0ebc321a8fff2a9aac5ac4230c843f9e03ddee4e04c"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/Cpp2IL/Plugins/Cpp2IL.Plugin.StrippedCodeRegSupport.dll",
+      "size": 10752,
+      "sha256": "2cc4f8c66541f18b4daed5410149ee7859c3190454d30bda5ccd0895d2989ee6"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.AIModule.dll",
+      "size": 45568,
+      "sha256": "bf29239173acfd65972516b5437bed8ecc30bb4fc17b50725f002d5ff3ceb38d"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.ARModule.dll",
+      "size": 10752,
+      "sha256": "d182d070b4603a4dcc86ecc8a340991da102cffdbc98ac53781a8eb00b7f5a0f"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.AccessibilityModule.dll",
+      "size": 12800,
+      "sha256": "93b08d17b6cd3d93d66e388b7d45da762c5439a48e611cd09273a3499804ed07"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.AndroidJNIModule.dll",
+      "size": 73728,
+      "sha256": "08b854be2fadd87036972f754e428f0cae0d4c3efda652b72a83486b332387f3"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.AnimationModule.dll",
+      "size": 151552,
+      "sha256": "c86c598dbaff8d6a616738096b5683aad04dbbc5091285a663601f00c91edeed"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.AssetBundleModule.dll",
+      "size": 23040,
+      "sha256": "a35f2a09e8358927126b5f0839beca0ed19f5de20eea6ce5de1b90119f272d18"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.AudioModule.dll",
+      "size": 59392,
+      "sha256": "7142604e6455aea85f8ed1caab79ecc03ac38492501d87bce0caae99f6ea83d0"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.ClothModule.dll",
+      "size": 15360,
+      "sha256": "212fd14c59da659f11ca602f5656cd46d6e465efe0a5013df054c0ef10d1ad7e"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.CoreModule.dll",
+      "size": 1242624,
+      "sha256": "4e5719661224c77a08c7aec6b18458ea38a98aa9a71d76135ebf85a97137f71b"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.CrashReportingModule.dll",
+      "size": 10240,
+      "sha256": "371e04d0aefcdf385e7d9c86f7381354e8c4d7a75df346e011db384f7705e075"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.DSPGraphModule.dll",
+      "size": 18432,
+      "sha256": "7d1f77200b0b2fe9a4a7af4fcba7d20ecbb2a49f8aac9312cffc2197d73d3e5a"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.DirectorModule.dll",
+      "size": 14336,
+      "sha256": "b6746702c93d9e4639eda9b4630fdac3138144b6344d0ea778f6790c79d73924"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.GIModule.dll",
+      "size": 9216,
+      "sha256": "d4d54a8ede17fe1cf59b3e4eb87028deddf7964d0aacd5795d85538f28a5e057"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.GameCenterModule.dll",
+      "size": 29184,
+      "sha256": "5da4e6dd19176190abe5e1c4402be78650dbc02e7540be13dfcde6721108d2c3"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.GridModule.dll",
+      "size": 14336,
+      "sha256": "ef591b4ccfe207d6a212434d01a9dc5ed0071959dd7d1c96bdcd6346d148c3be"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.HotReloadModule.dll",
+      "size": 9216,
+      "sha256": "3a55fb01b5cacab0f80416cbc754768ccc2cfb7ba201a5e83e8daafc87b7d6a6"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.IMGUIModule.dll",
+      "size": 162816,
+      "sha256": "f2601578063b4ae868432f83acb0510655373ae0355bcc81e51ce939ff09c517"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.ImageConversionModule.dll",
+      "size": 13824,
+      "sha256": "d0d5ede4f95a3969f94ed085d2f7f55dc5051ee27390a92f809e216434c40e40"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.InputLegacyModule.dll",
+      "size": 27648,
+      "sha256": "1aa13b53bec155dbb5d6119c418541cf017afa24e065ef56b10e65cd8e3f2b74"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.InputModule.dll",
+      "size": 12800,
+      "sha256": "95841fe2804beb687fce528bac3513984a8fe1e5b3d68c1b0bce9bf568ca616b"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.JSONSerializeModule.dll",
+      "size": 11264,
+      "sha256": "f8b0dd646d36e0db7ca6a93d9b1c87e8d8fa00c1d8b24e5603a2f7a0e368a7d3"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.LocalizationModule.dll",
+      "size": 10752,
+      "sha256": "7424930390ec6943fbfff2fd8174f37ce3b3aa1964dbf246bbae5813a357961b"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.ParticleSystemModule.dll",
+      "size": 143872,
+      "sha256": "c069a960aa6fc8ae233337687c3e980ea75a1fe1acafe5a3f159a452b6861c8d"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.PerformanceReportingModule.dll",
+      "size": 10240,
+      "sha256": "7f59436613409b08626051217d4981f06d9d476ffc2ccd5458350c2eb199c382"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.Physics2DModule.dll",
+      "size": 123392,
+      "sha256": "c703f8b7b21acfec0ede6ea64192fe6f97958c21cf906d8c83e17e414f1ad910"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.PhysicsModule.dll",
+      "size": 103936,
+      "sha256": "5e744847fbe3cb4dd328465ef0b5fa7e566b1f3465323ad132f8ec13e6c7c024"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.ProfilerModule.dll",
+      "size": 9216,
+      "sha256": "2ea48535d718f06736d3a80f79a1ed3e0b16c6ac0028a8751a637ec5d2e8bbe6"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.RuntimeInitializeOnLoadManagerInitializerModule.dll",
+      "size": 9728,
+      "sha256": "7e8b6f49c7416f1da13825df2ddf6f405b39d62b360a62c3a7319c69d8dbb239"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.ScreenCaptureModule.dll",
+      "size": 10240,
+      "sha256": "fdd7afc9f7f869582aa5c46a7ec8efd90b2099861b4e5d998214e00a784f5503"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.SharedInternalsModule.dll",
+      "size": 21504,
+      "sha256": "184a41151a91db5fd1d1927aca9241fe7fc0e4a298ad02578919a3cc2f92beda"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.SpriteMaskModule.dll",
+      "size": 10752,
+      "sha256": "eb27ef9df8cadc54e588e447fc62ea0939b5aaf2b6fa13cca26f431915b3c959"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.SpriteShapeModule.dll",
+      "size": 14848,
+      "sha256": "576bd1c9a39cad479af06682a27f269d89c3f0b8033752a7b17e2d645333a204"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.StreamingModule.dll",
+      "size": 10240,
+      "sha256": "82abb7b4ca01f4a0049aa8385908f91c2059574d9d6de05633cc05ff9b5f0349"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.SubstanceModule.dll",
+      "size": 14336,
+      "sha256": "641a817265d72a74e0511e3fb8f7bf57fe968ae4e1f97359cde08cdca57dfed5"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.SubsystemsModule.dll",
+      "size": 24064,
+      "sha256": "eb19a6ade642fbf027823050e9d830800a2d936b6033a7393104acbf738c3843"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.TLSModule.dll",
+      "size": 16384,
+      "sha256": "4469065f88e1fde1e125b4bec1d05363b2ac69091c0881f7c2b3e4515c647dd7"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.TerrainModule.dll",
+      "size": 88064,
+      "sha256": "703ea54a18e89b6e2474eaf8eebda466439aa763d1172bcad99880bce0e8c773"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.TerrainPhysicsModule.dll",
+      "size": 10240,
+      "sha256": "3ebe0fb91d5999dcee7b14ff5547b1f4dbe2e6805a0c5e3d83aceb2ce1b1a51e"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.TextCoreFontEngineModule.dll",
+      "size": 61952,
+      "sha256": "f35fe9802c77e7c5ca5322457a88b63b0119edbf5499cf3cea61a6620b21fb4d"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.TextCoreTextEngineModule.dll",
+      "size": 186880,
+      "sha256": "e13d5c9297533240eb3b0dd73d77c7e23084e53e15437dc45d14985788df0317"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.TextRenderingModule.dll",
+      "size": 28160,
+      "sha256": "d4ab12c6fa28ad49702b38fd8152ee77785bfc6d5b8c78345be98f03dc3469fd"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.TilemapModule.dll",
+      "size": 32256,
+      "sha256": "71bbbcb9ec489dde6fed54d2bfa20ade479e7081a5e24fdb6f8bc6eab45dda18"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.UIElementsModule.dll",
+      "size": 1227776,
+      "sha256": "4a9003d93b14a60af906afe591af1299376565b1861fe57f9bfbfd474b07d5f9"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.UIElementsNativeModule.dll",
+      "size": 48128,
+      "sha256": "0715e0eb70b08b1fdad3ae424282d91f7d420050896c2908ac8a63adb4e97627"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.UIModule.dll",
+      "size": 25600,
+      "sha256": "fff43699727c238ac0280d80b52d6d7e74eb3c36a227830d7ab8650c992f7851"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.UNETModule.dll",
+      "size": 79360,
+      "sha256": "bc4e838cbb98e34a60eb111058082d27d1575a2335812c5c187d34e4675b6099"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.UmbraModule.dll",
+      "size": 9216,
+      "sha256": "a386018bcfa4ffabaed639a5b05b96ad2b11706a36c23f00f97fc369662b33f8"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.UnityAnalyticsCommonModule.dll",
+      "size": 10752,
+      "sha256": "a94c98f6b895324520a2140c767d0345d9665bee954540890106f85295b37b06"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.UnityAnalyticsModule.dll",
+      "size": 33792,
+      "sha256": "7ea4b8e0449e31609cfca198c36d92da283800372444b8e511a659c81727e40a"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.UnityConnectModule.dll",
+      "size": 11264,
+      "sha256": "5f8b625bb3c464e2992537091740760f0553d5791ff5c6257c1ebe806eafa1c8"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.UnityCurlModule.dll",
+      "size": 11264,
+      "sha256": "ea54797edfea71b90812a69a7bfd61a7c32838181cf25f80c5a67c6227af9ac0"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.UnityTestProtocolModule.dll",
+      "size": 9216,
+      "sha256": "1444d933047f09459d0091b0e58e6c64adc63ff73a2c081289b5764b941be367"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.UnityWebRequestAssetBundleModule.dll",
+      "size": 12288,
+      "sha256": "a8657ed110b0dee14a34672012f292f7ffc7c21670c970e93d306ec5cb410a21"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.UnityWebRequestAudioModule.dll",
+      "size": 11776,
+      "sha256": "41335980e874b2064e58e651439d5ad0cc4fda2a8953aee7fe134c4118180b4a"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.UnityWebRequestModule.dll",
+      "size": 46592,
+      "sha256": "0f2a7d95023d3976c067fbc16399e18026962649a4e7e69663e4a417a0744eef"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.UnityWebRequestTextureModule.dll",
+      "size": 11264,
+      "sha256": "940e3ca99a61dbba443f461d0a0905aaed0b74af3a7e6214b5e7cb40ffe97b13"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.UnityWebRequestWWWModule.dll",
+      "size": 20480,
+      "sha256": "e0c449183b83be38e31815e6c39a4a5f7877e6e4e9931e223f510f4aa40cd32e"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.VFXModule.dll",
+      "size": 44032,
+      "sha256": "f1122f6e28bd35d7270049961e9881a16bc9aeec8ae35c25c998ff9f6f878f41"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.VRModule.dll",
+      "size": 15872,
+      "sha256": "3b11484a9b5e28a248b7f5ec643495b24fd86a43ff38a96c338a53b24a8a984c"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.VehiclesModule.dll",
+      "size": 13312,
+      "sha256": "7299e9e889db4202cfabdf1c47e9b3548d0703eec0f0ea75be233d217dfd7ac9"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.VideoModule.dll",
+      "size": 29696,
+      "sha256": "2e13c5eeb50cf899ab56a3e199987c69fafdad8f71f921cc93b4a12769de68b8"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.WindModule.dll",
+      "size": 10240,
+      "sha256": "d2ab630f4c3192ddd74dad1fa5682fb29a4a1028d9fd53b480943d88f3b1d689"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.XRModule.dll",
+      "size": 59392,
+      "sha256": "993e7e7c6fc67ee9868f2ac006c907b4de4b3c21bd0f69ac257777e2dabb3d83"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies/UnityEngine.dll",
+      "size": 99328,
+      "sha256": "83f626bc929918d89977d4dff05416479c8dff391d56656ab75c5b45bc4964fe"
+    },
+    {
+      "path": "MelonLoader/Dependencies/Il2CppAssemblyGenerator/UnityDependencies_2021.3.45.zip",
+      "size": 1702183,
+      "sha256": "0e9521dbf246f4fcbadc33be6ef688c81ac53f587c204b182726554e5fb6afa5"
+    }
+  ]
+}

@@ -19,6 +19,7 @@ from backend.deployments.paths import open_handle, native_rename, pinned_chain
 from backend.games.probably_stolen.fingerprint import file_version
 from backend.games.probably_stolen.layout import EXE, safe_path
 from .environment import pe_machine, environment_checks
+from .offline import OfflineToolchain, OfflineError, GENERATOR
 
 VERSION = '0.7.3'
 RELEASE_URL = 'https://github.com/LavaGang/MelonLoader/releases/download/v0.7.3/MelonLoader.x64.zip'
@@ -37,11 +38,58 @@ class LoaderError(ValueError):
 
 
 class MelonLoaderService:
-    def __init__(self, paths, guards, *, release_sha256=OFFICIAL_SHA256):
+    def __init__(self, paths, guards, *, release_sha256=OFFICIAL_SHA256, offline_resources=None):
         self.paths, self.guards = paths, guards
         self.release_sha256 = release_sha256  # Host configuration, never a bridge argument.
         self._sources = {}
         self._lock = threading.RLock()
+        self.offline = OfflineToolchain(offline_resources)
+
+    @staticmethod
+    def _configuration(root):
+        """Read user choices, not historical generator version records."""
+        try:
+            path = safe_path(root, 'UserData/Loader.cfg')
+            if path.stat().st_size > 1024 * 1024:
+                raise ValueError()
+            document = tomllib.loads(path.read_text(encoding='utf-8-sig'))
+            loader, unity = document.get('loader', {}), document.get('unityengine', {})
+            if not isinstance(loader, dict) or type(loader.get('disable', False)) is not bool:
+                raise ValueError()
+            if (not isinstance(unity, dict)
+                    or not isinstance(unity.get('force_il2cpp_dumper_version', ''), str)
+                    or len(unity.get('force_il2cpp_dumper_version', '')) > 256
+                    or not isinstance(unity.get('version_override', ''), str)
+                    or len(unity.get('version_override', '')) > 256):
+                return loader, '', '', False
+            return loader, unity.get('force_il2cpp_dumper_version', ''), unity.get('version_override', ''), True
+        except FileNotFoundError:
+            return {}, '', '', True
+        except (OSError, ValueError):
+            return {}, '', '', False
+
+    def _generation_state(self, root, loader_version, *, check=lambda: None):
+        _, forced_dumper, unity_override, config_valid = self._configuration(root)
+        recorded_unity, generator_config_valid = '', True
+        try:
+            path = safe_path(root, GENERATOR + 'Config.cfg')
+            if path.stat().st_size > 1024 * 1024:
+                raise ValueError()
+            record = tomllib.loads(path.read_text(encoding='utf-8-sig')).get('Il2CppAssemblyGenerator', {})
+            if not isinstance(record, dict) or not isinstance(record.get('UnityVersion', ''), str):
+                raise ValueError()
+            recorded_unity = record.get('UnityVersion', '')
+        except FileNotFoundError:
+            pass
+        except (OSError, ValueError):
+            generator_config_valid = False
+        try:
+            current_unity = file_version(safe_path(root, 'UnityPlayer.dll'))
+        except (OSError, ValueError):
+            current_unity = None
+        return self.offline.assess(root, loader_version=loader_version, current_unity=current_unity,
+            forced_dumper=forced_dumper, config_valid=config_valid, recorded_unity=recorded_unity,
+            generator_config_valid=generator_config_valid, unity_override=unity_override, check=check)
 
     def status(self, installation_id, *, check=lambda: None):
         with self.guards._installation(installation_id, check=check) as (installation, _):
@@ -69,14 +117,8 @@ class MelonLoaderService:
                 machine_proxy = pe_machine(root / 'version.dll')
                 checks.append(dict(id='proxy', label='启动代理', status='ok' if machine_proxy == 0x8664 else 'missing',
                     detail='version.dll · x64' if machine_proxy == 0x8664 else 'version.dll 架构不匹配或文件已损坏。'))
-            config, config_status = {}, 'ok'
-            try:
-                path = safe_path(root, 'UserData/Loader.cfg')
-                if path.stat().st_size > 1024 * 1024: raise ValueError()
-                config = tomllib.loads(path.read_text(encoding='utf-8-sig')).get('loader', {})
-                if not isinstance(config, dict) or type(config.get('disable', False)) is not bool: raise ValueError()
-            except FileNotFoundError: pass
-            except (OSError, ValueError): config_status = 'unknown'
+            config, _, _, config_valid = self._configuration(root)
+            config_status = 'ok' if config_valid else 'unknown'
             disabled = config.get('disable') is True
             checks.append(dict(id='loader_enabled', label='加载器启用状态', status='disabled' if disabled else config_status,
                 detail='UserData/Loader.cfg 的 disable=true，请改为 false。' if disabled else '无法读取 Loader.cfg，请检查配置格式。' if config_status=='unknown' else '未关闭 Mod 加载'))
@@ -93,14 +135,96 @@ class MelonLoaderService:
                     checks.append(dict(id='runtime_config',label='运行时配置',status='unknown',detail='无法读取 MelonLoader.runtimeconfig.json。'))
                     major = 6
             checks.extend(environment_checks(root, config, major))
+            generation = self._generation_state(root, version, check=check)
+            checks.append(dict(id='generation_dependencies', label='IL2CPP 生成依赖',
+                status=generation['status'], detail=generation['message']))
             ready = state == 'installed' and all(row['status'] == 'ok' for row in checks)
             issue = next((row['detail'] for row in checks if row['status'] != 'ok'), '')
             message = 'MelonLoader 和运行环境已就绪。' if ready else issue
             if state == 'not_installed': message = '安装 MelonLoader 后，游戏才能加载 Mod。'
             return dict(installation_id=str(installation_id), status=state, version_raw=version,
                 recommended_version=VERSION, ready=ready, message=message, checks=checks,
+                generation_dependencies=generation,
                 can_install=machine == 0x8664 and not unreadable,
                 install_label=f'重新安装 MelonLoader {VERSION}' if state=='installed' else f'安装 MelonLoader {VERSION}')
+
+    def _restore(self, session, *, check=lambda: None, progress=lambda *args: None, commit=None,
+                 loader_version=None):
+        """Restore only known official bytes under the caller's existing lease."""
+        root = Path(session.installation.canonical_root)
+        def boundary():
+            check()
+            session.check()
+        boundary()
+        if loader_version is None:
+            try:
+                loader_version = file_version(safe_path(root, 'MelonLoader/net6/MelonLoader.dll'))
+            except (OSError, ValueError):
+                loader_version = None
+        state = self._generation_state(root, loader_version, check=check)
+        if state['ready']:
+            boundary()
+            if commit:
+                commit(lambda: None)
+            return dict(repaired=False, files_written=0, generation_dependencies=state)
+        if not state['can_repair']:
+            raise LoaderError('LOADER_GENERATION_UNSUPPORTED', state['message'])
+        self.paths.check_owned_paths()
+        base = self.paths.root / 'loader'
+        reject_reparse(base)
+        base.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix='dependencies-', dir=base) as workspace:
+            stage = Path(workspace) / 'files'
+            stage.mkdir()
+            try:
+                files = self.offline.extract(stage, state['missing'] + state['damaged'], check)
+            except OfflineError as exc:
+                raise LoaderError(exc.code, str(exc)) from None
+            cleanup_failed = self._publish(root, stage, files, boundary, progress, commit)
+        state = self._generation_state(root, loader_version, check=check)
+        result = dict(repaired=True, files_written=len(files), generation_dependencies=state)
+        if cleanup_failed:
+            result['warning'] = '依赖已恢复，但部分临时旧文件被占用，留在生成器目录中。'
+        return result
+
+    def repair(self, installation_id, *, check=lambda: None, progress=lambda *args: None, commit=None):
+        with self._lock:
+            with self.guards.operation(installation_id, 'apply') as session:
+                result = self._restore(session, check=check, progress=progress, commit=commit)
+            result['status'] = self.status(installation_id, check=check)
+            return result
+
+    def prepare_launch(self, session, *, check=lambda: None, progress=lambda *args: None, commit=None):
+        """Called inside guards.operation('launch'); never acquire a second lease."""
+        with self._lock:
+            root = Path(session.installation.canonical_root)
+            check()
+            session.check()
+            try:
+                loader = safe_path(root, 'MelonLoader/net6/MelonLoader.dll')
+            except FileNotFoundError:
+                return dict(repaired=False, files_written=0, skipped='no_loader')
+            try:
+                safe_path(root, 'version.dll')
+            except FileNotFoundError:
+                # A leftover DLL is not an active loader installation. Keep
+                # ordinary game/probe launches usable without installing it.
+                return dict(repaired=False, files_written=0, skipped='no_loader_proxy')
+            config, _, _, _ = self._configuration(root)
+            if config.get('disable') is True:
+                return dict(repaired=False, files_written=0, skipped='disabled')
+            version = file_version(loader)
+            state = self._generation_state(root, version, check=check)
+            if state['ready']:
+                if commit:
+                    commit(lambda: None)
+                return dict(repaired=False, files_written=0, generation_dependencies=state)
+            if not state['supported'] or not state['can_repair'] and not state['ready']:
+                if state['existing_tools']:
+                    return dict(repaired=False, files_written=0, skipped='custom_toolchain',
+                        generation_dependencies=state)
+                raise LoaderError('LOADER_GENERATION_UNSUPPORTED', state['message'])
+            return self._restore(session, check=check, progress=progress, commit=commit, loader_version=version)
 
     def grant(self, installation_id, path):
         if not path: return dict(source_handle=None)
@@ -289,8 +413,26 @@ class MelonLoaderService:
                     # An unrelated proxy must not silently become MelonLoader.
                     if (root/'version.dll').exists() and not (root/'MelonLoader/net6/MelonLoader.dll').is_file():
                         raise LoaderError('LOADER_PROXY_CONFLICT', '游戏目录已有其他 version.dll，请先确认并移走该代理文件，再安装 MelonLoader。')
+                    # The official loader ZIP intentionally omits its generated
+                    # toolchain. Stage known, matching offline dependencies in
+                    # this same publication so cancellation rolls back both.
+                    generation = self._generation_state(root, VERSION, check=check)
+                    if generation['can_repair']:
+                        try:
+                            dependencies = self.offline.extract(stage,
+                                generation['missing'] + generation['damaged'], check)
+                            files = sorted(files + dependencies,
+                                key=lambda name: (name == 'version.dll', name))
+                        except OfflineError as exc:
+                            raise LoaderError(exc.code, str(exc)) from None
                     check(); session.check()
                     cleanup_failed = self._publish(root, stage, files, check, progress, commit)
                 result = dict(installed=True, files_written=len(files), status=self.status(installation_id))
-                if cleanup_failed: result['warning'] = '安装已完成，但部分临时旧文件被占用，留在对应加载器目录中。'
+                warnings = []
+                if not result['status']['generation_dependencies']['ready']:
+                    warnings.append(result['status']['generation_dependencies']['message'])
+                if cleanup_failed:
+                    warnings.append('安装已完成，但部分临时旧文件被占用，留在对应加载器目录中。')
+                if warnings:
+                    result['warning'] = ' '.join(warnings)
                 return result

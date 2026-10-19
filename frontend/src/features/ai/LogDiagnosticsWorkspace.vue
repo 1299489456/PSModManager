@@ -4,6 +4,7 @@ import { createLocalAiRuntime } from './localAiRuntime.js'
 import { createLogDiagnosticsRuntime, MAX_CACHED_PAGES } from './logDiagnosticsRuntime.js'
 import { createAiActionRuntime } from './aiActionRuntime.js'
 import { diagnosticMarkdown } from './diagnosticMarkdown.js'
+import { safeWebLink } from '../../shared/lib/safeMarkdown.js'
 import PlanCard from './PlanCard.vue'
 import { Download, MessageSquarePlus, Paperclip, SendHorizontal, Sprout } from 'lucide-vue-next'
 
@@ -67,6 +68,16 @@ const sizeText = value => value < 1024 ? `${value} B` : `${(value / 1024).toFixe
 async function analyze() { if (!state.settings?.configured) settingsOpen.value = true; await diagnostics.analyze() }
 async function send() { if (!state.settings?.configured) { settingsOpen.value = true; state.error = '先配置 AI 服务和模型。'; return }; await runtime.send() }
 async function saveSettings() { if (await runtime.saveSettings()) settingsOpen.value = false }
+async function openTextLink(event) {
+  const anchor = event.target.closest?.('a')
+  if (!anchor) return
+  event.preventDefault()
+  const url = safeWebLink(anchor.getAttribute('href'))
+  if (url) {
+    try { await props.bridge.request('nexus.open', { page: 'link', url }) }
+    catch { state.error = '这个链接无法打开。' }
+  }
+}
 watch(() => props.installation?.installation_id, () => diagnostics.load(props.installation), { immediate: true })
 watch(() => props.autoAnalyzeToken, () => { if (!blocked.value) void diagnostics.load(props.installation) })
 const closeAttach = event => { if (attachOpen.value && !event.target.closest?.('.attach')) attachOpen.value = false }
@@ -174,9 +185,9 @@ onUnmounted(() => {
         <p class="muted">支持 OpenAI 兼容协议和本地服务。保存设置不会连接服务。</p>
       </section>
         <div v-if="!state.settings?.configured && !state.loading" class="configure-prompt"><span>配置 AI 服务后，直接分析左侧日志。</span><button @click="settingsOpen = true">配置服务</button></div>
-        <div ref="messageList" class="conversation-scroll" data-testid="ai-messages" :data-session-id="state.sessionId || ''" aria-live="polite" aria-relevant="additions text" @scroll.passive="rememberReplyPosition">
+        <div ref="messageList" class="conversation-scroll" data-testid="ai-messages" :data-session-id="state.sessionId || ''" aria-live="polite" aria-relevant="additions text" @scroll.passive="rememberReplyPosition" @click="openTextLink">
           <div v-if="!state.messages.length && !state.pendingQuestion && !state.streamedText" class="conversation-empty"><h4>遇到了什么问题？</h4><p>分析左侧日志，或描述游戏、Mod、管理器的异常。</p></div>
-          <article v-for="(message, index) in state.messages" :key="index" class="message" :class="message.role" :data-role="message.role" :data-testid="message.role === 'assistant' ? 'ai-response' : 'ai-user-message'"><span v-if="message.role === 'assistant'" class="message-avatar" aria-hidden="true"><Sprout :size="16"/></span><div class="bubble"><strong :class="{ 'sr-only': message.role === 'user' }">{{ message.role === 'user' ? '你' : 'AI' }}</strong><div v-if="message.role === 'assistant'" class="formatted-reply" v-html="diagnosticMarkdown(message.content)"></div><p v-else>{{ message.content }}</p></div></article>
+          <article v-for="(message, index) in state.messages" :key="index" class="message" :class="message.role" :data-role="message.role" :data-testid="message.role === 'assistant' ? 'ai-response' : 'ai-user-message'"><span v-if="message.role === 'assistant'" class="message-avatar" aria-hidden="true"><Sprout :size="16"/></span><div class="bubble"><strong :class="{ 'sr-only': message.role === 'user' }">{{ message.role === 'user' ? '你' : 'AI' }}</strong><div class="formatted-reply" v-html="diagnosticMarkdown(message.content)"></div></div></article>
           <article v-if="state.pendingQuestion" class="message user" data-testid="ai-user-message"><div class="bubble"><strong class="sr-only">你</strong><p>{{ state.pendingQuestion }}</p></div></article>
           <article v-if="state.streamedText" class="message assistant" data-role="assistant" data-testid="ai-response"><span class="message-avatar" aria-hidden="true"><Sprout :size="16"/></span><div class="bubble"><strong>{{ state.taskKind === 'test' ? '连接测试' : 'AI' }}</strong><div class="formatted-reply" v-html="diagnosticMarkdown(state.streamedText)"></div></div></article>
           <p v-if="state.incompleteReply" class="warning reply-note">回复中断，以上为已收到的内容。</p>

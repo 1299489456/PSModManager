@@ -44,6 +44,29 @@ test('installation selection only detects locally and does not start a download'
   runtime.dispose()
 })
 
+test('offline repair uses only selected installation and displays the returned dependency state', async () => {
+  const needsRepair = status({ status: 'installed', generation_dependencies: { can_repair: true, ready: false } })
+  const { calls, state, runtime } = fixture({ 'loader.status': () => needsRepair,
+    'loader.repair': () => ({ repaired: true, files_written: 3, status: installedWithDependencies() }) })
+  function installedWithDependencies() { return { ...installed(), generation_dependencies: { can_repair: false, ready: true } } }
+  await runtime.setInstallation('installation')
+  assert.equal(runtime.canRepair(), true)
+  assert.equal(await runtime.repair(), true)
+  assert.deepEqual(calls[1], ['loader.repair', { installation_id: 'installation' }])
+  assert.equal(runtime.canRepair(), false)
+  assert.match(state.notice, /无需联网/)
+  assert.equal(state.busy, false)
+  runtime.dispose()
+})
+
+test('unsupported dependency versions never enable offline repair', async () => {
+  const { calls, runtime } = fixture({ 'loader.status': () => status({ generation_dependencies: { can_repair: false, ready: false } }) })
+  await runtime.setInstallation('installation')
+  assert.equal(await runtime.repair(), false)
+  assert.equal(calls.length, 1)
+  runtime.dispose()
+})
+
 test('status jobs consume task data and release their subscription', async () => {
   const { state, runtime, watchers } = fixture({ 'loader.status': () => ({ task_id: 'status', state: 'running' }) })
   const detecting = runtime.setInstallation('installation')

@@ -26,7 +26,8 @@ gui_pyz = PYZ(gui.pure)
 host_pyz = PYZ(host.pure)
 options = [('X utf8', None, 'OPTION')]
 desktop = EXE(gui_pyz, gui.scripts, options, exclude_binaries=True,
-    name='PSModManager', console=False, debug=False, strip=False, upx=False)
+    name='PSModManager', console=False, debug=False, strip=False, upx=False,
+    icon=str(root/'backend/app/resources/psmm-icon.ico'))
 worker = EXE(host_pyz, host.scripts, options, exclude_binaries=True,
     name='PSModManager.WorkerHost', console=True, debug=False, strip=False, upx=False)
 COLLECT(desktop, worker, gui.binaries, gui.datas, host.binaries, host.datas,

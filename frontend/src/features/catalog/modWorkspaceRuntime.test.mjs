@@ -133,3 +133,59 @@ test('selecting a new version replaces the same Mod only in the unsaved draft an
   assert.equal(f.calls.filter(row => row.command === 'mod.workspace.save').length, 0)
   f.runtime.undo(); assert.deepEqual(f.state.enabledIds, ['a'])
 })
+
+test('bulk enable and disable use the whole list, form one undo step and only write on save', async () => {
+  const { runtime, state, calls } = fixture(); await runtime.setInstallation('installation')
+  state.query = 'a'
+  assert.equal(runtime.setAllEnabled(true), true)
+  assert.deepEqual(state.enabledIds, ['a', 'b', 'c'])
+  assert.equal(state.undo.length, 1)
+  assert.equal(runtime.setAllEnabled(true), false)
+  assert.equal(state.undo.length, 1)
+  assert.equal(calls.filter(row => row.command === 'mod.workspace.save').length, 0)
+  runtime.undo(); assert.deepEqual(state.enabledIds, ['a'])
+  runtime.redo(); assert.deepEqual(state.enabledIds, ['a', 'b', 'c'])
+  assert.equal(runtime.setAllEnabled(false), true)
+  assert.deepEqual(state.enabledIds, [])
+  assert.equal(await runtime.save(), true)
+  assert.deepEqual(calls.at(-1).payload.enabled_ids, [])
+})
+
+test('bulk actions leave unavailable Mod entries intact and respect loading and busy states', async () => {
+  const { runtime, state } = fixture()
+  assert.equal(runtime.setAllEnabled(true), false)
+  await runtime.setInstallation('installation')
+  state.items[0].state = 'drifted'
+  state.items[1].state = 'unknown'
+  state.items[2].manageable = false
+  assert.equal(runtime.setAllEnabled(true), false)
+  assert.equal(runtime.setAllEnabled(false), false)
+  assert.deepEqual(state.enabledIds, ['a'])
+  state.items[2].manageable = true
+  state.busy = true; assert.equal(runtime.setAllEnabled(true), false)
+  state.busy = false; state.loading = true; assert.equal(runtime.setAllEnabled(true), false)
+  state.loading = false; assert.equal(runtime.setAllEnabled(true), true)
+  assert.deepEqual(state.enabledIds, ['a', 'c'])
+  runtime.setAllEnabled(false); assert.deepEqual(state.enabledIds, ['a'])
+})
+
+test('bulk enabling preserves selected versions, restores the saved version and never combines versions', async () => {
+  const { runtime, state, items } = fixture()
+  items[0].package_id = 'same'; items[1].package_id = 'same'
+  await runtime.setInstallation('installation')
+  runtime.setAllEnabled(true); assert.deepEqual(state.enabledIds, ['a', 'c'])
+  runtime.setAllEnabled(false); runtime.setAllEnabled(true)
+  assert.deepEqual(state.enabledIds, ['a', 'c'])
+  runtime.move(['b'], true); runtime.setAllEnabled(true)
+  assert.deepEqual(state.enabledIds, ['c', 'b'])
+})
+
+test('bulk enabling asks for an explicit version when no saved choice resolves multiple versions', async () => {
+  const { runtime, state, items } = fixture()
+  items[1].package_id = 'same'; items[2].package_id = 'same'
+  await runtime.setInstallation('installation')
+  assert.deepEqual(runtime.bulkSelection(true), { ids: [], ambiguous: 1 })
+  assert.equal(runtime.setAllEnabled(true), false)
+  assert.deepEqual(state.enabledIds, ['a'])
+  assert.match(state.notice, /1 个 Mod.*多个未选版本/)
+})
