@@ -1,0 +1,26 @@
+{
+  "verification_kind": "documentation_structure",
+  "validation_probe": "DependencyCycle",
+  "checked_at": "2026-10-12T07:19:12.5726888Z",
+  "status": "FAIL",
+  "checks": 3112,
+  "tasks": 37,
+  "legacy_m0_to_m5_tasks": 33,
+  "deferred_tasks": 4,
+  "requirements": 34,
+  "cases": 52,
+  "gates": 6,
+  "enforced_gates": 0,
+  "markdown_files": 55,
+  "markdown_scope": "Current documents, task cards, evidence guide and change notes; historical evidence and before/ snapshots excluded",
+  "local_links": 355,
+  "issues": [
+    "Cycle or non-topological order: PS-00-02 -> PS-00-01"
+  ],
+  "product_verification": "NOT_EVALUATED",
+  "limitations": [
+    "No product tests or game execution",
+    "Historical evidence references are checked for file existence only; their results are not revalidated",
+    "External URLs and link fragments are not fetched or validated"
+  ]
+}

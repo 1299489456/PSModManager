@@ -1,0 +1,4242 @@
+import base64
+import io
+import os
+import json
+import shutil
+import tempfile
+import threading
+import unittest
+from contextlib import nullcontext, redirect_stdout
+from dataclasses import asdict
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
+
+from backend.api import API
+from backend.database.dao import ModDAO, _ProfilePathScope
+from backend.database.models import MOD_ASSET_STATE_MISSING, MOD_ASSET_STATE_PRESENT, GameProfile, ModAsset, SystemInfo, db
+from backend.managers.mgr_game import GameManager
+from backend.managers.mgr_game_install import GameInstallFacts, GameInstallInspector, GameInstallRegistry, detect_is_steam_managed_install
+from backend.managers.mgr_files import FileManager, PathChecker
+from backend.managers.mgr_game_monitor import RuntimeSession
+from backend.managers.mgr_profile import ProfileContext, ProfileManager
+from backend.managers.mgr_steam import SteamManager, run_steam_worker
+from backend.paths.rimworld_layout import normalize_rimworld_install_root, resolve_rimworld_layout
+from backend.settings import MODS_DIR, settings
+from backend.utils.profile_runtime import normalize_profile_runtime_flags, resolve_profile_runtime_capabilities
+from backend.migrations.app_upgrade import AppUpgradeResult, _migrate_profile_steam_runtime_flags
+from backend.migrations.path_normalization import PATH_NORMALIZATION_INFO_KEY, PATH_NORMALIZATION_VERSION, run_path_normalization_migration
+from backend.scanner.analyzer import ModAnalyzer
+from backend.scanner.mod_scanner import ModScanner
+from backend.utils.tools import generate_path_hash, normalize_path_for_storage
+
+
+class TestProfileManager(unittest.TestCase):
+    def test_ensure_default_profile_creates_missing_default_when_other_profiles_exist(self):
+        manager = ProfileManager.__new__(ProfileManager)
+
+        with patch("backend.managers.mgr_profile.GameProfile.get_or_none", return_value=None), \
+             patch("backend.managers.mgr_profile.db.atomic", return_value=nullcontext()), \
+             patch("backend.managers.mgr_profile.GameProfile.create") as mock_create, \
+             patch.object(manager, "activate_profile") as mock_activate:
+            ProfileManager._ensure_default_profile(manager)
+
+        mock_create.assert_called_once()
+        self.assertEqual(mock_create.call_args.kwargs["id"], "default")
+        mock_activate.assert_not_called()
+
+    def test_ensure_default_profile_sets_current_profile_when_missing(self):
+        manager = ProfileManager.__new__(ProfileManager)
+
+        with patch("backend.managers.mgr_profile.GameProfile.get_or_none", return_value=None), \
+             patch("backend.managers.mgr_profile.db.atomic", return_value=nullcontext()), \
+             patch("backend.managers.mgr_profile.GameProfile.create"), \
+             patch("backend.managers.mgr_profile.settings.config", SimpleNamespace(current_profile_id="")), \
+             patch("backend.managers.mgr_profile.settings.set") as mock_settings_set:
+            ProfileManager._ensure_default_profile(manager)
+
+        mock_settings_set.assert_called_once_with("current_profile_id", "default")
+
+    def test_build_profile_context_keeps_inactive_and_temp_order(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        manager.get_profile = Mock(
+            return_value=SimpleNamespace(
+                id="profile-a",
+                game_version="1.5.4100",
+                game_install_path="C:/Games/RimWorld",
+                user_data_path="C:/Profiles/profile-a",
+                use_workshop_mods=True,
+                use_self_mods=False,
+                run_commands=["-logfile=Player.log"],
+                inactive_mods_order=["mod.b", "mod.a"],
+                temp_mods_order=["mod.temp"],
+            )
+        )
+
+        with patch.object(ProfileContext, "validate_health", autospec=True, return_value=None):
+            context = manager.build_profile_context("profile-a")
+
+        self.assertEqual(context.profile_id, "profile-a")
+        self.assertEqual(context.run_commands, ["-logfile=Player.log"])
+        self.assertEqual(context.inactive_mods_order, ["mod.b", "mod.a"])
+        self.assertEqual(context.temp_mods_order, ["mod.temp"])
+
+    def test_load_order_inactive_save_persists_temp_order_when_provided(self):
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(profile_id="profile-a")
+        api.profile_mgr = Mock()
+        api.profile_mgr.update_profile.return_value = True
+
+        result = API.load_order_inactive_save(api, ["mod.a", "rmm.companion", "rimcrow.companion"], ["rmm.companion", "mod.temp"])
+
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(api.active_context.inactive_mods_order, ["mod.a", "rimcrow.companion"])
+        self.assertEqual(api.active_context.temp_mods_order, ["rimcrow.companion", "mod.temp"])
+        api.profile_mgr.update_profile.assert_called_once_with(
+            "profile-a",
+            {
+                "inactive_mods_order": ["mod.a", "rimcrow.companion"],
+                "temp_mods_order": ["rimcrow.companion", "mod.temp"],
+            },
+        )
+
+    def test_build_profile_context_allows_empty_paths(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        manager.get_profile = Mock(
+            return_value=SimpleNamespace(
+                id="default",
+                game_version="",
+                game_install_path="",
+                user_data_path="",
+                use_workshop_mods=False,
+                use_self_mods=False,
+                inactive_mods_order=[],
+            )
+        )
+        manager._get_install_inspector = Mock(return_value=SimpleNamespace(
+            quick_inspect=Mock(return_value=SimpleNamespace(is_steam_managed=False))
+        ))
+
+        with patch.object(ProfileContext, "validate_health", autospec=True, return_value=None):
+            context = manager.build_profile_context("default")
+
+        self.assertEqual(context.game_install_path, "")
+        self.assertEqual(context.user_data_path, "")
+        self.assertEqual(context.local_mods_path, "")
+        self.assertEqual(context.game_dlc_path, "")
+        self.assertEqual(context.game_config_path, "")
+        self.assertEqual(context.game_saves_path, "")
+        self.assertEqual(context.mods_config_file, "")
+
+    def test_activate_profile_recreates_missing_default_record(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        default_profile = SimpleNamespace(
+            id="default",
+            game_install_path="",
+            user_data_path="",
+        )
+        manager._ensure_default_profile = Mock()
+        manager.update_version = Mock()
+        manager.build_profile_context = Mock(return_value=SimpleNamespace(profile_id="default"))
+
+        with patch(
+            "backend.managers.mgr_profile.GameProfile.get_or_none",
+            side_effect=[None, default_profile],
+        ), \
+        patch("backend.managers.mgr_profile.PathChecker.check_install_path", return_value={"pass": True, "msg": ""}), \
+        patch("backend.managers.mgr_profile.PathChecker.check_user_data_path", return_value={"pass": True, "msg": ""}), \
+        patch("backend.managers.mgr_profile.settings.config", SimpleNamespace(current_profile_id="profile-a")), \
+        patch("backend.managers.mgr_profile.settings.set") as mock_settings_set:
+            result = ProfileManager.activate_profile(manager, "default")
+
+        manager._ensure_default_profile.assert_called_once_with()
+        mock_settings_set.assert_called_once_with("current_profile_id", "default")
+        self.assertEqual(result.profile_id, "default")
+
+    def test_activate_profile_allows_uninitialized_empty_paths(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        profile = SimpleNamespace(
+            id="profile-a",
+            game_install_path="",
+            user_data_path="",
+        )
+        manager.update_version = Mock()
+        manager.build_profile_context = Mock(return_value=SimpleNamespace(profile_id="profile-a", is_healthy=False))
+
+        with patch(
+            "backend.managers.mgr_profile.GameProfile.get_or_none",
+            return_value=profile,
+        ), \
+        patch("backend.managers.mgr_profile.PathChecker.check_install_path", return_value={"pass": False, "msg": "安装路径不能为空"}), \
+        patch("backend.managers.mgr_profile.PathChecker.check_user_data_path", return_value={"pass": False, "msg": "用户数据路径不能为空"}), \
+        patch("backend.managers.mgr_profile.settings.config", SimpleNamespace(current_profile_id="default")), \
+        patch("backend.managers.mgr_profile.settings.set") as mock_settings_set:
+            result = ProfileManager.activate_profile(manager, "profile-a")
+
+        mock_settings_set.assert_called_once_with("current_profile_id", "profile-a")
+        self.assertEqual(result.profile_id, "profile-a")
+
+    def test_create_profile_copies_from_current_profile_userdata_config(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        current_user_data = temp_root / "current"
+        (current_user_data / "Config").mkdir(parents=True)
+        target_user_data = temp_root / "target"
+
+        manager.current_profile = SimpleNamespace(user_data_path=str(current_user_data))
+        manager._clone_user_data = Mock()
+        manager._sync_profile_to_disk = Mock()
+        manager._get_install_inspector = Mock(return_value=SimpleNamespace(
+            inspect=Mock(return_value=SimpleNamespace(is_steam=False, game_version="1.5.4100"))
+        ))
+
+        fake_profile = SimpleNamespace(id="new-profile")
+        payload = {
+            "name": "Test Profile",
+            "game_install_path": str(temp_root / "install"),
+            "user_data_path": str(target_user_data),
+            "use_workshop_mods": False,
+            "use_self_mods": False,
+            "run_commands": [],
+        }
+
+        with patch("backend.managers.mgr_profile.GameManager.detect_executable", return_value="RimWorldWin64.exe"), \
+             patch("backend.managers.mgr_profile.GameManager.get_game_version", return_value="1.5.4100"), \
+             patch("backend.managers.mgr_profile.GameProfile.create", return_value=fake_profile), \
+             patch("backend.managers.mgr_profile.db.atomic", return_value=nullcontext()):
+            profile = manager.create_profile(payload, copy_current_data=True)
+
+        self.assertIs(profile, fake_profile)
+        manager._clone_user_data.assert_called_once_with(
+            str(current_user_data / "Config"),
+            str(target_user_data),
+        )
+
+    def test_create_profile_does_not_initialize_modsconfig(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        install_root = temp_root / "RimWorld"
+        target_user_data = temp_root / "target"
+        manager.current_profile = None
+        manager._sync_profile_to_disk = Mock()
+        manager._get_install_inspector = Mock(return_value=SimpleNamespace(
+            inspect=Mock(return_value=SimpleNamespace(is_steam=False, game_version="1.5.4100"))
+        ))
+        fake_profile = SimpleNamespace(
+            id="new-profile",
+            name="Test Profile",
+            description="",
+            game_install_path=str(install_root),
+            user_data_path=str(target_user_data),
+            game_version="1.5.4100",
+            prefer_steam_launch=False,
+            use_workshop_mods=False,
+            use_self_mods=False,
+            is_steam=False,
+            run_commands=[],
+            inactive_mods_order=[],
+            temp_mods_order=[],
+        )
+
+        with patch("backend.managers.mgr_profile.GameManager.detect_executable", return_value=str(install_root / "RimWorldWin64.exe")), \
+             patch("backend.managers.mgr_profile.GameManager.get_game_version", return_value="1.5.4100"), \
+             patch("backend.managers.mgr_profile.GameProfile.create", return_value=fake_profile), \
+             patch("backend.managers.mgr_profile.db.atomic", return_value=nullcontext()):
+            profile = manager.create_profile({
+                "name": "Test Profile",
+                "game_install_path": str(install_root),
+                "user_data_path": str(target_user_data),
+                "use_workshop_mods": False,
+                "use_self_mods": False,
+                "run_commands": [],
+            }, copy_current_data=False)
+
+        self.assertIs(profile, fake_profile)
+        self.assertFalse((target_user_data / "Config" / "ModsConfig.xml").exists())
+
+    def test_get_launch_args_includes_savedatafolder_for_default_profile(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        profile = SimpleNamespace(
+            id="default",
+            game_install_path=str(temp_root),
+            user_data_path=str(temp_root / "userdata")
+        )
+        manager.current_profile = profile
+
+        with patch("backend.managers.mgr_profile.GameProfile.get_or_none", return_value=profile), \
+             patch("backend.managers.mgr_profile.GameManager.detect_executable", return_value=str(temp_root / "RimWorldWin64.exe")):
+            args = manager.get_launch_args("default")
+
+        self.assertIn(f"-savedatafolder={os.path.abspath(profile.user_data_path)}", args)
+
+    def test_get_launch_args_skips_savedatafolder_when_profile_root_matches_default_canonically(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        profile = SimpleNamespace(
+            id="default",
+            game_install_path="C:/Games/RimWorld",
+            user_data_path="C:/Users/Test/AppData/LocalLow/Ludeon Studios/RimWorld by Ludeon Studios/",
+        )
+        manager.current_profile = profile
+
+        with patch("backend.managers.mgr_profile.GameProfile.get_or_none", return_value=profile), \
+             patch("backend.managers.mgr_profile.GameManager.detect_executable", return_value="C:/Games/RimWorld/RimWorldWin64.exe"), \
+             patch("backend.managers.mgr_profile.GameManager.auto_detect_paths", return_value={
+                 "user_data_path": "C:/Users/Test/AppData/LocalLow/Ludeon Studios/RimWorld by Ludeon Studios"
+             }), \
+             patch("backend.managers.mgr_profile.GameManager.get_default_user_data_paths", return_value=[
+                 "C:/Users/Test/AppData/LocalLow/Ludeon Studios/RimWorld by Ludeon Studios"
+             ]):
+            args = manager.get_launch_args("default")
+
+        self.assertNotIn("-savedatafolder=C:/Users/Test/AppData/LocalLow/Ludeon Studios/RimWorld by Ludeon Studios", args)
+
+    def test_update_profile_respects_explicit_steam_launch_opt_out(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        install_root = temp_root / "RimWorld"
+        install_root.mkdir(parents=True)
+
+        profile = SimpleNamespace(
+            id="default",
+            game_install_path="",
+            user_data_path="",
+            prefer_steam_launch=False,
+            use_workshop_mods=False,
+        )
+        update_payload = {}
+
+        class _UpdateQuery:
+            def where(self, *_args, **_kwargs):
+                return self
+
+            def execute(self):
+                return 1
+
+        manager._get_install_inspector = Mock(return_value=SimpleNamespace(
+            inspect=Mock(return_value=SimpleNamespace(is_steam=True, game_version="1.5.4100"))
+        ))
+        manager._sync_profile_to_disk = Mock()
+
+        with patch("backend.managers.mgr_profile.GameProfile.select", return_value=[SimpleNamespace(id="default")]), \
+             patch.object(manager, "get_profile", return_value=profile), \
+             patch("backend.managers.mgr_profile.GameManager.detect_executable", return_value=str(install_root / "RimWorldWin64.exe")), \
+             patch("backend.managers.mgr_profile.GameManager.get_game_version", return_value="1.5.4100"), \
+             patch("backend.managers.mgr_profile.GameProfile.update", side_effect=lambda **kwargs: update_payload.update(kwargs) or _UpdateQuery()), \
+             patch("backend.managers.mgr_profile.GameProfile.get_or_none", return_value=profile):
+            result = manager.update_profile("default", {
+                "game_install_path": str(install_root),
+                "prefer_steam_launch": False,
+                "use_workshop_mods": False,
+            })
+
+        self.assertTrue(result)
+        self.assertFalse(update_payload["prefer_steam_launch"])
+        self.assertFalse(update_payload["use_workshop_mods"])
+        self.assertTrue(update_payload["is_steam"])
+
+    def test_update_profile_keeps_existing_steam_launch_choice_when_path_changes(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        install_root = temp_root / "RimWorld"
+        install_root.mkdir(parents=True)
+
+        profile = SimpleNamespace(
+            id="default",
+            game_install_path="",
+            user_data_path="",
+            prefer_steam_launch=False,
+            use_workshop_mods=False,
+        )
+        update_payload = {}
+
+        class _UpdateQuery:
+            def where(self, *_args, **_kwargs):
+                return self
+
+            def execute(self):
+                return 1
+
+        manager._get_install_inspector = Mock(return_value=SimpleNamespace(
+            inspect=Mock(return_value=SimpleNamespace(is_steam=True, game_version="1.5.4100"))
+        ))
+        manager._sync_profile_to_disk = Mock()
+
+        with patch("backend.managers.mgr_profile.GameProfile.select", return_value=[SimpleNamespace(id="default")]), \
+             patch.object(manager, "get_profile", return_value=profile), \
+             patch("backend.managers.mgr_profile.GameManager.detect_executable", return_value=str(install_root / "RimWorldWin64.exe")), \
+             patch("backend.managers.mgr_profile.GameManager.get_game_version", return_value="1.5.4100"), \
+             patch("backend.managers.mgr_profile.GameProfile.update", side_effect=lambda **kwargs: update_payload.update(kwargs) or _UpdateQuery()), \
+             patch("backend.managers.mgr_profile.GameProfile.get_or_none", return_value=profile):
+            result = manager.update_profile("default", {
+                "game_install_path": str(install_root),
+            })
+
+        self.assertTrue(result)
+        self.assertFalse(update_payload["prefer_steam_launch"])
+        self.assertTrue(update_payload["is_steam"])
+
+    def test_update_profile_keeps_workshop_link_mode_when_enabled(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        install_root = temp_root / "RimWorld"
+        install_root.mkdir(parents=True)
+
+        profile = SimpleNamespace(
+            id="default",
+            game_install_path="",
+            user_data_path="",
+            prefer_steam_launch=False,
+            use_workshop_mods=False,
+        )
+        update_payload = {}
+
+        class _UpdateQuery:
+            def where(self, *_args, **_kwargs):
+                return self
+
+            def execute(self):
+                return 1
+
+        manager._get_install_inspector = Mock(return_value=SimpleNamespace(
+            inspect=Mock(return_value=SimpleNamespace(is_steam=True, game_version="1.5.4100"))
+        ))
+        manager._sync_profile_to_disk = Mock()
+
+        with patch("backend.managers.mgr_profile.GameProfile.select", return_value=[SimpleNamespace(id="default")]), \
+             patch.object(manager, "get_profile", return_value=profile), \
+             patch("backend.managers.mgr_profile.GameManager.detect_executable", return_value=str(install_root / "RimWorldWin64.exe")), \
+             patch("backend.managers.mgr_profile.GameManager.get_game_version", return_value="1.5.4100"), \
+             patch("backend.managers.mgr_profile.GameProfile.update", side_effect=lambda **kwargs: update_payload.update(kwargs) or _UpdateQuery()), \
+             patch("backend.managers.mgr_profile.GameProfile.get_or_none", return_value=profile):
+            result = manager.update_profile("default", {
+                "game_install_path": str(install_root),
+                "prefer_steam_launch": False,
+                "use_workshop_mods": True,
+            })
+
+        self.assertTrue(result)
+        self.assertFalse(update_payload["prefer_steam_launch"])
+        self.assertTrue(update_payload["use_workshop_mods"])
+        self.assertTrue(update_payload["is_steam"])
+
+    def test_update_profile_skips_install_inspection_when_path_unchanged(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        install_root = temp_root / "RimWorld"
+        install_root.mkdir(parents=True)
+
+        profile = SimpleNamespace(
+            id="default",
+            game_install_path=str(install_root),
+            user_data_path="",
+            prefer_steam_launch=True,
+            use_workshop_mods=False,
+            is_steam=True,
+        )
+        update_payload = {}
+
+        class _UpdateQuery:
+            def where(self, *_args, **_kwargs):
+                return self
+
+            def execute(self):
+                return 1
+
+        inspector = SimpleNamespace(inspect=Mock())
+        manager._get_install_inspector = Mock(return_value=inspector)
+        manager._sync_profile_to_disk = Mock()
+
+        with patch("backend.managers.mgr_profile.GameProfile.select", return_value=[SimpleNamespace(id="default")]), \
+             patch.object(manager, "get_profile", return_value=profile), \
+             patch("backend.managers.mgr_profile.GameManager.detect_executable") as mock_detect, \
+             patch("backend.managers.mgr_profile.GameManager.get_game_version") as mock_get_version, \
+             patch("backend.managers.mgr_profile.GameProfile.update", side_effect=lambda **kwargs: update_payload.update(kwargs) or _UpdateQuery()), \
+             patch("backend.managers.mgr_profile.GameProfile.get_or_none", return_value=profile):
+            result = manager.update_profile("default", {
+                "game_install_path": str(install_root),
+            })
+
+        self.assertTrue(result)
+        inspector.inspect.assert_not_called()
+        mock_detect.assert_not_called()
+        mock_get_version.assert_not_called()
+        self.assertNotIn("game_version", update_payload)
+        self.assertTrue(update_payload["is_steam"])
+
+    def test_import_profile_from_disk_re_normalizes_runtime_flags(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        imported_profile = {
+            "id": "profile-a",
+            "name": "Profile A",
+            "game_install_path": "D:/Games/RimWorld",
+            "game_version": "1.5.0",
+            "prefer_steam_launch": True,
+            "use_workshop_mods": True,
+            "user_data_path": "D:/Profiles/profile-a",
+        }
+
+        inserted_rows = []
+
+        class _InsertQuery:
+            def __init__(self, payload):
+                self.payload = payload
+
+            def on_conflict_replace(self):
+                return self
+
+            def execute(self):
+                inserted_rows.append(self.payload)
+                return 1
+
+        manager._get_install_inspector = Mock(return_value=SimpleNamespace(
+            inspect=Mock(return_value=SimpleNamespace(is_steam=False, game_version="1.6.4100"))
+        ))
+
+        with patch("backend.managers.mgr_profile.GameProfile.insert", side_effect=lambda **payload: _InsertQuery(payload)), \
+             patch("backend.managers.mgr_profile.db.atomic", return_value=nullcontext()):
+            ok, _ = manager.import_profile_from_disk(imported_profile)
+
+        self.assertTrue(ok)
+        self.assertEqual(len(inserted_rows), 1)
+        self.assertTrue(inserted_rows[0]["prefer_steam_launch"])
+        self.assertFalse(inserted_rows[0]["use_workshop_mods"])
+        self.assertFalse(inserted_rows[0]["is_steam"])
+        self.assertEqual(inserted_rows[0]["game_version"], "1.6.4100")
+
+    def test_import_profile_from_disk_normalizes_fixable_default_user_data_path(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        imported_profile = {
+            "id": "profile-a",
+            "name": "Profile A",
+            "game_install_path": "D:/Games/RimWorld",
+            "game_version": "1.5.0",
+            "prefer_steam_launch": False,
+            "use_workshop_mods": False,
+            "user_data_path": "C:/Users/Test/AppData/LocalLow/Ludeon Studios/RimWorld by Ludeon Studios/Config",
+        }
+
+        inserted_rows = []
+
+        class _InsertQuery:
+            def __init__(self, payload):
+                self.payload = payload
+
+            def on_conflict_replace(self):
+                return self
+
+            def execute(self):
+                inserted_rows.append(self.payload)
+                return 1
+
+        manager._get_install_inspector = Mock(return_value=SimpleNamespace(
+            inspect=Mock(return_value=SimpleNamespace(is_steam=False, game_version="1.6.4100"))
+        ))
+
+        with patch("backend.managers.mgr_profile.GameProfile.insert", side_effect=lambda **payload: _InsertQuery(payload)), \
+             patch("backend.managers.mgr_profile.db.atomic", return_value=nullcontext()), \
+             patch("backend.managers.mgr_profile.GameManager.get_default_user_data_paths", return_value=[
+                 "C:/Users/Test/AppData/LocalLow/Ludeon Studios/RimWorld by Ludeon Studios"
+             ]):
+            ok, _ = manager.import_profile_from_disk(imported_profile)
+
+        self.assertTrue(ok)
+        self.assertEqual(
+            inserted_rows[0]["user_data_path"],
+            os.path.normpath("C:/Users/Test/AppData/LocalLow/Ludeon Studios/RimWorld by Ludeon Studios"),
+        )
+
+    def test_import_profile_from_disk_uses_orphan_folder_when_snapshot_points_to_default_user_data(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        default_user_data = temp_root / "default-userdata"
+        orphan_root = temp_root / "profiles" / "profile-a"
+        (orphan_root / "Config").mkdir(parents=True)
+        (orphan_root / "profile.json").write_text(json.dumps({"id": "profile-a"}), encoding="utf-8")
+        imported_profile = {
+            "id": "profile-a",
+            "name": "Profile A",
+            "game_install_path": "D:/Games/RimWorld",
+            "game_version": "1.5.0",
+            "prefer_steam_launch": False,
+            "use_workshop_mods": False,
+            "user_data_path": str(default_user_data),
+            "_folder_path": str(orphan_root),
+        }
+
+        inserted_rows = []
+
+        class _InsertQuery:
+            def __init__(self, payload):
+                self.payload = payload
+
+            def on_conflict_replace(self):
+                return self
+
+            def execute(self):
+                inserted_rows.append(self.payload)
+                return 1
+
+        manager._get_install_inspector = Mock(return_value=SimpleNamespace(
+            inspect=Mock(return_value=SimpleNamespace(is_steam=False, game_version="1.6.4100"))
+        ))
+
+        with patch("backend.managers.mgr_profile.GameProfile.insert", side_effect=lambda **payload: _InsertQuery(payload)), \
+             patch("backend.managers.mgr_profile.db.atomic", return_value=nullcontext()), \
+             patch("backend.managers.mgr_profile.DATA_DIR", temp_root), \
+             patch("backend.managers.mgr_profile.GameManager.get_default_user_data_paths", return_value=[str(default_user_data)]), \
+             patch("backend.managers.mgr_profile.logger.info") as mock_log_info:
+            ok, _ = manager.import_profile_from_disk(imported_profile)
+
+        self.assertTrue(ok)
+        self.assertEqual(inserted_rows[0]["user_data_path"], os.path.normpath(str(orphan_root)))
+        self.assertTrue(any("恢复环境完成" in str(call.args[0]) for call in mock_log_info.call_args_list))
+
+    def test_import_profile_from_disk_uses_declared_user_data_when_orphan_has_no_data(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        default_user_data = temp_root / "default-userdata"
+        custom_user_data = temp_root / "custom-userdata"
+        orphan_root = temp_root / "profiles" / "profile-a"
+        (custom_user_data / "Config").mkdir(parents=True)
+        orphan_root.mkdir(parents=True)
+        (orphan_root / "profile.json").write_text(json.dumps({"id": "profile-a"}), encoding="utf-8")
+        imported_profile = {
+            "id": "profile-a",
+            "name": "Profile A",
+            "game_install_path": "D:/Games/RimWorld",
+            "game_version": "1.5.0",
+            "prefer_steam_launch": False,
+            "use_workshop_mods": False,
+            "user_data_path": str(custom_user_data),
+            "_folder_path": str(orphan_root),
+        }
+
+        inserted_rows = []
+
+        class _InsertQuery:
+            def __init__(self, payload):
+                self.payload = payload
+
+            def on_conflict_replace(self):
+                return self
+
+            def execute(self):
+                inserted_rows.append(self.payload)
+                return 1
+
+        manager._get_install_inspector = Mock(return_value=SimpleNamespace(
+            inspect=Mock(return_value=SimpleNamespace(is_steam=False, game_version="1.6.4100"))
+        ))
+
+        with patch("backend.managers.mgr_profile.GameProfile.insert", side_effect=lambda **payload: _InsertQuery(payload)), \
+             patch("backend.managers.mgr_profile.db.atomic", return_value=nullcontext()), \
+             patch("backend.managers.mgr_profile.DATA_DIR", temp_root), \
+             patch("backend.managers.mgr_profile.GameManager.get_default_user_data_paths", return_value=[str(default_user_data)]):
+            ok, _ = manager.import_profile_from_disk(imported_profile)
+
+        self.assertTrue(ok)
+        self.assertEqual(inserted_rows[0]["user_data_path"], os.path.normpath(str(custom_user_data)))
+
+    def test_import_path_resolution_does_not_write_profile_during_restore(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        default_user_data = temp_root / "default-userdata"
+        snapshot_root = temp_root / "profiles" / "profile-a"
+        (snapshot_root / "Config").mkdir(parents=True)
+        (snapshot_root / "profile.json").write_text(json.dumps({"id": "profile-a"}), encoding="utf-8")
+
+        with patch("backend.managers.mgr_profile.DATA_DIR", temp_root), \
+             patch("backend.managers.mgr_profile.GameManager.get_default_user_data_paths", return_value=[str(default_user_data)]):
+            resolved_path, source = manager._resolve_import_user_data_path(
+                "profile-a", str(default_user_data), str(snapshot_root)
+            )
+
+        self.assertEqual(resolved_path, os.path.normpath(str(snapshot_root)))
+        self.assertEqual(source, "orphan_folder")
+
+    def test_get_all_profiles_keeps_declared_user_data_path_without_writing(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        default_user_data = temp_root / "default-userdata"
+        profile_row = {
+            "id": "profile-a",
+            "name": "Profile A",
+            "game_install_path": "D:/Games/RimWorld",
+            "user_data_path": str(default_user_data),
+            "is_steam": False,
+            "prefer_steam_launch": False,
+            "use_workshop_mods": False,
+        }
+        manager._get_install_inspector = Mock(return_value=SimpleNamespace(
+            quick_inspect=Mock(return_value=SimpleNamespace(is_steam_managed=False))
+        ))
+
+        with patch("backend.managers.mgr_profile.DATA_DIR", temp_root), \
+             patch("backend.managers.mgr_profile.GameManager.get_default_user_data_paths", return_value=[str(default_user_data)]), \
+             patch("backend.managers.mgr_profile.GameProfile.select", return_value=SimpleNamespace(dicts=Mock(return_value=[profile_row]))), \
+             patch("backend.managers.mgr_profile.PathChecker.check_install_path", return_value={"pass": True, "msg": ""}), \
+             patch("backend.managers.mgr_profile.PathChecker.check_user_data_path", return_value={"pass": True, "msg": ""}):
+            profiles = manager.get_all_profiles()
+
+        self.assertEqual(profiles[0]["user_data_path"], os.path.normpath(str(default_user_data)))
+
+    def test_get_all_profiles_does_not_switch_environment_when_profile_invalid(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        manager._get_install_inspector = Mock(return_value=SimpleNamespace(
+            quick_inspect=Mock(return_value=SimpleNamespace(is_steam_managed=False))
+        ))
+        manager.activate_profile = Mock()
+
+        with patch(
+            "backend.managers.mgr_profile.GameProfile.select",
+            return_value=SimpleNamespace(dicts=Mock(return_value=[{
+                "id": "profile-a",
+                "name": "Profile A",
+                "game_install_path": "D:/Games/RimWorld",
+                "user_data_path": "D:/Profiles/A",
+                "is_steam": False,
+                "prefer_steam_launch": False,
+                "use_workshop_mods": False,
+            }])),
+        ), \
+        patch("backend.managers.mgr_profile.PathChecker.check_install_path", return_value={"pass": False, "msg": "bad install"}), \
+        patch("backend.managers.mgr_profile.PathChecker.check_user_data_path", return_value={"pass": True, "msg": ""}):
+            profiles = manager.get_all_profiles()
+
+        self.assertFalse(profiles[0]["check"])
+        manager.activate_profile.assert_not_called()
+
+    def test_clone_user_data_copies_config_and_saves(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        src_root = temp_root / "source"
+        target_root = temp_root / "target"
+        (src_root / "Config").mkdir(parents=True)
+        (src_root / "Saves").mkdir(parents=True)
+        (src_root / "Config" / "ModsConfig.xml").write_text("<mods />", encoding="utf-8")
+        (src_root / "Saves" / "save1.rws").write_text("save", encoding="utf-8")
+
+        manager._clone_user_data(str(src_root / "Config"), str(target_root))
+
+        self.assertTrue((target_root / "Config" / "ModsConfig.xml").exists())
+        self.assertTrue((target_root / "Saves" / "save1.rws").exists())
+
+    def test_sync_profile_to_disk_writes_snapshot_outside_user_data_root(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        user_data_root = temp_root / "userdata"
+        user_data_root.mkdir(parents=True, exist_ok=True)
+
+        profile = SimpleNamespace(
+            id="profile-a",
+            user_data_path=str(user_data_root),
+            created_time=None,
+            last_played_time=0,
+        )
+
+        with patch("backend.managers.mgr_profile.DATA_DIR", temp_root / "appdata"), \
+             patch("backend.managers.mgr_profile.model_to_dict", return_value={"id": "profile-a", "user_data_path": str(user_data_root)}):
+            manager._sync_profile_to_disk(profile)
+
+        self.assertTrue((temp_root / "appdata" / "profiles" / "profile-a" / "profile.json").exists())
+        self.assertFalse((user_data_root / "profile.json").exists())
+
+    def test_scan_orphaned_profiles_reads_snapshot_from_appdata_profiles(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        snapshot_dir = temp_root / "profiles" / "profile-a"
+        snapshot_dir.mkdir(parents=True, exist_ok=True)
+        (snapshot_dir / "profile.json").write_text(json.dumps({
+            "id": "profile-a",
+            "name": "Profile A",
+            "game_install_path": "D:/Games/RimWorld",
+        }), encoding="utf-8")
+
+        with patch("backend.managers.mgr_profile.DATA_DIR", temp_root), \
+             patch("backend.managers.mgr_profile.GameProfile.select", return_value=[]), \
+             patch("backend.managers.mgr_profile.GameManager.detect_executable", return_value="RimWorldWin64.exe"):
+            orphans = manager.scan_orphaned_profiles()
+
+        self.assertEqual(len(orphans), 1)
+        self.assertEqual(orphans[0]["id"], "profile-a")
+
+    def test_delete_profile_removes_snapshot_dir_when_user_data_is_default(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        default_user_data = temp_root / "default-userdata"
+        snapshot_dir = temp_root / "profiles" / "profile-a"
+        default_user_data.mkdir(parents=True, exist_ok=True)
+        (snapshot_dir / "Config").mkdir(parents=True, exist_ok=True)
+        (snapshot_dir / "profile.json").write_text("{}", encoding="utf-8")
+
+        profile = SimpleNamespace(id="profile-a", user_data_path=str(default_user_data), delete_instance=Mock())
+        default_profile = SimpleNamespace(id="default", user_data_path=str(default_user_data))
+
+        with patch("backend.managers.mgr_profile.DATA_DIR", temp_root), \
+             patch("backend.managers.mgr_profile.GameProfile.get_or_none", side_effect=[profile, default_profile]), \
+             patch("backend.managers.mgr_profile.settings.config", SimpleNamespace(current_profile_id="default")):
+            self.assertTrue(manager.delete_profile("profile-a", force=True))
+
+        self.assertTrue(default_user_data.exists())
+        self.assertFalse(snapshot_dir.exists())
+        profile.delete_instance.assert_called_once()
+
+    def test_normalize_user_data_path_returns_empty_for_blank_value(self):
+        manager = ProfileManager.__new__(ProfileManager)
+        self.assertEqual(manager._normalize_user_data_path("   "), "")
+
+
+class TestProfileContext(unittest.TestCase):
+    def test_to_dict_includes_run_commands(self):
+        context = ProfileContext(
+            profile_id="default",
+            game_version="",
+            game_install_path="",
+            user_data_path="",
+            prefer_steam_launch=False,
+            use_workshop_mods=False,
+            use_self_mods=False,
+            run_commands=["-logfile=Player.log"],
+        )
+
+        self.assertEqual(context.to_dict()["run_commands"], ["-logfile=Player.log"])
+
+    def test_to_dict_keeps_empty_derived_paths_empty(self):
+        context = ProfileContext(
+            profile_id="default",
+            game_version="",
+            game_install_path="",
+            user_data_path="",
+            prefer_steam_launch=False,
+            use_workshop_mods=False,
+            use_self_mods=False,
+        )
+
+        data = context.to_dict()
+
+        self.assertEqual(data["local_mods_path"], "")
+        self.assertEqual(data["game_dlc_path"], "")
+        self.assertEqual(data["game_config_path"], "")
+        self.assertEqual(data["game_saves_path"], "")
+        self.assertEqual(data["mods_config_file"], "")
+
+    def test_profile_context_uses_macos_bundle_data_root(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        install_root = temp_root / "RimWorld"
+        bundle_root = install_root / "RimWorldMac.app"
+        (bundle_root / "Data" / "Core").mkdir(parents=True)
+
+        with patch("backend.paths.rimworld_layout.platform.system", return_value="Darwin"):
+            context = ProfileContext(
+                profile_id="default",
+                game_version="",
+                game_install_path=str(install_root),
+                user_data_path="",
+                prefer_steam_launch=False,
+                use_workshop_mods=False,
+                use_self_mods=False,
+            )
+
+        self.assertEqual(context.local_mods_path, str(install_root / "Mods"))
+        self.assertEqual(context.game_dlc_path, str(bundle_root / "Data"))
+
+    def test_profile_context_bundle_input_normalizes_derived_paths_to_install_root_layout(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        install_root = temp_root / "RimWorld"
+        bundle_root = install_root / "RimWorldMac.app"
+        (bundle_root / "Data" / "Core").mkdir(parents=True)
+
+        with patch("backend.paths.rimworld_layout.platform.system", return_value="Darwin"):
+            context = ProfileContext(
+                profile_id="default",
+                game_version="",
+                game_install_path=str(bundle_root),
+                user_data_path="",
+                prefer_steam_launch=False,
+                use_workshop_mods=False,
+                use_self_mods=False,
+            )
+
+        self.assertEqual(context.local_mods_path, str(install_root / "Mods"))
+        self.assertEqual(context.game_dlc_path, str(bundle_root / "Data"))
+
+
+class TestRimWorldLayout(unittest.TestCase):
+    def test_resolve_macos_layout_prefers_bundle_data_and_exposes_resource_data(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        install_root = temp_root / "RimWorld"
+        bundle_root = install_root / "RimWorldMac.app"
+        (bundle_root / "Data" / "Core").mkdir(parents=True)
+        (bundle_root / "Contents" / "Resources" / "Data").mkdir(parents=True)
+
+        with patch("backend.paths.rimworld_layout.platform.system", return_value="Darwin"):
+            layout = resolve_rimworld_layout(str(install_root))
+
+        self.assertEqual(layout.install_root, str(install_root))
+        self.assertEqual(layout.app_bundle_path, str(bundle_root))
+        self.assertEqual(layout.official_data_root, str(bundle_root / "Data"))
+        self.assertEqual(layout.core_root, str(bundle_root / "Data" / "Core"))
+        self.assertEqual(layout.resource_data_root, str(bundle_root / "Contents" / "Resources" / "Data"))
+        self.assertNotEqual(layout.official_data_root, layout.resource_data_root)
+
+    def test_normalize_install_root_maps_macos_bundle_to_parent_install_root(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        install_root = temp_root / "RimWorld"
+        bundle_root = install_root / "RimWorldMac.app"
+        bundle_root.mkdir(parents=True)
+
+        with patch("backend.paths.rimworld_layout.platform.system", return_value="Darwin"):
+            normalized = normalize_rimworld_install_root(str(bundle_root))
+
+        self.assertEqual(normalized, str(install_root))
+
+
+class TestPathChecker(unittest.TestCase):
+    def test_check_user_data_path_warns_when_mods_config_missing(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        target_root = temp_root / "userdata"
+        config_dir = target_root / "Config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+
+        result = PathChecker.check_user_data_path(str(target_root))
+
+        self.assertTrue(result["pass"])
+        self.assertEqual(result["type"], "warn")
+        self.assertIn("ModsConfig.xml", result["msg"])
+
+    def test_check_workshop_path_requires_rimworld_workshop_root(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        valid_root = temp_root / "steamapps" / "workshop" / "content" / "294100"
+        invalid_root = temp_root / "steamapps" / "workshop" / "downloads"
+        valid_root.mkdir(parents=True, exist_ok=True)
+        invalid_root.mkdir(parents=True, exist_ok=True)
+
+        self.assertTrue(PathChecker.check_workshop_path(str(valid_root))["pass"])
+        missing_rimworld_root = temp_root / "steamapps" / "workshop" / "content" / "294100"
+        shutil.rmtree(valid_root)
+        pending_check = PathChecker.check_workshop_path(str(missing_rimworld_root))
+        self.assertTrue(pending_check["pass"])
+        self.assertEqual(pending_check["type"], "warn")
+        self.assertFalse(PathChecker.check_workshop_path(str(invalid_root))["pass"])
+
+    def test_check_install_path_accepts_macos_app_bundle_and_reports_bundle_executable(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        install_root = temp_root / "RimWorld"
+        bundle_root = install_root / "RimWorldMac.app"
+        (bundle_root / "Data" / "Core").mkdir(parents=True)
+
+        with patch("backend.managers.mgr_files.platform.system", return_value="Darwin"), \
+             patch("backend.managers.mgr_game.platform.system", return_value="Darwin"), \
+             patch("backend.managers.mgr_game_install.platform.system", return_value="Darwin"):
+            result = PathChecker.check_install_path(str(bundle_root))
+
+        self.assertTrue(result["pass"])
+        self.assertEqual(result["data"]["game_exe"], str(bundle_root))
+
+
+class TestProfileRuntimeHelpers(unittest.TestCase):
+    def test_normalize_profile_runtime_flags_forces_workshop_false_when_prefer_steam_enabled(self):
+        result = normalize_profile_runtime_flags(
+            True,
+            prefer_steam_launch=True,
+            use_workshop_mods=True,
+        )
+
+        self.assertTrue(result["is_steam"])
+        self.assertTrue(result["prefer_steam_launch"])
+        self.assertFalse(result["use_workshop_mods"])
+
+    def test_normalize_profile_runtime_flags_keeps_manual_prefer_when_not_steam(self):
+        result = normalize_profile_runtime_flags(
+            False,
+            prefer_steam_launch=True,
+            use_workshop_mods=True,
+        )
+
+        self.assertFalse(result["is_steam"])
+        self.assertTrue(result["prefer_steam_launch"])
+        self.assertFalse(result["use_workshop_mods"])
+
+    def test_detect_is_steam_managed_install_keeps_old_path_semantics_separate(self):
+        self.assertTrue(detect_is_steam_managed_install("C:/Program Files (x86)/Steam/steamapps/common/RimWorld"))
+        self.assertFalse(detect_is_steam_managed_install("D:/Games/RimWorld"))
+        self.assertFalse(detect_is_steam_managed_install("D:/Games/steamapps/cache/common/RimWorld"))
+
+    def test_resolve_profile_runtime_capabilities_uses_mutual_exclusion(self):
+        context = SimpleNamespace(
+            is_steam=True,
+            is_steam_managed=False,
+            prefer_steam_launch=True,
+            use_workshop_mods=True,
+        )
+
+        with patch("backend.utils.profile_runtime.settings.config", SimpleNamespace(workshop_mods_path="D:/Workshop", steam_path="C:/Steam")):
+            caps = resolve_profile_runtime_capabilities(context)
+
+        self.assertTrue(caps["steam_launch_enabled"])
+        self.assertFalse(caps["workshop_deploy_enabled"])
+        self.assertTrue(caps["workshop_detection_enabled"])
+
+    def test_resolve_profile_runtime_capabilities_keeps_manual_steam_launch_when_detection_fails(self):
+        context = SimpleNamespace(
+            is_steam=False,
+            is_steam_managed=False,
+            prefer_steam_launch=True,
+            use_workshop_mods=True,
+        )
+
+        with patch("backend.utils.profile_runtime.settings.config", SimpleNamespace(workshop_mods_path="D:/Workshop", steam_path="C:/Steam")):
+            caps = resolve_profile_runtime_capabilities(context)
+
+        self.assertTrue(caps["steam_launch_enabled"])
+        self.assertFalse(caps["workshop_deploy_enabled"])
+
+
+class TestGameInstallRegistry(unittest.TestCase):
+    def test_registry_set_writes_atomically(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        registry_path = temp_root / "known_game_installs.json"
+        registry = GameInstallRegistry(registry_path)
+
+        registry.set(GameInstallFacts(install_path="D:/Games/RimWorld", is_steam=True, checked_at=123))
+
+        self.assertTrue(registry_path.exists())
+        self.assertFalse((temp_root / "known_game_installs.json.tmp").exists())
+        payload = json.loads(registry_path.read_text(encoding="utf-8"))
+        self.assertTrue(payload["installs"])
+
+    def test_registry_load_moves_corrupt_file_aside(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        registry_path = temp_root / "known_game_installs.json"
+        registry_path.write_text("{broken", encoding="utf-8")
+        registry = GameInstallRegistry(registry_path)
+
+        payload = registry._load()
+
+        self.assertEqual(payload, {"installs": {}})
+        self.assertFalse(registry_path.exists())
+        self.assertTrue((temp_root / "known_game_installs.json.corrupt").exists())
+
+    def test_registry_prune_invalid_entries_removes_missing_install(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        registry_path = temp_root / "known_game_installs.json"
+        registry_path.write_text(json.dumps({
+            "installs": {
+                "missing": {
+                    "install_path": str(temp_root / "missing-install"),
+                    "executable_path": "",
+                    "is_steam": True,
+                    "is_steam_managed": True,
+                    "checked_at": 1,
+                }
+            }
+        }), encoding="utf-8")
+        registry = GameInstallRegistry(registry_path)
+
+        removed_count = registry.prune_invalid_entries()
+
+        self.assertEqual(removed_count, 1)
+        self.assertEqual(registry._load(), {"installs": {}})
+
+    def test_registry_prune_invalid_entries_normalizes_cached_managed_flag(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        install_root = temp_root / "steamapps" / "common" / "RimWorld"
+        install_root.mkdir(parents=True, exist_ok=True)
+        (install_root / "RimWorldWin64.exe").write_text("", encoding="utf-8")
+        registry_path = temp_root / "known_game_installs.json"
+        registry_path.write_text(json.dumps({
+            "installs": {
+                "legacy": {
+                    "install_path": str(install_root),
+                    "executable_path": "RimWorldWin64.exe",
+                    "is_steam": False,
+                    "is_steam_managed": True,
+                    "checked_at": 1,
+                }
+            }
+        }), encoding="utf-8")
+        registry = GameInstallRegistry(registry_path)
+
+        removed_count = registry.prune_invalid_entries()
+        normalized = next(iter(registry._load()["installs"].values()))
+
+        self.assertEqual(removed_count, 0)
+        self.assertFalse(normalized["is_steam_managed"])
+        self.assertTrue(str(normalized["executable_path"]).endswith("RimWorldWin64.exe"))
+
+
+class TestGameInstallInspector(unittest.TestCase):
+    def setUp(self):
+        self.temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.temp_root, ignore_errors=True)
+        GameInstallInspector._startup_pruned = False
+
+    def test_quick_inspect_requires_is_steam_before_marking_managed(self):
+        install_root = self.temp_root / "steamapps" / "common" / "RimWorld"
+        install_root.mkdir(parents=True, exist_ok=True)
+        (install_root / "RimWorldWin64.exe").write_text("", encoding="utf-8")
+        (install_root / "steam_appid.txt").write_text("294100", encoding="utf-8")
+
+        with patch("backend.managers.mgr_game_install.platform.system", return_value="Windows"):
+            facts = GameInstallInspector().quick_inspect(str(install_root))
+
+        self.assertFalse(facts.is_steam)
+        self.assertFalse(facts.is_steam_managed)
+
+    def test_find_windows_steam_api_in_unity_plugins_directory(self):
+        install_root = self.temp_root / "RimWorld"
+        plugin_dir = install_root / "RimWorldWin64_Data" / "Plugins" / "x86_64"
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        (install_root / "RimWorldWin64.exe").write_text("", encoding="utf-8")
+        (install_root / "steam_appid.txt").write_text("294100", encoding="utf-8")
+        target_dll = plugin_dir / "steam_api64.dll"
+        target_dll.write_text("", encoding="utf-8")
+
+        with patch("backend.managers.mgr_game_install.platform.system", return_value="Windows"):
+            facts = GameInstallInspector().quick_inspect(str(install_root))
+
+        self.assertEqual(Path(facts.steam_api_path).resolve(), target_dll.resolve())
+        self.assertTrue(facts.is_steam)
+        self.assertIn("probe_fallback:probe_error", facts.signals)
+
+    def test_find_linux_steam_api_in_unity_plugins_directory(self):
+        install_root = self.temp_root / "RimWorld"
+        plugin_dir = install_root / "RimWorldLinux_Data" / "Plugins"
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        (install_root / "RimWorldLinux").write_text("", encoding="utf-8")
+        (install_root / "steam_appid.txt").write_text("294100", encoding="utf-8")
+        target_lib = plugin_dir / "libsteam_api.so"
+        target_lib.write_text("", encoding="utf-8")
+
+        with patch("backend.managers.mgr_game_install.platform.system", return_value="Linux"):
+            facts = GameInstallInspector().quick_inspect(str(install_root))
+
+        self.assertEqual(Path(facts.steam_api_path).resolve(), target_lib.resolve())
+        self.assertTrue(facts.is_steam)
+        self.assertIn("probe_fallback:probe_error", facts.signals)
+
+    def test_find_macos_steam_api_in_bundle_plugins_directory(self):
+        install_root = self.temp_root / "RimWorld"
+        bundle_root = install_root / "RimWorldMac.app"
+        macos_dir = bundle_root / "Contents" / "MacOS"
+        plugin_dir = bundle_root / "Contents" / "PlugIns" / "steam_api.bundle" / "Contents" / "MacOS"
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        macos_dir.mkdir(parents=True, exist_ok=True)
+        (bundle_root / "steam_appid.txt").write_text("294100", encoding="utf-8")
+        (bundle_root / "Contents" / "MacOS" / "RimWorldMac").write_text("", encoding="utf-8")
+        target_lib = plugin_dir / "libsteam_api.dylib"
+        target_lib.write_text("", encoding="utf-8")
+
+        with patch("backend.managers.mgr_game_install.platform.system", return_value="Darwin"):
+            facts = GameInstallInspector().quick_inspect(str(install_root))
+
+        self.assertEqual(Path(facts.steam_api_path).resolve(), target_lib.resolve())
+        self.assertEqual(Path(facts.steam_appid_path).resolve(), (bundle_root / "steam_appid.txt").resolve())
+        self.assertTrue(facts.is_steam)
+        self.assertIn("probe_fallback:probe_error", facts.signals)
+
+    def test_find_macos_steam_api_when_inspecting_app_bundle_path(self):
+        install_root = self.temp_root / "RimWorld"
+        bundle_root = install_root / "RimWorldMac.app"
+        macos_dir = bundle_root / "Contents" / "MacOS"
+        plugin_dir = bundle_root / "Contents" / "PlugIns" / "steam_api.bundle" / "Contents" / "MacOS"
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        macos_dir.mkdir(parents=True, exist_ok=True)
+        (bundle_root / "steam_appid.txt").write_text("294100", encoding="utf-8")
+        (macos_dir / "RimWorldMac").write_text("", encoding="utf-8")
+        target_lib = plugin_dir / "libsteam_api.dylib"
+        target_lib.write_text("", encoding="utf-8")
+
+        with patch("backend.managers.mgr_game_install.platform.system", return_value="Darwin"):
+            facts = GameInstallInspector().quick_inspect(str(bundle_root))
+
+        self.assertEqual(Path(facts.steam_api_path).resolve(), target_lib.resolve())
+        self.assertEqual(Path(facts.steam_appid_path).resolve(), (bundle_root / "steam_appid.txt").resolve())
+
+    def test_probe_official_steam_api_uses_steam_worker_instead_of_python_c(self):
+        install_root = self.temp_root / "RimWorld"
+        install_root.mkdir(parents=True, exist_ok=True)
+        steam_api = install_root / "steam_api64.dll"
+        steam_api.write_text("", encoding="utf-8")
+        appid_path = install_root / "steam_appid.txt"
+        completed = SimpleNamespace(
+            stdout="ignored\nSTEAM_API_PROBE_RESULT:official\n",
+            stderr="",
+            returncode=0,
+        )
+
+        inspector = GameInstallInspector.__new__(GameInstallInspector)
+        with patch("backend.managers.mgr_game_install.subprocess.run", return_value=completed) as run_mock, \
+             patch("backend.managers.mgr_game_install.sys.executable", "E:/RimModManager/RimModManager.exe"), \
+             patch("backend.managers.mgr_game_install.sys.frozen", True, create=True), \
+             patch("backend.managers.mgr_game_install.platform.system", return_value="Linux"):
+            result = inspector._probe_official_steam_api(str(install_root), str(steam_api), str(appid_path))
+
+        self.assertEqual(result, "official")
+        cmd = run_mock.call_args.args[0]
+        self.assertEqual(cmd[:3], ["E:/RimModManager/RimModManager.exe", "--steam-worker", "steam-api-probe"])
+        self.assertNotIn("-c", cmd)
+        decoded = json.loads(base64.urlsafe_b64decode(cmd[3] + "=" * (-len(cmd[3]) % 4)).decode("utf-8"))
+        self.assertEqual(decoded["install_path"], str(install_root))
+        self.assertEqual(decoded["steam_api_path"], str(steam_api))
+        self.assertEqual(decoded["steam_appid_path"], str(appid_path))
+        self.assertEqual(run_mock.call_args.kwargs["cwd"], str(install_root))
+        self.assertEqual(run_mock.call_args.kwargs["env"]["_PYI_SPLASH_IPC"], "0")
+        self.assertEqual(run_mock.call_args.kwargs["env"]["PYINSTALLER_SUPPRESS_SPLASH_SCREEN"], "1")
+
+    def test_steam_api_probe_worker_restores_appid_and_prints_marker(self):
+        install_root = self.temp_root / "RimWorld"
+        install_root.mkdir(parents=True, exist_ok=True)
+        steam_api = install_root / "steam_api64.dll"
+        steam_api.write_text("", encoding="utf-8")
+        appid_path = install_root / "steam_appid.txt"
+        appid_path.write_text("294100", encoding="utf-8")
+        payload = base64.urlsafe_b64encode(json.dumps({
+            "install_path": str(install_root),
+            "steam_api_path": str(steam_api),
+            "steam_appid_path": str(appid_path),
+        }).encode("utf-8")).decode("ascii").rstrip("=")
+
+        fake_loader = SimpleNamespace(
+            SteamAPI_Init=Mock(return_value=True),
+            SteamAPI_Shutdown=Mock(),
+        )
+        old_cwd = Path.cwd()
+        output = io.StringIO()
+        with patch("backend.managers.mgr_steam.ctypes.CDLL", return_value=fake_loader), redirect_stdout(output):
+            run_steam_worker("steam-api-probe", payload)
+
+        self.assertIn("STEAM_API_PROBE_RESULT:emulator", output.getvalue())
+        self.assertEqual(appid_path.read_text(encoding="utf-8"), "294100")
+        self.assertEqual(Path.cwd(), old_cwd)
+
+    def test_quick_inspect_uncached_path_runs_full_inspect_and_persists_result(self):
+        install_root = self.temp_root / "RimWorld"
+        plugin_dir = install_root / "RimWorldWin64_Data" / "Plugins" / "x86_64"
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        (install_root / "RimWorldWin64.exe").write_text("", encoding="utf-8")
+        (install_root / "steam_appid.txt").write_text("294100", encoding="utf-8")
+        (plugin_dir / "steam_api64.dll").write_text("", encoding="utf-8")
+        registry_path = self.temp_root / "known_game_installs.json"
+
+        with patch("backend.managers.mgr_game_install.GameInstallRegistry", side_effect=lambda: GameInstallRegistry(registry_path)), \
+             patch("backend.managers.mgr_game_install.platform.system", return_value="Windows"), \
+             patch.object(GameInstallInspector, "_probe_official_steam_api", return_value="emulator") as probe_mock:
+            facts = GameInstallInspector().quick_inspect(str(install_root))
+            cached = GameInstallRegistry(registry_path).get(str(install_root))
+
+        self.assertFalse(facts.is_steam)
+        self.assertEqual(facts.steam_api_probe, "emulator")
+        self.assertEqual(probe_mock.call_count, 1)
+        self.assertIsNotNone(cached)
+        self.assertFalse(cached.is_steam)
+
+    def test_quick_inspect_uses_cached_result_without_reprobing(self):
+        install_root = self.temp_root / "RimWorld"
+        registry_path = self.temp_root / "known_game_installs.json"
+        plugin_dir = install_root / "RimWorldWin64_Data" / "Plugins" / "x86_64"
+        plugin_dir.mkdir(parents=True, exist_ok=True)
+        (install_root / "RimWorldWin64.exe").write_text("", encoding="utf-8")
+        (install_root / "steam_appid.txt").write_text("294100", encoding="utf-8")
+        (plugin_dir / "steam_api64.dll").write_text("", encoding="utf-8")
+        GameInstallRegistry(registry_path).set(
+            GameInstallFacts(
+                install_path=str(install_root),
+                executable_path=str(install_root / "RimWorldWin64.exe"),
+                game_version="1.6.0",
+                is_steam=False,
+                is_steam_managed=False,
+                steam_api_path=str(plugin_dir / "steam_api64.dll"),
+                steam_appid_path=str(install_root / "steam_appid.txt"),
+                steam_api_probe="emulator",
+                signals=["steam_api_emulator"],
+                checked_at=123,
+            )
+        )
+
+        with patch("backend.managers.mgr_game_install.GameInstallRegistry", side_effect=lambda: GameInstallRegistry(registry_path)), \
+             patch("backend.managers.mgr_game_install.platform.system", return_value="Windows"), \
+             patch.object(GameInstallInspector, "_probe_official_steam_api", side_effect=AssertionError("probe should not run")):
+            facts = GameInstallInspector().quick_inspect(str(install_root))
+
+        self.assertFalse(facts.is_steam)
+        self.assertEqual(facts.steam_api_probe, "emulator")
+        self.assertIn("known_install_cache", facts.signals)
+
+    def test_inspector_init_prunes_invalid_cache_once_on_startup(self):
+        registry_path = self.temp_root / "known_game_installs.json"
+        registry_path.write_text(json.dumps({
+            "installs": {
+                "missing": {
+                    "install_path": str(self.temp_root / "missing-install"),
+                    "checked_at": 1,
+                }
+            }
+        }), encoding="utf-8")
+
+        with patch("backend.managers.mgr_game_install.GameInstallRegistry", side_effect=lambda: GameInstallRegistry(registry_path)):
+            GameInstallInspector()
+
+        self.assertEqual(json.loads(registry_path.read_text(encoding="utf-8")), {"installs": {}})
+
+
+class TestGameManager(unittest.TestCase):
+    def setUp(self):
+        self.temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.temp_root, ignore_errors=True)
+
+    def test_auto_detect_paths_finds_linux_default_steam_install(self):
+        fake_home = self.temp_root / "home"
+        install_root = fake_home / ".local" / "share" / "Steam" / "steamapps" / "common" / "RimWorld"
+        install_root.mkdir(parents=True, exist_ok=True)
+
+        with patch("backend.managers.mgr_game.platform.system", return_value="Linux"), \
+             patch("backend.paths.game_locations.os.path.expanduser", return_value=str(fake_home)), \
+             patch.object(GameManager, "_detect_userdata_path", return_value=""), \
+             patch.object(GameManager, "detect_executable", return_value=str(install_root / "RimWorldLinux")):
+            result = GameManager.auto_detect_paths()
+
+        self.assertEqual(result["game_install_path"], normalize_path_for_storage(install_root))
+
+    def test_auto_detect_paths_finds_macos_default_steam_install(self):
+        fake_home = self.temp_root / "home"
+        install_root = fake_home / "Library" / "Application Support" / "Steam" / "steamapps" / "common" / "RimWorld"
+        (install_root / "Mods").mkdir(parents=True, exist_ok=True)
+        install_root.mkdir(parents=True, exist_ok=True)
+
+        with patch("backend.managers.mgr_game.platform.system", return_value="Darwin"), \
+             patch("backend.paths.rimworld_layout.platform.system", return_value="Darwin"), \
+             patch("backend.paths.game_locations.os.path.expanduser", return_value=str(fake_home)), \
+             patch.object(GameManager, "_detect_userdata_path", return_value=""), \
+             patch.object(GameManager, "detect_executable", return_value=str(install_root / "RimWorldMac.app")):
+            result = GameManager.auto_detect_paths()
+
+        self.assertEqual(result["game_install_path"], normalize_path_for_storage(install_root))
+        self.assertEqual(result["local_mods_path"], normalize_path_for_storage(install_root / "Mods"))
+
+    def test_detect_executable_prefers_macos_app_bundle(self):
+        install_root = self.temp_root / "RimWorld"
+        bundle_root = install_root / "RimWorldMac.app"
+        bundle_root.mkdir(parents=True, exist_ok=True)
+
+        with patch("backend.managers.mgr_game.platform.system", return_value="Darwin"), \
+             patch("backend.paths.rimworld_layout.platform.system", return_value="Darwin"):
+            result = GameManager.detect_executable(str(install_root))
+
+        self.assertEqual(result, str(bundle_root))
+
+    def test_detect_executable_accepts_macos_bundle_input(self):
+        install_root = self.temp_root / "RimWorld"
+        bundle_root = install_root / "RimWorldMac.app"
+        bundle_root.mkdir(parents=True, exist_ok=True)
+
+        with patch("backend.managers.mgr_game.platform.system", return_value="Darwin"), \
+             patch("backend.paths.rimworld_layout.platform.system", return_value="Darwin"):
+            result = GameManager.detect_executable(str(bundle_root))
+
+        self.assertEqual(result, str(bundle_root))
+
+    def test_auto_detect_paths_uses_steam_libraryfolders_fallback(self):
+        steam_root = self.temp_root / "Steam"
+        library_root = self.temp_root / "LibraryA"
+        install_root = library_root / "steamapps" / "common" / "RimWorld"
+        workshop_root = library_root / "steamapps" / "workshop" / "content" / "294100"
+        install_root.mkdir(parents=True, exist_ok=True)
+        workshop_root.mkdir(parents=True, exist_ok=True)
+        config_dir = steam_root / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        library_path_for_vdf = str(library_root).replace("\\", "\\\\")
+        (config_dir / "libraryfolders.vdf").write_text(
+            '"libraryfolders"\n{\n'
+            f'    "0"\n    {{\n        "path" "{library_path_for_vdf}"\n        "apps"\n        {{\n            "294100" "1"\n        }}\n    }}\n'
+            '}\n',
+            encoding="utf-8",
+        )
+
+        with patch("backend.managers.mgr_game.platform.system", return_value="Windows"), \
+             patch("backend.managers.mgr_game.winreg", None), \
+             patch.object(GameManager, "_detect_userdata_path", return_value=""), \
+             patch.object(GameManager, "_detect_steam_root_candidates", return_value=[str(steam_root)]), \
+             patch.object(GameManager, "detect_executable", return_value=str(install_root / "RimWorldWin64.exe")):
+            result = GameManager.auto_detect_paths()
+
+        self.assertEqual(result["game_install_path"], normalize_path_for_storage(install_root))
+        self.assertEqual(result["workshop_mods_path"], normalize_path_for_storage(workshop_root))
+
+    def test_auto_detect_paths_skips_empty_default_install_before_libraryfolders(self):
+        steam_root = self.temp_root / "Steam"
+        empty_default = steam_root / "steamapps" / "common" / "RimWorld"
+        library_root = self.temp_root / "LibraryA"
+        install_root = library_root / "steamapps" / "common" / "RimWorld"
+        empty_default.mkdir(parents=True, exist_ok=True)
+        install_root.mkdir(parents=True, exist_ok=True)
+        config_dir = steam_root / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        library_path_for_vdf = str(library_root).replace("\\", "\\\\")
+        (config_dir / "libraryfolders.vdf").write_text(
+            '"libraryfolders"\n{\n'
+            f'    "0"\n    {{\n        "path" "{library_path_for_vdf}"\n        "apps"\n        {{\n            "294100" "1"\n        }}\n    }}\n'
+            '}\n',
+            encoding="utf-8",
+        )
+
+        def fake_detect_executable(path):
+            return str(install_root / "RimWorldWin64.exe") if Path(path) == install_root else None
+
+        with patch("backend.managers.mgr_game.platform.system", return_value="Windows"), \
+             patch("backend.managers.mgr_game.winreg", None), \
+             patch.object(GameManager, "_detect_userdata_path", return_value=""), \
+             patch.object(GameManager, "_detect_steam_root_candidates", return_value=[str(steam_root)]), \
+             patch.object(GameManager, "detect_executable", side_effect=fake_detect_executable):
+            result = GameManager.auto_detect_paths()
+
+        self.assertEqual(result["game_install_path"], normalize_path_for_storage(install_root))
+
+    def test_auto_detect_paths_uses_appmanifest_installdir_from_steam_library(self):
+        steam_root = self.temp_root / "Steam"
+        library_root = self.temp_root / "LibraryA"
+        install_root = library_root / "steamapps" / "common" / "RimWorldCustom"
+        workshop_root = library_root / "steamapps" / "workshop" / "content" / "294100"
+        install_root.mkdir(parents=True, exist_ok=True)
+        workshop_root.mkdir(parents=True, exist_ok=True)
+        (library_root / "steamapps").mkdir(parents=True, exist_ok=True)
+        (library_root / "steamapps" / "appmanifest_294100.acf").write_text(
+            '"AppState"\n{\n'
+            '    "appid" "294100"\n'
+            '    "installdir" "RimWorldCustom"\n'
+            '}\n',
+            encoding="utf-8",
+        )
+        config_dir = steam_root / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        library_path_for_vdf = str(library_root).replace("\\", "\\\\")
+        (config_dir / "libraryfolders.vdf").write_text(
+            '"libraryfolders"\n{\n'
+            f'    "0"\n    {{\n        "path" "{library_path_for_vdf}"\n        "apps"\n        {{\n            "294100" "1"\n        }}\n    }}\n'
+            '}\n',
+            encoding="utf-8",
+        )
+
+        with patch("backend.managers.mgr_game.platform.system", return_value="Windows"), \
+             patch("backend.managers.mgr_game.winreg", None), \
+             patch.object(GameManager, "_detect_userdata_path", return_value=""), \
+             patch.object(GameManager, "_detect_steam_root_candidates", return_value=[str(steam_root)]), \
+             patch.object(GameManager, "detect_executable", return_value=str(install_root / "RimWorldWin64.exe")):
+            result = GameManager.auto_detect_paths()
+
+        self.assertEqual(result["game_install_path"], normalize_path_for_storage(install_root))
+        self.assertEqual(result["workshop_mods_path"], normalize_path_for_storage(workshop_root))
+
+    def test_auto_detect_paths_supports_legacy_libraryfolders_value_format(self):
+        steam_root = self.temp_root / "Steam"
+        library_root = self.temp_root / "LibraryA"
+        install_root = library_root / "steamapps" / "common" / "RimWorld"
+        install_root.mkdir(parents=True, exist_ok=True)
+        (library_root / "steamapps" / "appmanifest_294100.acf").write_text(
+            '"AppState"\n{\n'
+            '    "appid" "294100"\n'
+            '    "installdir" "RimWorld"\n'
+            '}\n',
+            encoding="utf-8",
+        )
+        config_dir = steam_root / "config"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        library_path_for_vdf = str(library_root).replace("\\", "\\\\")
+        (config_dir / "libraryfolders.vdf").write_text(
+            '"libraryfolders"\n{\n'
+            f'    "1" "{library_path_for_vdf}"\n'
+            '}\n',
+            encoding="utf-8",
+        )
+
+        with patch("backend.managers.mgr_game.platform.system", return_value="Windows"), \
+             patch("backend.managers.mgr_game.winreg", None), \
+             patch.object(GameManager, "_detect_userdata_path", return_value=""), \
+             patch.object(GameManager, "_detect_steam_root_candidates", return_value=[str(steam_root)]), \
+             patch.object(GameManager, "detect_executable", return_value=str(install_root / "RimWorldWin64.exe")):
+            result = GameManager.auto_detect_paths()
+
+        self.assertEqual(result["game_install_path"], normalize_path_for_storage(install_root))
+
+
+class TestSteamManagerPlatformGuards(unittest.TestCase):
+    def setUp(self):
+        self.temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.temp_root, ignore_errors=True)
+
+    def test_read_windows_active_process_status_returns_default_when_winreg_unavailable(self):
+        manager = SteamManager.__new__(SteamManager)
+
+        with patch("backend.managers.mgr_steam.platform.system", return_value="Windows"), \
+             patch("backend.managers.mgr_steam.winreg", None):
+            result = SteamManager._read_windows_active_process_status(manager)
+
+        self.assertEqual(result, {
+            "pid": 0,
+            "active_user": 0,
+            "running": False,
+            "logged_in": False,
+        })
+
+    def test_get_steam_path_returns_none_when_all_candidates_unavailable(self):
+        manager = SteamManager.__new__(SteamManager)
+
+        with patch("backend.managers.mgr_steam.platform.system", return_value="Windows"), \
+             patch("backend.managers.mgr_steam.winreg", None), \
+             patch("backend.managers.mgr_steam.GameManager._detect_steam_root_candidates", return_value=[]), \
+             patch("backend.managers.mgr_steam.shutil.which", return_value=None):
+            result = SteamManager.get_steam_path(manager)
+
+        self.assertIsNone(result)
+
+    def test_get_steam_path_uses_default_candidate_when_registry_missing(self):
+        manager = SteamManager.__new__(SteamManager)
+        steam_root = self.temp_root / "Steam"
+        steam_root.mkdir(parents=True, exist_ok=True)
+        (steam_root / "steam.exe").write_text("", encoding="utf-8")
+
+        fake_winreg = SimpleNamespace(
+            HKEY_LOCAL_MACHINE=object(),
+            HKEY_CURRENT_USER=object(),
+            OpenKey=Mock(side_effect=OSError),
+            QueryValueEx=Mock(),
+        )
+
+        with patch("backend.managers.mgr_steam.platform.system", return_value="Windows"), \
+             patch("backend.managers.mgr_steam.winreg", fake_winreg), \
+             patch("backend.managers.mgr_steam.get_default_steam_root_candidates", return_value=[str(steam_root)]):
+            result = SteamManager.get_steam_path(manager)
+            result_with_exe = SteamManager.get_steam_path(manager, with_exe=True)
+
+        self.assertEqual(result, str(steam_root))
+        self.assertEqual(result_with_exe, str(steam_root / "steam.exe"))
+
+    def test_get_steam_path_returns_macos_root_and_executable(self):
+        manager = SteamManager.__new__(SteamManager)
+        steam_root = self.temp_root / "Steam"
+        steam_exe = steam_root / "Steam.app" / "Contents" / "MacOS" / "steam_osx"
+        steam_exe.parent.mkdir(parents=True, exist_ok=True)
+        steam_exe.write_text("", encoding="utf-8")
+
+        with patch("backend.managers.mgr_steam.platform.system", return_value="Darwin"), \
+             patch("backend.managers.mgr_steam.get_default_steam_root_candidates", return_value=[str(steam_root)]):
+            result = SteamManager.get_steam_path(manager)
+            result_with_exe = SteamManager.get_steam_path(manager, with_exe=True)
+
+        self.assertEqual(result, str(steam_root))
+        self.assertEqual(result_with_exe, str(steam_exe))
+
+    def test_launch_via_steam_client_reports_missing_executable_without_url_retry(self):
+        manager = SteamManager.__new__(SteamManager)
+        manager.steam_exe = ""
+
+        with patch("backend.managers.mgr_steam.platform.system", return_value="Darwin"), \
+              patch("backend.platform.runtime.subprocess.Popen") as popen:
+            result = SteamManager.launch_via_steam_client(manager, app_id="294100")
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["method"], "steam_client")
+        popen.assert_not_called()
+
+    def test_launch_via_steam_url_reports_system_dispatch_result(self):
+        manager = SteamManager.__new__(SteamManager)
+
+        with patch("backend.managers.mgr_steam.open_system_uri", return_value=True) as open_system_uri:
+            result = SteamManager.launch_via_steam_url(manager, app_id="294100")
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["method"], "steam_url")
+        open_system_uri.assert_called_once_with("steam://run/294100")
+
+
+class TestAppUpgradeMigrations(unittest.TestCase):
+    def test_migrate_profile_steam_runtime_flags_preserves_opt_out_and_workshop_when_detected_non_steam(self):
+        profile = SimpleNamespace(
+            id="profile-a",
+            game_install_path="D:/Games/RimWorld",
+            prefer_steam_launch=False,
+            use_workshop_mods=True,
+            is_steam=True,
+        )
+        updated_rows = []
+
+        class _UpdateQuery:
+            def __init__(self, payload):
+                self.payload = payload
+
+            def where(self, *_args, **_kwargs):
+                return self
+
+            def execute(self):
+                updated_rows.append(self.payload)
+                return 1
+
+        result = AppUpgradeResult()
+        with patch("backend.migrations.app_upgrade.settings.config", SimpleNamespace(steam_path="C:/Steam")), \
+             patch("backend.migrations.app_upgrade.GameInstallInspector.inspect", return_value=SimpleNamespace(is_steam=False)), \
+             patch("backend.migrations.app_upgrade.GameProfile.select", return_value=[profile]), \
+             patch("backend.migrations.app_upgrade.GameProfile.update", side_effect=lambda **payload: _UpdateQuery(payload)), \
+             patch("backend.migrations.app_upgrade.db.atomic", return_value=nullcontext()):
+            _migrate_profile_steam_runtime_flags(result)
+
+        self.assertEqual(len(updated_rows), 1)
+        self.assertFalse(updated_rows[0]["is_steam"])
+        self.assertFalse(updated_rows[0]["prefer_steam_launch"])
+        self.assertTrue(updated_rows[0]["use_workshop_mods"])
+
+    def test_migrate_profile_steam_runtime_flags_defaults_prefer_true_for_detected_steam(self):
+        profile = SimpleNamespace(
+            id="profile-a",
+            game_install_path="D:/Games/RimWorld",
+            prefer_steam_launch=None,
+            use_workshop_mods=True,
+            is_steam=False,
+        )
+        updated_rows = []
+
+        class _UpdateQuery:
+            def __init__(self, payload):
+                self.payload = payload
+
+            def where(self, *_args, **_kwargs):
+                return self
+
+            def execute(self):
+                updated_rows.append(self.payload)
+                return 1
+
+        result = AppUpgradeResult()
+        with patch("backend.migrations.app_upgrade.settings.config", SimpleNamespace(steam_path="C:/Steam")), \
+             patch("backend.migrations.app_upgrade.GameInstallInspector.inspect", return_value=SimpleNamespace(is_steam=True)), \
+             patch("backend.migrations.app_upgrade.GameProfile.select", return_value=[profile]), \
+             patch("backend.migrations.app_upgrade.GameProfile.update", side_effect=lambda **payload: _UpdateQuery(payload)), \
+             patch("backend.migrations.app_upgrade.db.atomic", return_value=nullcontext()):
+            _migrate_profile_steam_runtime_flags(result)
+
+        self.assertEqual(len(updated_rows), 1)
+        self.assertTrue(updated_rows[0]["is_steam"])
+        self.assertTrue(updated_rows[0]["prefer_steam_launch"])
+        self.assertFalse(updated_rows[0]["use_workshop_mods"])
+
+
+class TestPathNormalizationMigration(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_dir.cleanup)
+        db.init(str(Path(self.temp_dir.name) / "path-normalization-test.db"))
+        db.connect(reuse_if_open=True)
+        db.create_tables([SystemInfo, GameProfile, ModAsset])
+
+    def tearDown(self):
+        if not db.is_closed():
+            db.close()
+
+    def test_migration_normalizes_mod_asset_paths_and_merges_duplicate_hashes(self):
+        mod_dir = Path(self.temp_dir.name) / "Steam" / "steamapps" / "workshop" / "content" / "294100" / "123456"
+        mod_dir.mkdir(parents=True, exist_ok=True)
+        raw_path = str(mod_dir).replace(os.sep, "/")
+        normalized_path = normalize_path_for_storage(raw_path)
+        normalized_hash = generate_path_hash(normalized_path)
+
+        ModAsset.create(
+            path_hash=normalized_hash,
+            package_id="author.demo",
+            name="Sparse",
+            path=normalized_path,
+            state=MOD_ASSET_STATE_MISSING,
+            gallery_paths=[str(mod_dir / "About" / "Preview.png")],
+        )
+        ModAsset.create(
+            path_hash="legacy-hash",
+            package_id="author.demo",
+            name="Complete",
+            path=raw_path,
+            state=MOD_ASSET_STATE_PRESENT,
+            description="More complete record",
+            gallery_paths=[str(mod_dir / "About" / "Preview.png").replace(os.sep, "/")],
+            shadow_paths=[str(mod_dir / "About.xml.disabled").replace(os.sep, "/")],
+            last_seen_at=10,
+            last_scanned_at=20,
+        )
+
+        with patch("backend.migrations.path_normalization.settings.save"):
+            result = run_path_normalization_migration()
+
+        self.assertEqual(result.asset_updates, 1)
+        self.assertEqual(result.asset_merges, 1)
+        self.assertEqual(ModAsset.select().count(), 1)
+        merged = ModAsset.get_by_id(normalized_hash)
+        self.assertEqual(merged.path, normalized_path)
+        self.assertEqual(merged.name, "Complete")
+        self.assertEqual(merged.state, MOD_ASSET_STATE_PRESENT)
+        self.assertEqual(merged.gallery_paths, [normalize_path_for_storage(mod_dir / "About" / "Preview.png")])
+        self.assertEqual(merged.shadow_paths, [normalize_path_for_storage(mod_dir / "About.xml.disabled")])
+        marker = SystemInfo.get_by_id(PATH_NORMALIZATION_INFO_KEY)
+        self.assertEqual(marker.value, PATH_NORMALIZATION_VERSION)
+
+
+class TestModAnalyzer(unittest.TestCase):
+    def setUp(self):
+        self.analyzer = ModAnalyzer()
+        self.temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.temp_root, ignore_errors=True)
+
+    def _build_info(self, **file_stats):
+        stats = {
+            "code_dll": 0,
+            "game_xml": 0,
+            "patch_xml": 0,
+            "lang_xml": 0,
+            "image": 0,
+            "audio": 0,
+        }
+        stats.update(file_stats)
+        return {
+            "mod_type": "Unknown",
+            "supported_languages": set(),
+            "file_stats": stats,
+            "has_assemblies": False,
+            "has_defs": stats["game_xml"] > 0,
+            "has_tip": False,
+        }
+
+    def _write_file(self, relative_path, content="<root />"):
+        path = self.temp_root / relative_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        return path
+
+    def test_finalize_keeps_tip_based_language_pack(self):
+        info = self._build_info(game_xml=1, lang_xml=3)
+        info["has_tip"] = True
+
+        result = self.analyzer._finalize(info)
+
+        self.assertEqual(result["mod_type"], "LanguagePack")
+
+    def test_finalize_mixed_requires_game_xml_image_and_audio(self):
+        mixed_info = self._build_info(game_xml=2, image=6, audio=3)
+        resource_only_info = self._build_info(image=6, audio=3)
+
+        mixed_result = self.analyzer._finalize(mixed_info)
+        resource_only_result = self.analyzer._finalize(resource_only_info)
+
+        self.assertEqual(mixed_result["mod_type"], "Mixed")
+        self.assertEqual(resource_only_result["mod_type"], "Unknown")
+
+    def test_analyze_prefers_loadfolders_max_version_and_broadest_path(self):
+        self._write_file("mod/Defs/base.xml")
+        self._write_file("mod/Cont/Common/Patches/common.xml")
+        self._write_file("mod/Cont/1.5/Patches/legacy.xml")
+        self._write_file("mod/Cont/1.6/NotDLC/Patches/not_dlc.xml")
+        self._write_file("mod/Cont/1.6/DLC/Patches/dlc.xml")
+        self._write_file("mod/Cont/1.6/NotDLC/Languages/English/Keyed/lang.xml")
+        self._write_file("mod/Cont/1.6/DLC/Languages/ChineseSimplified/Keyed/lang.xml")
+        self._write_file(
+            "mod/LoadFolders.xml",
+            """<?xml version="1.0" encoding="utf-8"?>
+<loadFolders>
+    <v1.5>
+        <li>/</li>
+        <li>Cont</li>
+        <li IfModActive="Example.Old">Cont/1.5</li>
+    </v1.5>
+    <v1.6>
+        <li>/</li>
+        <li>Cont</li>
+        <li IfModNotActive="Ludeon.RimWorld.Odyssey">Cont/1.6/NotDLC</li>
+        <li IfModActive="Ludeon.RimWorld.Odyssey">Cont/1.6/DLC</li>
+    </v1.6>
+</loadFolders>
+""",
+        )
+
+        result = self.analyzer.analyze(str(self.temp_root / "mod"))
+
+        self.assertEqual(result["file_stats"]["game_xml"], 1)
+        self.assertEqual(result["file_stats"]["patch_xml"], 2)
+        self.assertEqual(result["file_stats"]["lang_xml"], 1)
+        self.assertIn("en", result["supported_languages"])
+        self.assertNotIn("zh-cn", result["supported_languages"])
+
+    def test_analyze_falls_back_to_real_directory_versions_when_loadfolders_invalid(self):
+        self._write_file("broken/Defs/base.xml")
+        self._write_file("broken/1.5/Patches/legacy.xml")
+        self._write_file("broken/1.6/Patches/current.xml")
+        self._write_file("broken/LoadFolders.xml", "<loadFolders>")
+
+        result = self.analyzer.analyze(str(self.temp_root / "broken"))
+
+        self.assertEqual(result["file_stats"]["game_xml"], 1)
+        self.assertEqual(result["file_stats"]["patch_xml"], 1)
+
+
+class TestModScanner(unittest.TestCase):
+    def test_dlc_without_package_id_uses_fallback_id(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        install_dir = temp_root / "install"
+        dlc_dir = install_dir / "Data" / "Core"
+        dlc_dir.mkdir(parents=True)
+
+        context = ProfileContext(
+            profile_id="profile-a",
+            game_version="1.5.4100",
+            game_install_path=str(install_dir),
+            user_data_path=str(temp_root / "userdata"),
+            prefer_steam_launch=False,
+            use_workshop_mods=False,
+            use_self_mods=False,
+        )
+        scanner = ModScanner(context)
+        scanner.xml_parser = Mock()
+        scanner.xml_parser.parse.return_value = {"package_id": "", "url": "", "icon_path": ""}
+        scanner.analyzer = Mock()
+        scanner.analyzer.analyze.return_value = {
+            "supported_languages": [],
+            "file_stats": {},
+            "mod_type": "expansion",
+        }
+        scanner._resolve_workshop_id = Mock(return_value=None)
+        scanner._resolve_images = Mock(return_value=("", ""))
+
+        about_state = SimpleNamespace(resolved_path=None, is_disabled=False)
+        with patch("backend.scanner.mod_scanner.ModAnalyzer.resolve_mod_about_state", return_value=about_state):
+            mod_data = scanner._process_single_mod(
+                str(dlc_dir),
+                True,
+                existing_snapshots={},
+                dlc_parser=None,
+                forced_update=False,
+            )
+
+        self.assertIsNotNone(mod_data)
+        self.assertEqual(mod_data["package_id"], "ludeon.rimworld")
+        self.assertEqual(mod_data["source"], "core")
+
+    def test_scan_paths_task_does_not_treat_macos_resources_data_as_official_dlc_root(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        install_root = temp_root / "RimWorld"
+        official_data_root = install_root / "RimWorldMac.app" / "Data"
+        resource_data_root = install_root / "RimWorldMac.app" / "Contents" / "Resources" / "Data"
+        (official_data_root / "Core").mkdir(parents=True, exist_ok=True)
+        (resource_data_root / "Core").mkdir(parents=True, exist_ok=True)
+
+        context = ProfileContext(
+            profile_id="profile-a",
+            game_version="1.5.4100",
+            game_install_path=str(install_root),
+            user_data_path=str(temp_root / "userdata"),
+            prefer_steam_launch=False,
+            use_workshop_mods=False,
+            use_self_mods=False,
+        )
+        scanner = ModScanner(context)
+        scanner._process_single_mod = Mock(return_value=None)
+
+        with patch("backend.scanner.mod_scanner.db.connect"), \
+             patch("backend.scanner.mod_scanner.db.atomic", return_value=nullcontext()), \
+             patch("backend.scanner.mod_scanner.db.is_closed", return_value=True), \
+             patch("backend.scanner.mod_scanner.ModMaintenanceDAO.find_missing_mods", return_value={"deleted_mods": []}), \
+             patch("backend.scanner.mod_scanner.ModMaintenanceDAO.clean_invalid_shadow_paths", return_value=0), \
+             patch("backend.scanner.mod_scanner.SteamManager") as steam_manager_cls, \
+             patch("backend.scanner.mod_scanner.ModDAO.get_mod_snapshots", return_value={}), \
+             patch("backend.scanner.mod_scanner.ModDAO.batch_upsert_mods"), \
+             patch("backend.scanner.mod_scanner.ModDAO.batch_update_mods"), \
+             patch("backend.scanner.mod_scanner.ModDAO.batch_update_shadow_paths"), \
+             patch("backend.scanner.mod_scanner.ModDAO.get_profile_conflict_analysis", return_value={"hard_conflicts": [], "coexistences": []}), \
+             patch("backend.scanner.mod_scanner.DLCParser"), \
+             patch("backend.scanner.mod_scanner.ModAnalyzer.resolve_mod_about_state", return_value=SimpleNamespace(resolved_path="", is_disabled=False)), \
+             patch("backend.scanner.mod_scanner.EventBus.emit_progress"), \
+             patch("backend.scanner.mod_scanner.EventBus.emit"), \
+             patch("backend.paths.rimworld_layout.platform.system", return_value="Darwin"):
+            steam_manager_cls.return_value.reconcile_steamcmd_acf = Mock()
+            scanner._scan_paths_task(
+                "task-resource-data",
+                [str(resource_data_root)],
+                forced_update=True,
+                size_check_override=True,
+                size_check_paths=None,
+                residue_scan_enabled=False,
+            )
+
+        scanner._process_single_mod.assert_called_once()
+        self.assertFalse(scanner._process_single_mod.call_args.args[1])
+
+    def test_gitlab_and_gitgud_urls_use_git_repo_source(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        install_dir = temp_root / "install"
+        mod_dir = install_dir / "Mods" / "_GH_repo"
+        about_file = mod_dir / "About" / "About.xml"
+        about_file.parent.mkdir(parents=True)
+        about_file.write_text("<ModMetaData />", encoding="utf-8")
+        context = ProfileContext(
+            profile_id="profile-a",
+            game_version="1.5.4100",
+            game_install_path=str(install_dir),
+            user_data_path=str(temp_root / "userdata"),
+            prefer_steam_launch=False,
+            use_workshop_mods=False,
+            use_self_mods=True,
+        )
+
+        for url in ("https://gitlab.com/group/subgroup/repo", "https://gitgud.io/Ed86/rjw"):
+            with self.subTest(url=url):
+                scanner = ModScanner(context)
+                scanner.xml_parser = Mock()
+                scanner.xml_parser.parse.return_value = {"package_id": "author.mod", "url": url, "icon_path": ""}
+                scanner.analyzer = Mock()
+                scanner.analyzer.analyze.return_value = {
+                    "supported_languages": [],
+                    "file_stats": {},
+                    "mod_type": "mod",
+                }
+                scanner._resolve_workshop_id = Mock(return_value=None)
+                scanner._resolve_images = Mock(return_value=("", ""))
+
+                about_state = SimpleNamespace(resolved_path=str(about_file), is_disabled=False)
+                with patch("backend.scanner.mod_scanner.ModAnalyzer.resolve_mod_about_state", return_value=about_state):
+                    mod_data = scanner._process_single_mod(
+                        str(mod_dir),
+                        False,
+                        existing_snapshots={},
+                        dlc_parser=None,
+                        forced_update=False,
+                    )
+
+                self.assertIsNotNone(mod_data)
+                self.assertEqual(mod_data["source"], "github")
+
+    def test_process_single_mod_stores_native_absolute_path_from_forward_slashes(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        install_dir = temp_root / "install"
+        mod_dir = install_dir / "Mods" / "DemoMod"
+        about_file = mod_dir / "About" / "About.xml"
+        about_file.parent.mkdir(parents=True)
+        about_file.write_text("<ModMetaData />", encoding="utf-8")
+        context = ProfileContext(
+            profile_id="profile-a",
+            game_version="1.5.4100",
+            game_install_path=str(install_dir),
+            user_data_path=str(temp_root / "userdata"),
+            prefer_steam_launch=False,
+            use_workshop_mods=False,
+            use_self_mods=False,
+        )
+        scanner = ModScanner(context)
+        scanner.xml_parser = Mock(return_value=None)
+        scanner.xml_parser.parse.return_value = {"package_id": "author.demo", "url": "", "icon_path": ""}
+        scanner.analyzer = Mock()
+        scanner.analyzer.analyze.return_value = {
+            "supported_languages": [],
+            "file_stats": {},
+            "mod_type": "mod",
+        }
+        scanner._resolve_workshop_id = Mock(return_value=None)
+        scanner._resolve_images = Mock(return_value=("", ""))
+
+        raw_mod_path = str(mod_dir).replace(os.sep, "/")
+        about_state = SimpleNamespace(resolved_path=str(about_file), is_disabled=False)
+        with patch("backend.scanner.mod_scanner.ModAnalyzer.resolve_mod_about_state", return_value=about_state):
+            mod_data = scanner._process_single_mod(
+                raw_mod_path,
+                False,
+                existing_snapshots={},
+                dlc_parser=None,
+                forced_update=True,
+            )
+
+        self.assertEqual(mod_data["path"], normalize_path_for_storage(raw_mod_path))
+        self.assertEqual(mod_data["path_hash"], generate_path_hash(mod_data["path"]))
+
+    def test_finish_scan_normalizes_terminal_payload(self):
+        scanner = ModScanner(SimpleNamespace(profile_id="profile-a"))
+
+        with patch("backend.scanner.mod_scanner.EventBus.emit") as emit:
+            scanner._finish_scan({"status": "error", "message": "boom"}, "task-1")
+
+        emit.assert_called_once()
+        event_name, payload = emit.call_args.args
+        self.assertEqual(event_name, "scan-complete")
+        self.assertEqual(payload["task_id"], "task-1")
+        self.assertEqual(payload["id"], "task-1")
+        self.assertEqual(payload["type"], "scan")
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["progress"], 0)
+        self.assertEqual(payload["message"], "boom")
+        self.assertEqual(payload["metrics"], {})
+
+    def test_handle_interruption_emits_only_standard_complete_payload(self):
+        scanner = ModScanner(SimpleNamespace(profile_id="profile-a"))
+        scanner._is_scanning = True
+
+        with patch("backend.scanner.mod_scanner.EventBus.emit_progress") as emit_progress, \
+             patch("backend.scanner.mod_scanner.EventBus.emit") as emit:
+            scanner._handle_interruption("task-2")
+
+        emit_progress.assert_not_called()
+        emit.assert_called_once()
+        event_name, payload = emit.call_args.args
+        self.assertEqual(event_name, "scan-complete")
+        self.assertEqual(payload["task_id"], "task-2")
+        self.assertEqual(payload["status"], "cancelled")
+        self.assertEqual(payload["type"], "scan")
+        self.assertEqual(payload["id"], "task-2")
+        self.assertEqual(payload["progress"], 0)
+
+    def test_scan_paths_async_resets_state_when_submit_fails(self):
+        scanner = ModScanner(SimpleNamespace(profile_id="profile-a"))
+        scanner.executor = Mock()
+        scanner.executor.submit.side_effect = RuntimeError("pool closed")
+
+        with patch("backend.scanner.mod_scanner.EventBus.emit") as emit:
+            with self.assertRaises(RuntimeError):
+                scanner.scan_paths_async(["unused"])
+
+        self.assertFalse(scanner.is_scanning)
+        self.assertIsNone(scanner._current_task_id)
+        scan_complete_calls = [call for call in emit.call_args_list if call.args[0] == "scan-complete"]
+        self.assertEqual(len(scan_complete_calls), 1)
+        self.assertEqual(scan_complete_calls[0].args[1]["status"], "failed")
+
+    def test_scan_paths_task_reports_failure_when_db_connect_fails(self):
+        scanner = ModScanner(SimpleNamespace(profile_id="profile-a"))
+        scanner._is_scanning = True
+        scanner._current_task_id = "task-db"
+
+        with patch("backend.scanner.mod_scanner.db.connect", side_effect=RuntimeError("db down")), \
+             patch("backend.scanner.mod_scanner.db.is_closed", return_value=True), \
+             patch("backend.scanner.mod_scanner.EventBus.emit_progress") as emit_progress, \
+             patch("backend.scanner.mod_scanner.EventBus.emit") as emit:
+            scanner._scan_paths_task("task-db", ["unused"])
+
+        self.assertFalse(scanner.is_scanning)
+        self.assertIsNone(scanner._current_task_id)
+        emit_progress.assert_not_called()
+        event_name, payload = emit.call_args.args
+        self.assertEqual(event_name, "scan-complete")
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["metrics"]["stage"], "connect_db")
+
+    def test_scan_paths_task_reports_failure_when_prepare_cleanup_fails(self):
+        scanner = ModScanner(SimpleNamespace(profile_id="profile-a"))
+        scanner._is_scanning = True
+        scanner._current_task_id = "task-prepare"
+        txn = Mock()
+
+        with patch("backend.scanner.mod_scanner.db.connect"), \
+             patch("backend.scanner.mod_scanner.db.atomic", return_value=nullcontext(txn)), \
+             patch("backend.scanner.mod_scanner.db.is_closed", return_value=True), \
+             patch("backend.scanner.mod_scanner.SteamManager") as steam_manager_cls, \
+             patch("backend.scanner.mod_scanner.EventBus.emit_progress") as emit_progress, \
+             patch("backend.scanner.mod_scanner.EventBus.emit") as emit:
+            steam_manager_cls.return_value.workshop_merged_data.side_effect = RuntimeError("acf broken")
+
+            scanner._scan_paths_task("task-prepare", ["unused"])
+
+        self.assertFalse(scanner.is_scanning)
+        self.assertIsNone(scanner._current_task_id)
+        self.assertTrue(all(call.kwargs.get("status") in {"running", "pending"} for call in emit_progress.call_args_list))
+        event_name, payload = emit.call_args.args
+        self.assertEqual(event_name, "scan-complete")
+        self.assertEqual(payload["status"], "failed")
+        self.assertEqual(payload["message"], "扫描失败。请检查搜索路径、数据库状态和文件权限后重试。")
+        self.assertNotIn("acf broken", payload["message"])
+        self.assertEqual(payload["metrics"]["stage"], "prepare_cleanup")
+
+    def test_scan_paths_task_reports_failed_complete_for_no_valid_paths(self):
+        scanner = ModScanner(SimpleNamespace(profile_id="profile-a", game_dlc_path="", game_install_path=""))
+        scanner._is_scanning = True
+        scanner._current_task_id = "task-empty"
+
+        with patch("backend.scanner.mod_scanner.db.connect"), \
+             patch("backend.scanner.mod_scanner.db.atomic", return_value=nullcontext(Mock())), \
+             patch("backend.scanner.mod_scanner.db.is_closed", return_value=True), \
+             patch("backend.scanner.mod_scanner.SteamManager") as steam_manager_cls, \
+             patch("backend.scanner.mod_scanner.ModMaintenanceDAO.find_missing_mods", return_value={"missing_mods": [], "deleted_mods": []}), \
+             patch("backend.scanner.mod_scanner.ModMaintenanceDAO.clean_invalid_shadow_paths", return_value=0), \
+             patch("backend.scanner.mod_scanner.EventBus.emit_progress"), \
+             patch("backend.scanner.mod_scanner.EventBus.emit") as emit:
+            steam_manager_cls.return_value.workshop_merged_data.return_value = {}
+            steam_manager_cls.return_value.reconcile_steamcmd_acf = Mock()
+
+            scanner._scan_paths_task("task-empty", [""])
+
+        event_name, payload = emit.call_args.args
+        self.assertEqual(event_name, "scan-complete")
+        self.assertEqual(payload["status"], "failed")
+
+    def test_process_single_mod_uses_size_check_for_target_path_only(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        install_dir = temp_root / "install"
+        mod_dir = install_dir / "Mods" / "DemoMod"
+        about_file = mod_dir / "About" / "About.xml"
+        about_file.parent.mkdir(parents=True)
+        about_file.write_text("<ModMetaData />", encoding="utf-8")
+        mod_path = normalize_path_for_storage(str(mod_dir))
+        stat = about_file.stat()
+        snapshot = {
+            "package_id": "author.demo",
+            "workshop_id": "",
+            "name": "Demo Mod",
+            "version": "",
+            "store": "local",
+            "supported_versions": [],
+            "mtime": int(stat.st_mtime * 1000),
+            "size": 100,
+            "disabled": False,
+            "state": "present",
+            "path": mod_path,
+        }
+        context = ProfileContext(
+            profile_id="profile-a",
+            game_version="1.5.4100",
+            game_install_path=str(install_dir),
+            user_data_path=str(temp_root / "userdata"),
+            prefer_steam_launch=False,
+            use_workshop_mods=False,
+            use_self_mods=False,
+        )
+        scanner = ModScanner(context)
+        scanner.xml_parser = Mock()
+        scanner.xml_parser.parse.return_value = {"package_id": "author.demo", "url": "", "icon_path": ""}
+        scanner.analyzer = Mock()
+        scanner.analyzer.analyze.return_value = {
+            "supported_languages": [],
+            "file_stats": {},
+            "mod_type": "mod",
+        }
+        scanner._resolve_workshop_id = Mock(return_value=None)
+        scanner._resolve_images = Mock(return_value=("", ""))
+        about_state = SimpleNamespace(resolved_path=str(about_file), is_disabled=False)
+
+        config = SimpleNamespace(
+            enable_file_size_scan=False,
+            workshop_mods_path=str(temp_root / "workshop"),
+            self_mods_path=str(temp_root / "selfmods"),
+        )
+        with patch("backend.scanner.mod_scanner.settings.config", config), \
+             patch("backend.scanner.mod_scanner.ModAnalyzer.resolve_mod_about_state", return_value=about_state), \
+             patch("backend.scanner.mod_scanner.get_folder_size", return_value=200) as get_size:
+            mod_data = scanner._process_single_mod(
+                str(mod_dir),
+                False,
+                existing_snapshots={generate_path_hash(mod_path): snapshot},
+                dlc_parser=None,
+                forced_update=False,
+                size_check_override=None,
+                size_check_paths={mod_path},
+            )
+
+        get_size.assert_called()
+        scanner.xml_parser.parse.assert_called_once()
+        self.assertEqual(mod_data["file_size"], 200)
+
+    def test_scan_paths_task_accepts_single_mod_directory(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        mod_dir = temp_root / "Workshop" / "123456"
+        about_file = mod_dir / "About" / "About.xml"
+        about_file.parent.mkdir(parents=True)
+        about_file.write_text("<ModMetaData />", encoding="utf-8")
+
+        context = SimpleNamespace(profile_id="profile-a", game_dlc_path=str(temp_root / "Data"))
+        scanner = ModScanner(context)
+        mod_result = {
+            "package_id": "author.demo",
+            "path_hash": generate_path_hash(str(mod_dir)),
+            "path": str(mod_dir),
+            "disabled": False,
+            "is_new": True,
+        }
+        scanner._process_single_mod = Mock(return_value=mod_result)
+
+        about_state = SimpleNamespace(resolved_path=str(about_file), is_disabled=False)
+        with patch("backend.scanner.mod_scanner.db.connect"), \
+             patch("backend.scanner.mod_scanner.db.atomic", return_value=nullcontext()), \
+             patch("backend.scanner.mod_scanner.db.is_closed", return_value=True), \
+             patch("backend.scanner.mod_scanner.ModMaintenanceDAO.find_missing_mods", return_value={"deleted_mods": []}), \
+             patch("backend.scanner.mod_scanner.ModMaintenanceDAO.clean_invalid_shadow_paths", return_value=0), \
+             patch("backend.scanner.mod_scanner.SteamManager") as steam_manager_cls, \
+             patch("backend.scanner.mod_scanner.ModDAO.get_mod_snapshots", return_value={}), \
+             patch("backend.scanner.mod_scanner.ModDAO.batch_upsert_mods"), \
+             patch("backend.scanner.mod_scanner.ModDAO.batch_update_mods"), \
+             patch("backend.scanner.mod_scanner.ModDAO.batch_update_shadow_paths"), \
+             patch("backend.scanner.mod_scanner.ModDAO.get_profile_conflict_analysis", return_value={"hard_conflicts": [], "coexistences": []}), \
+             patch("backend.scanner.mod_scanner.DLCParser"), \
+             patch("backend.scanner.mod_scanner.ModAnalyzer.resolve_mod_about_state", return_value=about_state), \
+             patch("backend.scanner.mod_scanner.EventBus.emit_progress"), \
+             patch("backend.scanner.mod_scanner.EventBus.emit"):
+            steam_manager_cls.return_value.reconcile_steamcmd_acf = Mock()
+            scanner._scan_paths_task(
+                "task-single",
+                [str(mod_dir)],
+                forced_update=True,
+                size_check_override=True,
+                size_check_paths=None,
+                residue_scan_enabled=False,
+            )
+
+        scanner._process_single_mod.assert_called_once()
+        self.assertEqual(scanner._process_single_mod.call_args.args[0], normalize_path_for_storage(str(mod_dir)))
+
+
+class TestProfileConflictAnalysis(unittest.TestCase):
+    def test_conflict_analysis_ignores_disabled_domain_assets(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        install_dir = temp_root / "install"
+        context = ProfileContext(
+            profile_id="profile-a",
+            game_version="1.5.4100",
+            game_install_path=str(install_dir),
+            user_data_path=str(temp_root / "userdata"),
+            prefer_steam_launch=False,
+            use_workshop_mods=True,
+            use_self_mods=False,
+        )
+
+        workshop_root = temp_root / "workshop"
+        self_root = temp_root / "selfmods"
+        workshop_path = workshop_root / "123456"
+        self_path = self_root / "123456"
+
+        assets = [
+            {
+                "package_id": "Author.Mod",
+                "path": str(workshop_path),
+                "name": "Workshop Copy",
+                "disabled": False,
+            },
+            {
+                "package_id": "Author.Mod",
+                "path": str(self_path),
+                "name": "Self Copy",
+                "disabled": False,
+            },
+            {
+                "package_id": "Author.Mod",
+                "path": str(self_root / "123456_dup"),
+                "name": "Self Duplicate",
+                "disabled": False,
+            },
+        ]
+
+        config = SimpleNamespace(
+            workshop_mods_path=str(workshop_root),
+            self_mods_path=str(self_root),
+            enable_tool_mods=False,
+        )
+        with patch("backend.database.dao.settings.config", config):
+            analysis = ModDAO.get_profile_conflict_analysis(context, assets=assets)
+
+        self.assertEqual(analysis["hard_conflicts"], [])
+        self.assertEqual(analysis["coexistences"], [])
+        self.assertEqual(analysis["deploy_paths"], [str(workshop_path)])
+
+    def test_conflict_analysis_reports_active_coexistence_and_prefers_self_deploy(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        install_dir = temp_root / "install"
+        context = ProfileContext(
+            profile_id="profile-a",
+            game_version="1.5.4100",
+            game_install_path=str(install_dir),
+            user_data_path=str(temp_root / "userdata"),
+            prefer_steam_launch=False,
+            use_workshop_mods=True,
+            use_self_mods=True,
+        )
+
+        workshop_root = temp_root / "workshop"
+        self_root = temp_root / "selfmods"
+        workshop_path = workshop_root / "123456"
+        self_path = self_root / "123456"
+
+        assets = [
+            {
+                "package_id": "Author.Mod",
+                "path": str(workshop_path),
+                "name": "Workshop Copy",
+                "disabled": False,
+            },
+            {
+                "package_id": "Author.Mod",
+                "path": str(self_path),
+                "name": "Self Copy",
+                "disabled": False,
+            },
+        ]
+
+        config = SimpleNamespace(
+            workshop_mods_path=str(workshop_root),
+            self_mods_path=str(self_root),
+            enable_tool_mods=False,
+        )
+        with patch("backend.database.dao.settings.config", config):
+            analysis = ModDAO.get_profile_conflict_analysis(context, assets=assets)
+
+        self.assertEqual(analysis["hard_conflicts"], [])
+        self.assertEqual(len(analysis["coexistences"]), 1)
+        self.assertEqual(
+            [item["path"] for item in analysis["coexistences"][0]["items"]],
+            [str(self_path), str(workshop_path)],
+        )
+        self.assertEqual(analysis["deploy_paths"], [str(self_path)])
+
+    def test_hard_conflict_defaults_to_no_deploy(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        install_dir = temp_root / "install"
+        context = ProfileContext(
+            profile_id="profile-a",
+            game_version="1.5.4100",
+            game_install_path=str(install_dir),
+            user_data_path=str(temp_root / "userdata"),
+            prefer_steam_launch=False,
+            use_workshop_mods=False,
+            use_self_mods=True,
+        )
+
+        self_root = temp_root / "selfmods"
+        same_parent = self_root / "dup_group"
+        first_path = same_parent / "copy_a"
+        second_path = same_parent / "copy_b"
+
+        assets = [
+            {
+                "package_id": "Author.Mod",
+                "path": str(first_path),
+                "name": "Self Copy A",
+                "disabled": False,
+            },
+            {
+                "package_id": "Author.Mod",
+                "path": str(second_path),
+                "name": "Self Copy B",
+                "disabled": False,
+            },
+        ]
+
+        config = SimpleNamespace(
+            workshop_mods_path=str(temp_root / "workshop"),
+            self_mods_path=str(self_root),
+            enable_tool_mods=False,
+        )
+        with patch("backend.database.dao.settings.config", config):
+            analysis = ModDAO.get_profile_conflict_analysis(context, assets=assets)
+
+        self.assertEqual(len(analysis["hard_conflicts"]), 1)
+        self.assertEqual(analysis["coexistences"], [])
+        self.assertEqual(analysis["deploy_paths"], [])
+
+    def test_prefer_steam_launch_includes_workshop_in_detection_but_not_deploy(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        install_dir = temp_root / "install"
+        context = ProfileContext(
+            profile_id="profile-a",
+            game_version="1.5.4100",
+            game_install_path=str(install_dir),
+            user_data_path=str(temp_root / "userdata"),
+            prefer_steam_launch=True,
+            use_workshop_mods=False,
+            use_self_mods=False,
+            is_steam=True,
+        )
+
+        local_root = install_dir / "Mods"
+        workshop_root = temp_root / "workshop"
+        local_path = local_root / "Author.Mod"
+        workshop_path = workshop_root / "123456"
+
+        assets = [
+            {
+                "package_id": "Author.Mod",
+                "path": str(local_path),
+                "name": "Local Copy",
+                "disabled": False,
+            },
+            {
+                "package_id": "Author.Mod",
+                "path": str(workshop_path),
+                "name": "Workshop Copy",
+                "disabled": False,
+            },
+        ]
+
+        config = SimpleNamespace(
+            workshop_mods_path=str(workshop_root),
+            self_mods_path=str(temp_root / "selfmods"),
+            enable_tool_mods=False,
+        )
+        with patch("backend.database.dao.settings.config", config):
+            analysis = ModDAO.get_profile_conflict_analysis(context, assets=assets)
+
+        self.assertEqual(analysis["hard_conflicts"], [])
+        self.assertEqual(len(analysis["coexistences"]), 1)
+        self.assertEqual(analysis["deploy_paths"], [])
+
+    def test_get_profile_mods_attaches_workshop_coexist_variant(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        install_dir = temp_root / "install"
+        context = ProfileContext(
+            profile_id="profile-a",
+            game_version="1.5.4100",
+            game_install_path=str(install_dir),
+            user_data_path=str(temp_root / "userdata"),
+            prefer_steam_launch=False,
+            use_workshop_mods=True,
+            use_self_mods=False,
+        )
+
+        local_root = install_dir / "Mods"
+        workshop_root = temp_root / "workshop"
+        local_path = local_root / "Author.Mod"
+        workshop_path = workshop_root / "123456"
+
+        config = SimpleNamespace(
+            workshop_mods_path=str(workshop_root),
+            self_mods_path=str(temp_root / "selfmods"),
+            enable_tool_mods=False,
+        )
+        assets = [
+            {
+                "package_id": "Author.Mod",
+                "path": str(local_path),
+                "name": "Local Copy",
+                "disabled": False,
+                "file_modify_time": 300,
+                "file_size": 1024,
+                "file_stats": {"game_xml": 8, "patch_xml": 1, "code_dll": 0},
+            },
+            {
+                "package_id": "Author.Mod",
+                "path": str(workshop_path),
+                "name": "Workshop Copy",
+                "disabled": False,
+                "file_modify_time": 200,
+                "file_size": 1024,
+                "file_stats": {"game_xml": 8, "patch_xml": 1, "code_dll": 0},
+            },
+        ]
+
+        with patch("backend.database.dao.settings.config", config), \
+             patch("backend.database.dao._load_group_names_by_mod_id", return_value={}), \
+             patch("backend.database.dao.ModAsset.select") as select_mock:
+            select_mock.return_value.join.return_value.where.return_value.dicts.return_value = assets
+            mods = ModDAO.get_profile_mods(context)
+
+        self.assertEqual(len(mods), 1)
+        self.assertEqual(mods[0]["path"], str(local_path))
+        self.assertTrue(mods[0]["is_coexistence"])
+        self.assertEqual(mods[0]["coexist_sync_state"], "synced")
+        self.assertEqual(mods[0]["coexist_sync_diff"]["signals"], [])
+        self.assertEqual(mods[0]["coexist_sync_diff"]["workshop_modify_time"], 200)
+        self.assertEqual(mods[0]["coexist_workshop_variant"]["path"], str(workshop_path))
+
+    def test_get_profile_mods_marks_coexist_variant_outdated_when_workshop_is_newer(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        install_dir = temp_root / "install"
+        context = ProfileContext(
+            profile_id="profile-a",
+            game_version="1.5.4100",
+            game_install_path=str(install_dir),
+            user_data_path=str(temp_root / "userdata"),
+            prefer_steam_launch=False,
+            use_workshop_mods=True,
+            use_self_mods=False,
+        )
+
+        local_root = install_dir / "Mods"
+        workshop_root = temp_root / "workshop"
+        local_path = local_root / "Author.Mod"
+        workshop_path = workshop_root / "123456"
+
+        config = SimpleNamespace(
+            workshop_mods_path=str(workshop_root),
+            self_mods_path=str(temp_root / "selfmods"),
+            enable_tool_mods=False,
+        )
+        assets = [
+            {
+                "package_id": "Author.Mod",
+                "path": str(local_path),
+                "name": "Local Copy",
+                "disabled": False,
+                "file_modify_time": 100,
+                "file_size": 1024,
+                "file_stats": {"game_xml": 8, "patch_xml": 1},
+            },
+            {
+                "package_id": "Author.Mod",
+                "path": str(workshop_path),
+                "name": "Workshop Copy",
+                "disabled": False,
+                "file_modify_time": 200,
+                "file_size": 1024,
+                "file_stats": {"game_xml": 8, "patch_xml": 1},
+            },
+        ]
+
+        with patch("backend.database.dao.settings.config", config), \
+             patch("backend.database.dao._load_group_names_by_mod_id", return_value={}), \
+             patch("backend.database.dao.ModAsset.select") as select_mock:
+            select_mock.return_value.join.return_value.where.return_value.dicts.return_value = assets
+            mods = ModDAO.get_profile_mods(context)
+
+        self.assertEqual(len(mods), 1)
+        self.assertEqual(mods[0]["coexist_sync_state"], "outdated")
+        self.assertEqual(mods[0]["coexist_sync_diff"]["signals"], ["modify_time"])
+
+    def test_get_profile_mods_marks_coexist_variant_outdated_by_content_signals(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        install_dir = temp_root / "install"
+        context = ProfileContext(
+            profile_id="profile-a",
+            game_version="1.5.4100",
+            game_install_path=str(install_dir),
+            user_data_path=str(temp_root / "userdata"),
+            prefer_steam_launch=False,
+            use_workshop_mods=True,
+            use_self_mods=False,
+        )
+
+        local_root = install_dir / "Mods"
+        workshop_root = temp_root / "workshop"
+        local_path = local_root / "Author.Mod"
+        workshop_path = workshop_root / "123456"
+
+        config = SimpleNamespace(
+            workshop_mods_path=str(workshop_root),
+            self_mods_path=str(temp_root / "selfmods"),
+            enable_tool_mods=False,
+        )
+        assets = [
+            {
+                "package_id": "Author.Mod",
+                "path": str(local_path),
+                "name": "Local Copy",
+                "disabled": False,
+                "file_modify_time": 0,
+                "file_size": 1024,
+                "file_stats": {"game_xml": 8, "patch_xml": 1},
+            },
+            {
+                "package_id": "Author.Mod",
+                "path": str(workshop_path),
+                "name": "Workshop Copy",
+                "disabled": False,
+                "file_modify_time": 0,
+                "file_size": 2048,
+                "file_stats": {"game_xml": 9, "patch_xml": 1},
+            },
+        ]
+
+        with patch("backend.database.dao.settings.config", config), \
+             patch("backend.database.dao._load_group_names_by_mod_id", return_value={}), \
+             patch("backend.database.dao.ModAsset.select") as select_mock:
+            select_mock.return_value.join.return_value.where.return_value.dicts.return_value = assets
+            mods = ModDAO.get_profile_mods(context)
+
+        self.assertEqual(len(mods), 1)
+        self.assertEqual(mods[0]["coexist_sync_state"], "outdated")
+        self.assertEqual(mods[0]["coexist_sync_diff"]["signals"], ["size", "file_stats"])
+        self.assertEqual(mods[0]["coexist_sync_diff"]["workshop_size"], 2048)
+
+    def test_get_profile_mods_marks_coexist_variant_outdated_when_time_equal_but_content_differs(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        install_dir = temp_root / "install"
+        context = ProfileContext(
+            profile_id="profile-a",
+            game_version="1.5.4100",
+            game_install_path=str(install_dir),
+            user_data_path=str(temp_root / "userdata"),
+            prefer_steam_launch=False,
+            use_workshop_mods=True,
+            use_self_mods=False,
+        )
+
+        local_root = install_dir / "Mods"
+        workshop_root = temp_root / "workshop"
+        local_path = local_root / "Author.Mod"
+        workshop_path = workshop_root / "123456"
+
+        config = SimpleNamespace(
+            workshop_mods_path=str(workshop_root),
+            self_mods_path=str(temp_root / "selfmods"),
+            enable_tool_mods=False,
+        )
+        assets = [
+            {
+                "package_id": "Author.Mod",
+                "path": str(local_path),
+                "name": "Local Copy",
+                "disabled": False,
+                "file_modify_time": 200,
+                "file_size": 1024,
+                "file_stats": {"game_xml": 8, "patch_xml": 1},
+            },
+            {
+                "package_id": "Author.Mod",
+                "path": str(workshop_path),
+                "name": "Workshop Copy",
+                "disabled": False,
+                "file_modify_time": 200,
+                "file_size": 2048,
+                "file_stats": {"game_xml": 9, "patch_xml": 1},
+            },
+        ]
+
+        with patch("backend.database.dao.settings.config", config), \
+             patch("backend.database.dao._load_group_names_by_mod_id", return_value={}), \
+             patch("backend.database.dao.ModAsset.select") as select_mock:
+            select_mock.return_value.join.return_value.where.return_value.dicts.return_value = assets
+            mods = ModDAO.get_profile_mods(context)
+
+        self.assertEqual(len(mods), 1)
+        self.assertEqual(mods[0]["coexist_sync_state"], "outdated")
+        self.assertEqual(mods[0]["coexist_sync_diff"]["signals"], ["size", "file_stats"])
+
+class TestApiScanMods(unittest.TestCase):
+    def test_scan_core_refresh_decision_ignores_noop_scans(self):
+        base_stats = {
+            'added': 0, 'updated': 0, 'skipped': 20, 'removed': 0,
+            'external_enabled': 0, 'strict_restored_disabled': 0, 'strict_restore_failed': 0,
+            'about_conflict_cleaned': 0, 'shadow_path_cleaned': 0,
+        }
+
+        self.assertFalse(ModScanner._should_refresh_core_after_scan(base_stats, forced_update=False))
+        self.assertTrue(ModScanner._should_refresh_core_after_scan({**base_stats, 'updated': 1}, forced_update=False))
+        self.assertTrue(ModScanner._should_refresh_core_after_scan(base_stats, forced_update=True))
+
+    def test_scan_mods_always_scans_all_configured_domains_for_inventory_sync(self):
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(
+            game_dlc_path="C:/Games/RimWorld/Data",
+            local_mods_path="C:/Games/RimWorld/Mods",
+            use_workshop_mods=False,
+            use_self_mods=False,
+            profile_id="profile-a",
+        )
+        api.scanner = Mock()
+        api.load_order_mgr = None
+        api.scanner.scan_paths_async.return_value = {"status": "started", "task_id": "task-1"}
+
+        config = SimpleNamespace(
+            self_mods_path="D:/RMM/SelfMods",
+            workshop_mods_path="D:/Steam/workshop/content/294100",
+            enable_tool_mods=False,
+            enable_mod_residue_scan=True,
+        )
+
+        with patch("backend.api.settings.config", config), \
+             patch("backend.api.os.path.exists", return_value=True):
+            res = API.scan_mods(api)
+
+        self.assertEqual(res["status"], "success")
+        api.scanner.scan_paths_async.assert_called_once_with(
+            [
+                "C:/Games/RimWorld/Data",
+                "C:/Games/RimWorld/Mods",
+                "D:/RMM/SelfMods",
+                "D:/Steam/workshop/content/294100",
+            ],
+            forced_update=False,
+            size_check_override=None,
+            size_check_paths=None,
+            residue_scan_enabled=True,
+        )
+
+    def test_scan_mods_skips_self_when_current_local_matches_self(self):
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(
+            game_dlc_path="C:/Games/RimWorld/Data",
+            local_mods_path="C:/Games/RimWorld/Mods",
+            use_workshop_mods=False,
+            use_self_mods=True,
+            profile_id="profile-a",
+        )
+        api.scanner = Mock()
+        api.load_order_mgr = None
+        api.scanner.scan_paths_async.return_value = {"status": "started", "task_id": "task-1"}
+
+        config = SimpleNamespace(
+            self_mods_path="C:/Games/RimWorld/Mods",
+            workshop_mods_path="D:/Steam/workshop/content/294100",
+            enable_tool_mods=False,
+            enable_mod_residue_scan=True,
+        )
+
+        with patch("backend.api.settings.config", config), \
+             patch("backend.api.os.path.exists", return_value=True):
+            res = API.scan_mods(api, size_check_override=True)
+
+        self.assertEqual(res["status"], "success")
+        api.scanner.scan_paths_async.assert_called_once_with(
+            [
+                "C:/Games/RimWorld/Data",
+                "C:/Games/RimWorld/Mods",
+                "D:/Steam/workshop/content/294100",
+            ],
+            forced_update=False,
+            size_check_override=True,
+            size_check_paths=None,
+            residue_scan_enabled=True,
+        )
+
+    def test_scan_mods_forwards_targeted_size_check_paths(self):
+        api = API.__new__(API)
+        api.active_context = None
+        api.scanner = Mock()
+        api._read_active_mod_tokens = Mock(return_value=[])
+        api.scanner.scan_paths_async.return_value = {"status": "started", "task_id": "task-1"}
+
+        with patch("backend.api.settings.config", SimpleNamespace(enable_mod_residue_scan=True)):
+            res = API.scan_mods(api, specific_paths=["D:/Mods"], size_check_paths=["D:/Mods/123456"])
+
+        self.assertEqual(res["status"], "success")
+        api.scanner.scan_paths_async.assert_called_once_with(
+            ["D:/Mods"],
+            forced_update=False,
+            size_check_override=None,
+            size_check_paths=["D:/Mods/123456"],
+            residue_scan_enabled=False,
+        )
+
+    def test_scan_mods_returns_warning_when_scanner_is_busy(self):
+        api = API.__new__(API)
+        api.active_context = None
+        api.scanner = Mock()
+        api._read_active_mod_tokens = Mock(return_value=[])
+        api.scanner.scan_paths_async.return_value = {"status": "busy", "message": "扫描已在进行中"}
+
+        with patch("backend.api.settings.config", SimpleNamespace(enable_mod_residue_scan=True)):
+            res = API.scan_mods(api, specific_paths=["D:/Mods"])
+
+        self.assertEqual(res["status"], "warning")
+        self.assertEqual(res["data"]["details"]["status"], "busy")
+
+    def test_startup_inventory_summary_refreshes_missing_state_before_reading_matrix(self):
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(is_healthy=True)
+        api.steam_mgr = Mock()
+        api.steam_mgr.workshop_merged_data.return_value = {
+            "123456789": {"is_subscribed": True, "time_last_sync": 200},
+            "987654321": {"is_subscribed": False, "time_last_sync": 300},
+        }
+        calls = []
+
+        def fake_find_missing(delete, subscribed_workshop_ids):
+            calls.append(("find_missing", list(subscribed_workshop_ids)))
+
+        def fake_get_matrix(context):
+            calls.append(("get_matrix", context))
+            return {
+                "workshop": [{
+                    "store": "workshop",
+                    "workshop_id": "123456789",
+                    "path_hash": "hash-1",
+                    "path": "D:/Mods/123456789",
+                    "name": "Changed Mod",
+                    "last_scanned_at": 100,
+                    "state": MOD_ASSET_STATE_PRESENT,
+                }],
+                "self": [],
+                "local": [],
+            }
+
+        with patch("backend.api.ModMaintenanceDAO.find_missing_mods", side_effect=fake_find_missing), \
+             patch("backend.api.ModDAO.get_triple_domain_assets", side_effect=fake_get_matrix):
+            res = API.workspace_get_startup_inventory_summary(api)
+
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(calls[0], ("find_missing", ["123456789"]))
+        self.assertEqual(calls[1][0], "get_matrix")
+        self.assertEqual(res["data"]["counts"]["changed"], 1)
+
+    def test_workspace_classification_treats_current_local_self_path_as_local_only(self):
+        scope = _ProfilePathScope(
+            local_root=_ProfilePathScope._normalize_root("C:/Games/RimWorld/Mods"),
+            self_root=_ProfilePathScope._normalize_root("C:/Games/RimWorld/Mods"),
+        )
+
+        self.assertEqual(
+            scope.classify_asset({"path": "C:/Games/RimWorld/Mods/TestMod", "store": "self"}),
+            "local",
+        )
+
+    def test_workspace_classification_keeps_other_profile_local_path_as_self(self):
+        scope = _ProfilePathScope(
+            local_root=_ProfilePathScope._normalize_root("D:/Profiles/A/Mods"),
+            self_root=_ProfilePathScope._normalize_root("C:/Games/RimWorld/Mods"),
+        )
+
+        self.assertEqual(
+            scope.classify_asset({"path": "C:/Games/RimWorld/Mods/TestMod", "store": "self"}),
+            "self",
+        )
+
+
+class TestApiGameLaunch(unittest.TestCase):
+    def test_game_launch_direct_steam_copy_does_not_wait_for_steamworks_probe(self):
+        api = API.__new__(API)
+        profile = SimpleNamespace(
+            id="default",
+            game_install_path="C:/Games/RimWorld",
+            prefer_steam_launch=True,
+            is_steam=True,
+        )
+        api.profile_mgr = SimpleNamespace(
+            current_profile=profile,
+            get_profile=Mock(return_value=profile),
+            get_launch_args=Mock(return_value=["-savedatafolder=C:/Profiles/default"]),
+        )
+        api.steam_mgr = SimpleNamespace(
+            get_steam_path=Mock(return_value="C:/Program Files (x86)/Steam"),
+            get_steam_client_status=Mock(return_value={"running": False, "ready": False}),
+        )
+        api._ensure_steam_ready = Mock(return_value=(True, {"running": True, "ready": True, "reason": "ready"}, ""))
+        api._launch_profile_with_runtime_links = Mock()
+        api._resolve_profile_runtime_caps_from_profile = Mock(return_value={
+            "steam_launch_enabled": True,
+            "is_steam": True,
+            "is_steam_managed": False,
+        })
+
+        config = SimpleNamespace(steam_path="C:/Program Files (x86)/Steam")
+        with patch("backend.api.settings.config", config), \
+             patch("backend.api.PathChecker.check_steam_path", return_value={"pass": True}):
+            res = API.game_launch(api, "default")
+
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["data"]["runtime_session"]["state"], "launching")
+        self.assertEqual(res["data"]["runtime_session"]["profile_id"], "default")
+        api._ensure_steam_ready.assert_not_called()
+        api._launch_profile_with_runtime_links.assert_called_once_with(
+            "default",
+            "C:/Games/RimWorld",
+            ["-savedatafolder=C:/Profiles/default"],
+            include_workshop=False,
+        )
+
+    def test_game_launch_prefers_url_for_steam_managed_profile_without_args_when_enabled(self):
+        api = API.__new__(API)
+        profile = SimpleNamespace(
+            id="default",
+            game_install_path="C:/Games/RimWorld",
+            prefer_steam_launch=True,
+            is_steam=True,
+        )
+        api.profile_mgr = SimpleNamespace(
+            current_profile=profile,
+            get_profile=Mock(return_value=profile),
+            get_launch_args=Mock(return_value=[]),
+        )
+        api.steam_mgr = SimpleNamespace(
+            get_steam_path=Mock(return_value="C:/Program Files (x86)/Steam"),
+            get_steam_client_status=Mock(return_value={"running": False, "ready": False}),
+            launch_via_steam_client=Mock(),
+            launch_via_steam_url=Mock(return_value={"ok": True, "method": "steam_url"}),
+            steam_dir="",
+            steam_exe="",
+        )
+        api._prepare_profile_launch = Mock(return_value={"ok": True})
+        api._resolve_profile_runtime_caps_from_profile = Mock(return_value={
+            "steam_launch_enabled": True,
+            "is_steam": True,
+            "is_steam_managed": True,
+        })
+
+        config = SimpleNamespace(steam_path="C:/Program Files (x86)/Steam", prefer_steam_url_for_no_args=True)
+        with patch("backend.api.settings.config", config), \
+             patch("backend.api.PathChecker.check_steam_path", return_value={"pass": True}), \
+             patch("backend.api.resolve_steam_executable_path", return_value="C:/Program Files (x86)/Steam/steam.exe"):
+            res = API.game_launch(api, "default")
+
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["data"]["runtime_session"]["state"], "launching")
+        api.steam_mgr.launch_via_steam_client.assert_not_called()
+        api.steam_mgr.launch_via_steam_url.assert_called_once_with()
+
+    def test_game_launch_returns_retry_options_when_steam_dispatch_fails(self):
+        api = API.__new__(API)
+        profile = SimpleNamespace(id="default", game_install_path="C:/Games/RimWorld", prefer_steam_launch=True, is_steam=True)
+        api.profile_mgr = SimpleNamespace(
+            current_profile=profile,
+            get_profile=Mock(return_value=profile),
+            get_launch_args=Mock(return_value=[]),
+        )
+        api.steam_mgr = SimpleNamespace(
+            get_steam_path=Mock(return_value="C:/Program Files (x86)/Steam"),
+            get_steam_client_status=Mock(return_value={"running": True, "ready": True}),
+            launch_via_steam_client=Mock(return_value={"ok": False, "method": "steam_client", "error": "拒绝访问"}),
+            steam_dir="",
+            steam_exe="",
+        )
+        api._prepare_profile_launch = Mock(return_value={"ok": True})
+        api._resolve_profile_runtime_caps_from_profile = Mock(return_value={
+            "steam_launch_enabled": True,
+            "is_steam": True,
+            "is_steam_managed": True,
+        })
+
+        config = SimpleNamespace(steam_path="C:/Program Files (x86)/Steam", prefer_steam_url_for_no_args=False)
+        with patch("backend.api.settings.config", config), \
+             patch("backend.api.PathChecker.check_steam_path", return_value={"pass": True}), \
+             patch("backend.api.resolve_steam_executable_path", return_value="C:/Program Files (x86)/Steam/steam.exe"):
+            res = API.game_launch(api, "default")
+
+        self.assertEqual(res["status"], "warning")
+        self.assertEqual(res["data"]["action"], "resolve_steam_launch_failure")
+        self.assertEqual(res["data"]["launch_method"], "steam_client")
+
+    def test_steam_url_retry_omits_existing_launch_args(self):
+        api = API.__new__(API)
+        api._prepare_profile_launch = Mock(return_value={"ok": True})
+        api.steam_mgr = SimpleNamespace(
+            launch_via_steam_client=Mock(),
+            launch_via_steam_url=Mock(return_value={"ok": True, "method": "steam_url"}),
+        )
+        runtime_session_mgr = SimpleNamespace(begin_launch=Mock(return_value={"state": "launching"}))
+
+        res = API._launch_steam_managed_profile(
+            api,
+            "default",
+            ["-savedatafolder=C:/Profiles/default"],
+            runtime_session_mgr,
+            launch_method="steam_url",
+        )
+
+        self.assertEqual(res["status"], "success")
+        self.assertTrue(res["data"]["url_ignores_args"])
+        api.steam_mgr.launch_via_steam_url.assert_called_once_with()
+        api.steam_mgr.launch_via_steam_client.assert_not_called()
+        runtime_session_mgr.begin_launch.assert_called_once_with(
+            "default",
+            "steam_url",
+            message="已发起 Steam URL 启动，等待游戏进程确认。",
+            has_launch_args=True,
+        )
+
+    def test_game_launch_normalizes_macos_steam_app_path_before_launch(self):
+        api = API.__new__(API)
+        profile = SimpleNamespace(
+            id="default",
+            game_install_path="/Games/RimWorld",
+            prefer_steam_launch=True,
+            is_steam=True,
+        )
+        api.profile_mgr = SimpleNamespace(
+            current_profile=profile,
+            get_profile=Mock(return_value=profile),
+            get_launch_args=Mock(return_value=[]),
+        )
+        api.steam_mgr = SimpleNamespace(
+            get_steam_path=Mock(return_value=""),
+            get_steam_client_status=Mock(return_value={"running": False, "ready": False}),
+            launch_via_steam_client=Mock(),
+            steam_dir="",
+            steam_exe="",
+        )
+        api._resolve_profile_runtime_caps_from_profile = Mock(return_value={
+            "steam_launch_enabled": True,
+            "is_steam": True,
+            "is_steam_managed": True,
+        })
+        api._prepare_profile_launch = Mock(return_value={"ok": True})
+
+        steam_root = "/Users/test/Library/Application Support/Steam"
+        steam_app = f"{steam_root}/Steam.app"
+        steam_exe = f"{steam_root}/Steam.app/Contents/MacOS/steam_osx"
+        config = SimpleNamespace(steam_path=steam_app)
+
+        with patch("backend.api.settings.config", config), \
+             patch("backend.api.normalize_steam_root", return_value=steam_root), \
+             patch("backend.api.PathChecker.check_steam_path", return_value={"pass": True}), \
+             patch("backend.api.resolve_steam_executable_path", return_value=steam_exe):
+            res = API.game_launch(api, "default")
+
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(config.steam_path, steam_root)
+        self.assertEqual(api.steam_mgr.steam_dir, steam_root)
+        self.assertEqual(api.steam_mgr.steam_exe, steam_exe)
+        api.steam_mgr.launch_via_steam_client.assert_called_once_with(extra_args=[])
+
+    def test_steam_open_workshop_page_uses_open_system_uri(self):
+        api = API.__new__(API)
+
+        with patch.object(api, "open_system_uri", return_value={"status": "success", "data": {"uri": "steam://url/CommunityFilePage/294100"}}) as open_system_uri:
+            res = API.steam_open_workshop_page(api, "294100")
+
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["message"], "已尝试在 Steam 客户端打开当前页面")
+        open_system_uri.assert_called_once_with("steam://url/CommunityFilePage/294100")
+
+    def test_open_system_uri_dispatches_via_runtime_helper(self):
+        api = API.__new__(API)
+
+        with patch("backend.api.open_uri") as open_uri:
+            res = API.open_system_uri(api, "steam://open/main")
+
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["data"]["uri"], "steam://open/main")
+        open_uri.assert_called_once_with("steam://open/main")
+
+    def test_profile_register_steam_shortcut_warns_on_non_windows(self):
+        api = API.__new__(API)
+
+        with patch("backend.api.is_windows", return_value=False):
+            res = API.profile_register_steam_shortcut(api, "profile-a")
+
+        self.assertEqual(res["status"], "warning")
+        self.assertEqual(res["data"]["shortcut_kind"], "unsupported_manual_only")
+
+    def test_game_launch_warns_when_direct_launching_steam_profile_with_workshop_links_while_steam_running(self):
+        api = API.__new__(API)
+        profile = SimpleNamespace(
+            id="profile-a",
+            game_install_path="D:/Games/RimWorld",
+            prefer_steam_launch=False,
+            is_steam=True,
+        )
+        api.profile_mgr = SimpleNamespace(
+            current_profile=profile,
+            get_profile=Mock(return_value=profile),
+            get_launch_args=Mock(return_value=[]),
+        )
+        api.steam_mgr = SimpleNamespace(
+            is_steam_running=Mock(return_value=True),
+        )
+        api._resolve_profile_runtime_caps_from_profile = Mock(return_value={
+            "steam_launch_enabled": False,
+            "is_steam": True,
+            "is_steam_managed": True,
+            "workshop_deploy_enabled": True,
+        })
+        api.game_monitor = Mock()
+        api._launch_profile_with_runtime_links = Mock()
+
+        res = API.game_launch(api, "profile-a")
+
+        self.assertEqual(res["status"], "warning")
+        self.assertEqual(res["data"]["action"], "confirm_direct_launch")
+        self.assertEqual(res["data"]["reason"], "steam_running_workshop_conflict")
+        self.assertTrue(res["data"]["steam_running"])
+        self.assertIn("工坊链接冲突", res["message"])
+        api._launch_profile_with_runtime_links.assert_not_called()
+
+    def test_profile_create_desktop_shortcut_returns_vdf_flow_warning_for_diff_install(self):
+        api = API.__new__(API)
+        profile = SimpleNamespace(
+            id="profile-a",
+            name="Profile A",
+            game_install_path="D:/Games/RimWorld",
+            user_data_path="D:/Profiles/profile-a",
+            prefer_steam_launch=True,
+            is_steam=True,
+        )
+        default_profile = SimpleNamespace(
+            id="default",
+            name="Default",
+            game_install_path="C:/Steam/steamapps/common/RimWorld",
+            user_data_path="C:/Profiles/default",
+            prefer_steam_launch=True,
+            is_steam=True,
+        )
+        api.profile_mgr = SimpleNamespace(
+            get_profile=Mock(side_effect=lambda profile_id: default_profile if profile_id == "default" else profile),
+            get_launch_args=Mock(return_value=["-savedatafolder=D:/Profiles/profile-a"]),
+        )
+        api.steam_mgr = SimpleNamespace(
+            steam_exe="C:/Program Files (x86)/Steam/steam.exe",
+            get_steam_path=Mock(return_value="C:/Program Files (x86)/Steam"),
+            get_steam_client_status=Mock(return_value={"running": False, "ready": False}),
+        )
+        api.file_mgr = SimpleNamespace(
+            create_profile_desktop_shortcut=Mock(),
+            remove_existing_shortcut_variants=Mock(),
+        )
+        api._resolve_profile_runtime_caps_from_profile = Mock(return_value={
+            "steam_launch_enabled": True,
+            "is_steam": True,
+            "is_steam_managed": False,
+        })
+
+        config = SimpleNamespace(steam_path="C:/Program Files (x86)/Steam")
+        with patch("backend.api.settings.config", config), \
+             patch("backend.api.PathChecker.check_install_path", return_value={"pass": True}), \
+             patch("backend.api.PathChecker.check_normal_path", return_value={"pass": True}), \
+             patch("backend.api.PathChecker.check_steam_path", return_value={"pass": True}):
+            res = API.profile_create_desktop_shortcut(api, "profile-a")
+
+        self.assertEqual(res["status"], "warning")
+        self.assertEqual(res["data"]["shortcut_kind"], "steam_vdf_flow_required")
+        self.assertEqual(res["data"]["launch_mode"], "Steam VDF")
+        api.file_mgr.create_profile_desktop_shortcut.assert_not_called()
+
+    def test_resolve_profile_runtime_caps_from_profile_uses_dynamic_managed_flag(self):
+        api = API.__new__(API)
+        profile = SimpleNamespace(
+            id="profile-a",
+            game_install_path="D:/Games/RimWorld",
+            prefer_steam_launch=True,
+            use_workshop_mods=True,
+            is_steam=True,
+        )
+        with patch("backend.api.GameInstallInspector.quick_inspect", return_value=SimpleNamespace(is_steam_managed=False)):
+            caps = API._resolve_profile_runtime_caps_from_profile(api, profile)
+
+        self.assertTrue(caps["steam_launch_enabled"])
+        self.assertFalse(caps["is_steam_managed"])
+        self.assertFalse(caps["workshop_deploy_enabled"])
+
+    def test_game_launch_resolve_warning_reuses_runtime_workshop_flag(self):
+        api = API.__new__(API)
+        profile = SimpleNamespace(
+            id="profile-a",
+            game_install_path="D:/Games/RimWorld",
+        )
+        api.profile_mgr = SimpleNamespace(
+            get_profile=Mock(return_value=profile),
+            get_launch_args=Mock(return_value=["-savedatafolder=D:/Profiles/A"]),
+        )
+        api.steam_mgr = SimpleNamespace(is_steam_running=Mock(return_value=True))
+        api._resolve_profile_runtime_caps_from_profile = Mock(return_value={
+            "workshop_deploy_enabled": False,
+        })
+        api._launch_profile_with_runtime_links = Mock()
+        api.game_monitor = SimpleNamespace(begin_launch=Mock(return_value={"state": "launching", "profile_id": "profile-a"}))
+
+        res = API.game_launch_resolve_warning(api, "profile-a", "continue")
+
+        self.assertEqual(res["status"], "success")
+        api._launch_profile_with_runtime_links.assert_called_once_with(
+            "profile-a",
+            "D:/Games/RimWorld",
+            ["-savedatafolder=D:/Profiles/A"],
+            include_workshop=False,
+        )
+
+
+class TestApiRuntimeLinkSync(unittest.TestCase):
+    def test_sync_links_fails_when_created_link_cannot_be_verified(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            local_mods_path = Path(temp_dir) / "Mods"
+            source_path = Path(temp_dir) / "SourceMod"
+            local_mods_path.mkdir()
+            source_path.mkdir()
+
+            with patch.object(FileManager, "_create_links_windows_batch"):
+                success = FileManager.sync_links(str(local_mods_path), [str(source_path)])
+
+        self.assertFalse(success)
+
+    def test_sync_links_full_fails_when_created_link_cannot_be_verified(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            local_mods_path = Path(temp_dir) / "Mods"
+            source_path = Path(temp_dir) / "SourceMod"
+            local_mods_path.mkdir()
+            source_path.mkdir()
+
+            with patch.object(FileManager, "_create_links_fast"):
+                success = FileManager.sync_links_full(str(local_mods_path), [str(source_path)])
+
+        self.assertFalse(success)
+
+    def test_build_scan_paths_for_profile_skips_self_when_local_matches_self(self):
+        api = API.__new__(API)
+        context = SimpleNamespace(
+            game_dlc_path="D:/Games/RimWorld/Data",
+            local_mods_path="D:/Games/RimWorld/Mods",
+        )
+        cfg = SimpleNamespace(
+            self_mods_path="D:/Games/RimWorld/Mods",
+            workshop_mods_path="D:/WorkshopMods",
+            enable_tool_mods=False,
+        )
+
+        with patch("backend.api.settings.config", cfg), \
+             patch("backend.api.os.path.exists", return_value=True):
+            paths = API._build_scan_paths_for_profile(api, context)
+
+        self.assertEqual(paths, [
+            "D:/Games/RimWorld/Data",
+            "D:/Games/RimWorld/Mods",
+            "D:/WorkshopMods",
+        ])
+
+    def test_prepare_profile_launch_runs_fast_scan_for_direct_launch_profile(self):
+        api = API.__new__(API)
+        context = SimpleNamespace(
+            profile_id="profile-b",
+            is_healthy=True,
+            game_dlc_path="D:/Games/RimWorld/Data",
+            local_mods_path="D:/Profiles/profile-b/Mods",
+            use_workshop_mods=True,
+            use_self_mods=False,
+        )
+        api.active_context = SimpleNamespace(profile_id="profile-a")
+        api.profile_mgr = SimpleNamespace(build_profile_context=Mock(return_value=context))
+        api._sync_runtime_links_for_profile = Mock(return_value=True)
+
+        cfg = SimpleNamespace(
+            enable_auto_scan=True,
+            self_mods_path="D:/SelfMods",
+            workshop_mods_path="D:/WorkshopMods",
+            enable_tool_mods=False,
+        )
+        with patch("backend.api.settings.config", cfg), \
+             patch("backend.api.os.path.exists", return_value=True), \
+             patch("backend.api.ModScanner") as mock_scanner_cls:
+            temp_scanner = Mock()
+            temp_scanner._scan_paths_task = Mock()
+            temp_scanner.executor = SimpleNamespace(shutdown=Mock())
+            mock_scanner_cls.return_value = temp_scanner
+
+            res = API._prepare_profile_launch(api, "profile-b", include_workshop=True)
+
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["mode"], "scan-sync")
+        temp_scanner._scan_paths_task.assert_called_once()
+        args = temp_scanner._scan_paths_task.call_args.args
+        kwargs = temp_scanner._scan_paths_task.call_args.kwargs
+        self.assertEqual(args[0], "launch-prepare")
+        self.assertTrue(kwargs["forced_update"])
+        self.assertFalse(kwargs["size_check_override"])
+        self.assertFalse(kwargs["emit_events"])
+        api._sync_runtime_links_for_profile.assert_called_once_with("profile-b", include_workshop=True)
+
+    def test_prepare_profile_launch_uses_cached_links_when_auto_scan_disabled(self):
+        api = API.__new__(API)
+        context = SimpleNamespace(
+            profile_id="profile-b",
+            is_healthy=True,
+            game_dlc_path="D:/Games/RimWorld/Data",
+            local_mods_path="D:/Profiles/profile-b/Mods",
+            use_self_mods=True,
+        )
+        api.active_context = SimpleNamespace(profile_id="profile-a")
+        api.profile_mgr = SimpleNamespace(build_profile_context=Mock(return_value=context))
+        api._sync_runtime_links_for_profile = Mock(return_value=True)
+
+        cfg = SimpleNamespace(enable_auto_scan=False)
+        with patch("backend.api.settings.config", cfg):
+            res = API._prepare_profile_launch(api, "profile-b", include_workshop=False)
+
+        self.assertTrue(res["ok"])
+        self.assertEqual(res["mode"], "cached-links")
+        api._sync_runtime_links_for_profile.assert_called_once_with("profile-b", include_workshop=False)
+
+    def test_prepare_profile_launch_keeps_specific_link_failure_message(self):
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(profile_id="profile-a")
+
+        def fail_sync(*_args, **_kwargs):
+            api._last_runtime_link_sync_result = {"status": "failed", "message": "请将目录改到 NTFS 磁盘"}
+            return False
+
+        api._ensure_runtime_links_for_launch = Mock(side_effect=fail_sync)
+
+        res = API._prepare_profile_launch(api, "profile-a", include_workshop=False)
+
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["message"], "请将目录改到 NTFS 磁盘")
+
+    def test_prepare_profile_launch_handles_missing_target_context(self):
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(profile_id="profile-a")
+        api.profile_mgr = SimpleNamespace(build_profile_context=Mock(return_value=None))
+        api._sync_runtime_links_for_profile = Mock()
+
+        res = API._prepare_profile_launch(api, "profile-b", include_workshop=False)
+
+        self.assertFalse(res["ok"])
+        self.assertEqual(res["mode"], "missing-context")
+        api._sync_runtime_links_for_profile.assert_not_called()
+
+
+class TestSettingsPathNormalization(unittest.TestCase):
+    def test_settings_save_raises_when_atomic_write_fails(self):
+        with patch("backend.settings.write_json_atomic", side_effect=OSError("locked")):
+            with self.assertRaises(OSError):
+                settings.save()
+
+    def test_steamcmd_mods_path_is_derived_without_resolving_links(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        steamcmd_root = temp_root / "steamcmd"
+        expected_mods_path = os.path.normpath(os.path.abspath(steamcmd_root / "steamapps" / "workshop" / "content" / "294100"))
+
+        original_steamcmd = settings.config.steamcmd_path
+        original_steamcmd_mods = settings.config.steamcmd_mods_path
+        self.addCleanup(setattr, settings.config, "steamcmd_path", original_steamcmd)
+        self.addCleanup(setattr, settings.config, "steamcmd_mods_path", original_steamcmd_mods)
+
+        with patch("backend.utils.tools.Path.resolve", side_effect=AssertionError("should not resolve links")):
+            settings.config.steamcmd_path = str(steamcmd_root)
+            settings._sync_derived_paths()
+
+        self.assertEqual(settings.config.steamcmd_mods_path, expected_mods_path)
+
+    def test_update_from_dict_normalizes_global_paths_to_native_absolute(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        workshop_path = temp_root / "Steam" / "steamapps" / "workshop" / "content" / "294100"
+        workshop_path.mkdir(parents=True)
+        original_workshop = settings.config.workshop_mods_path
+        self.addCleanup(setattr, settings.config, "workshop_mods_path", original_workshop)
+
+        raw_workshop_path = str(workshop_path).replace(os.sep, "/")
+        with patch.object(settings, "save"):
+            warnings = settings.update_from_dict({"workshop_mods_path": raw_workshop_path})
+
+        self.assertEqual(warnings, [])
+        self.assertEqual(settings.config.workshop_mods_path, normalize_path_for_storage(raw_workshop_path))
+
+    def test_update_from_dict_normalizes_multiplayer_data_paths(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        official_path = temp_root / "Data" / "multiplayerCompatibility.json"
+        package_ids_path = temp_root / "Data" / "mpCompatPackageIds.json"
+        official_path.parent.mkdir(parents=True, exist_ok=True)
+
+        original_official = settings.config.multiplayer_compatibility_path
+        original_package_ids = settings.config.mp_compat_package_ids_path
+        self.addCleanup(setattr, settings.config, "multiplayer_compatibility_path", original_official)
+        self.addCleanup(setattr, settings.config, "mp_compat_package_ids_path", original_package_ids)
+
+        raw_official_path = str(official_path).replace(os.sep, "/")
+        raw_package_ids_path = str(package_ids_path).replace(os.sep, "/")
+        with patch.object(settings, "save"):
+            warnings = settings.update_from_dict({
+                "multiplayer_compatibility_path": raw_official_path,
+                "mp_compat_package_ids_path": raw_package_ids_path,
+            })
+
+        self.assertEqual(warnings, [])
+        self.assertEqual(
+            settings.config.multiplayer_compatibility_path,
+            normalize_path_for_storage(raw_official_path),
+        )
+        self.assertEqual(
+            settings.config.mp_compat_package_ids_path,
+            normalize_path_for_storage(raw_package_ids_path),
+        )
+
+    def test_update_from_dict_resets_self_mods_path_when_equal_to_workshop(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        original_self = settings.config.self_mods_path
+        original_workshop = settings.config.workshop_mods_path
+        self.addCleanup(setattr, settings.config, "self_mods_path", original_self)
+        self.addCleanup(setattr, settings.config, "workshop_mods_path", original_workshop)
+
+        settings.config.self_mods_path = str(temp_root / "SelfMods")
+        settings.config.workshop_mods_path = str(temp_root / "WorkshopMods")
+        target_workshop_path = str(temp_root / "WorkshopMods")
+
+        with patch("backend.managers.mgr_files.FileManager.sync_steamcmd_root_link"), \
+             patch.object(settings, "save"):
+            warnings = settings.update_from_dict({"self_mods_path": target_workshop_path})
+
+        self.assertEqual(settings.config.self_mods_path, str(MODS_DIR))
+        self.assertEqual(
+            warnings,
+            ["self_mods_path_reset"],
+        )
+
+
+class TestApiSaveSettings(unittest.TestCase):
+    def test_guide_mark_as_done_persists_existing_completed_guides(self):
+        original_guides = settings.config.completed_guides
+        self.addCleanup(setattr, settings.config, "completed_guides", original_guides)
+        settings.config.completed_guides = {"intro": "done"}
+
+        with patch.object(settings, "save") as mock_save:
+            res = API.guide_mark_as_done(API.__new__(API), "paths")
+
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(settings.config.completed_guides, {"intro": "done", "paths": "done"})
+        mock_save.assert_called_once()
+
+    def test_ai_save_config_saves_once_when_secret_changes(self):
+        original_model = settings.config.ai.model
+        self.addCleanup(setattr, settings.config.ai, "model", original_model)
+
+        with patch("backend.api.settings.apply_secret_inputs", return_value=True) as mock_apply_secret_inputs, \
+             patch("backend.api.settings.save") as mock_save:
+            res = API.ai_save_config(API.__new__(API), {"api_key": "secret", "model": "demo-model"})
+
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(settings.config.ai.model, "demo-model")
+        mock_apply_secret_inputs.assert_called_once_with({"ai": {"api_key": "secret", "model": "demo-model"}}, save=False)
+        mock_save.assert_called_once()
+
+    def test_data_bundle_import_skips_refreshes_when_settings_unchanged(self):
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(profile_id="default")
+        api.data_bundle_mgr = SimpleNamespace(import_bundle=Mock(return_value={"warnings": []}))
+        api._reload_current_profile_after_import = Mock(return_value=False)
+        api._bootstrap_context = Mock()
+        api.sorter = SimpleNamespace(rule_mgr=SimpleNamespace(load_all=Mock()))
+        api.steam_mgr = SimpleNamespace(reload_paths_from_settings=Mock())
+
+        with patch("backend.api.network_mgr.apply") as mock_network_apply:
+            res = API.data_bundle_import(api, "bundle.rcdata", {})
+
+        self.assertEqual(res["status"], "success")
+        mock_network_apply.assert_not_called()
+        api._bootstrap_context.assert_not_called()
+        api.sorter.rule_mgr.load_all.assert_not_called()
+        api.steam_mgr.reload_paths_from_settings.assert_not_called()
+
+    def test_data_bundle_import_reloads_runtime_for_imported_global_paths(self):
+        original_steam_path = settings.config.steam_path
+        original_profile_id = settings.config.current_profile_id
+        self.addCleanup(setattr, settings.config, "steam_path", original_steam_path)
+        self.addCleanup(setattr, settings.config, "current_profile_id", original_profile_id)
+        settings.config.current_profile_id = "default"
+
+        def import_bundle(*_args, **_kwargs):
+            settings.config.steam_path = "D:/Steam"
+            return {"warnings": []}
+
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(profile_id="default")
+        api.data_bundle_mgr = SimpleNamespace(import_bundle=Mock(side_effect=import_bundle))
+        api._reload_current_profile_after_import = Mock(return_value=False)
+        api._bootstrap_context = Mock()
+        api.sorter = SimpleNamespace(rule_mgr=SimpleNamespace(load_all=Mock()))
+        api.steam_mgr = SimpleNamespace(reload_paths_from_settings=Mock())
+
+        with patch("backend.api.network_mgr.apply") as mock_network_apply:
+            res = API.data_bundle_import(api, "bundle.rcdata", {})
+
+        self.assertEqual(res["status"], "success")
+        mock_network_apply.assert_not_called()
+        api._bootstrap_context.assert_called_once_with("default")
+        api._reload_current_profile_after_import.assert_not_called()
+        api.steam_mgr.reload_paths_from_settings.assert_called_once_with()
+
+    def test_save_all_settings_emits_warning_toast_when_self_path_conflicts_with_workshop(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        original_self = settings.config.self_mods_path
+        original_workshop = settings.config.workshop_mods_path
+        self.addCleanup(setattr, settings.config, "self_mods_path", original_self)
+        self.addCleanup(setattr, settings.config, "workshop_mods_path", original_workshop)
+
+        settings.config.self_mods_path = str(temp_root / "SelfMods")
+        settings.config.workshop_mods_path = str(temp_root / "WorkshopMods")
+
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(profile_id="default")
+        api.profile_mgr = SimpleNamespace(PROFILE_KEYS=set())
+        api.sorter = None
+        api._bootstrap_context = Mock()
+        api.file_mgr = SimpleNamespace(get_remote_cache_stats=Mock(return_value={}))
+
+        with patch("backend.api.network_mgr.apply"), \
+             patch("backend.api.EventBus.send_toast") as mock_send_toast, \
+             patch("backend.managers.mgr_files.FileManager.sync_steamcmd_root_link"), \
+             patch.object(settings, "save"):
+            res = API.save_all_settings(api, {"self_mods_path": str(temp_root / "WorkshopMods")})
+
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["data"]["settings"]["self_mods_path"], str(MODS_DIR))
+        mock_send_toast.assert_called_once_with(
+            "管理器下载模组路径不能与创意工坊目录相同，已自动恢复为默认目录。",
+            type="warning",
+            duration=5000,
+        )
+
+    def test_save_all_settings_refreshes_steam_manager_when_steam_paths_change(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        original_steam = settings.config.steam_path
+        original_steamcmd = settings.config.steamcmd_path
+        self.addCleanup(setattr, settings.config, "steam_path", original_steam)
+        self.addCleanup(setattr, settings.config, "steamcmd_path", original_steamcmd)
+
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(profile_id="default")
+        api.profile_mgr = SimpleNamespace(PROFILE_KEYS=set())
+        api.sorter = None
+        api._bootstrap_context = Mock()
+        api.file_mgr = SimpleNamespace(get_remote_cache_stats=Mock(return_value={}))
+        api.steam_mgr = SimpleNamespace(reload_paths_from_settings=Mock())
+
+        payload = {
+            "steam_path": str(temp_root / "Steam"),
+            "steamcmd_path": str(temp_root / "tools" / "steamcmd"),
+        }
+        with patch("backend.api.network_mgr.apply"), \
+             patch("backend.managers.mgr_files.FileManager.sync_steamcmd_root_link"), \
+             patch.object(settings, "save"):
+            res = API.save_all_settings(api, payload)
+
+        self.assertEqual(res["status"], "success")
+        api._bootstrap_context.assert_called_once_with("default")
+        api.steam_mgr.reload_paths_from_settings.assert_called_once_with()
+
+    def test_save_all_settings_skips_profile_reload_when_profile_values_unchanged(self):
+        profile = SimpleNamespace(
+            name="Default",
+            description="",
+            game_install_path="D:/Games/RimWorld",
+            user_data_path="D:/RimWorldData",
+            prefer_steam_launch=False,
+            use_workshop_mods=True,
+            use_self_mods=True,
+            run_commands=[],
+            inactive_mods_order=[],
+            temp_mods_order=[],
+            last_played_time=0,
+        )
+        profile_mgr = SimpleNamespace(
+            PROFILE_KEYS={
+                "name", "description", "game_install_path", "user_data_path", "prefer_steam_launch",
+                "use_workshop_mods", "use_self_mods", "run_commands", "inactive_mods_order",
+                "temp_mods_order", "last_played_time",
+            },
+            get_profile=Mock(return_value=profile),
+            update_profile=Mock(),
+        )
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(profile_id="default")
+        api.profile_mgr = profile_mgr
+        api.sorter = None
+        api._bootstrap_context = Mock()
+
+        payload = {
+            "name": "Default",
+            "game_install_path": "D:/Games/RimWorld",
+            "user_data_path": "D:/RimWorldData",
+            "prefer_steam_launch": False,
+            "use_workshop_mods": True,
+            "use_self_mods": True,
+            "run_commands": [],
+        }
+        res = API.save_all_settings(api, payload)
+
+        self.assertEqual(res["status"], "success")
+        profile_mgr.update_profile.assert_not_called()
+        api._bootstrap_context.assert_not_called()
+
+    def test_save_all_settings_only_profile_metadata_change_does_not_reload_full_context(self):
+        profile = SimpleNamespace(
+            name="Default",
+            description="",
+            game_install_path="D:/Games/RimWorld",
+            user_data_path="D:/RimWorldData",
+            prefer_steam_launch=False,
+            use_workshop_mods=True,
+            use_self_mods=True,
+            run_commands=[],
+            inactive_mods_order=[],
+            temp_mods_order=[],
+            last_played_time=0,
+        )
+        profile_mgr = SimpleNamespace(
+            PROFILE_KEYS={
+                "name", "description", "game_install_path", "user_data_path", "prefer_steam_launch",
+                "use_workshop_mods", "use_self_mods", "run_commands", "inactive_mods_order",
+                "temp_mods_order", "last_played_time",
+            },
+            get_profile=Mock(return_value=profile),
+            update_profile=Mock(),
+        )
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(profile_id="default")
+        api.profile_mgr = profile_mgr
+        api.sorter = None
+        api._bootstrap_context = Mock()
+
+        payload = {
+            "_changed_keys": ["name"],
+            "_profile_id": "default",
+            "name": "Renamed",
+            "game_install_path": "D:/Games/RimWorld",
+            "user_data_path": "D:/RimWorldData",
+            "prefer_steam_launch": False,
+            "use_workshop_mods": True,
+            "use_self_mods": True,
+            "run_commands": [],
+        }
+        res = API.save_all_settings(api, payload)
+
+        self.assertEqual(res["status"], "success")
+        profile_mgr.update_profile.assert_called_once_with("default", {"name": "Renamed"})
+        api._bootstrap_context.assert_not_called()
+
+    def test_save_all_settings_ignores_profile_path_without_explicit_profile_target(self):
+        profile = SimpleNamespace(
+            name="Profile A",
+            description="",
+            game_install_path="D:/Games/RimWorld",
+            user_data_path="F:/programe/Python/RimModManager/data/profiles/profile-a",
+            prefer_steam_launch=False,
+            use_workshop_mods=False,
+            use_self_mods=True,
+            run_commands=[],
+            inactive_mods_order=[],
+            temp_mods_order=[],
+            last_played_time=0,
+        )
+        profile_mgr = SimpleNamespace(
+            PROFILE_KEYS={
+                "name", "description", "game_install_path", "user_data_path", "prefer_steam_launch",
+                "use_workshop_mods", "use_self_mods", "run_commands", "inactive_mods_order",
+                "temp_mods_order", "last_played_time",
+            },
+            get_profile=Mock(return_value=profile),
+            update_profile=Mock(),
+        )
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(profile_id="profile-a")
+        api.profile_mgr = profile_mgr
+        api.sorter = None
+        api._bootstrap_context = Mock()
+
+        payload = {
+            "user_data_path": "C:/Users/Test/AppData/LocalLow/Ludeon Studios/RimWorld by Ludeon Studios",
+        }
+        with self.assertLogs("RimCrow", level="WARNING") as logs:
+            res = API.save_all_settings(api, payload)
+
+        self.assertEqual(res["status"], "success")
+        self.assertTrue(any("忽略缺少明确目标环境的设置页环境字段写入" in item for item in logs.output))
+        profile_mgr.get_profile.assert_not_called()
+        profile_mgr.update_profile.assert_not_called()
+        api._bootstrap_context.assert_not_called()
+
+    def test_save_all_settings_writes_profile_path_only_with_matching_profile_target(self):
+        profile = SimpleNamespace(
+            name="Profile A",
+            description="",
+            game_install_path="D:/Games/RimWorld",
+            user_data_path="F:/programe/Python/RimModManager/data/profiles/profile-a",
+            prefer_steam_launch=False,
+            use_workshop_mods=False,
+            use_self_mods=True,
+            run_commands=[],
+            inactive_mods_order=[],
+            temp_mods_order=[],
+            last_played_time=0,
+        )
+        profile_mgr = SimpleNamespace(
+            PROFILE_KEYS={
+                "name", "description", "game_install_path", "user_data_path", "prefer_steam_launch",
+                "use_workshop_mods", "use_self_mods", "run_commands", "inactive_mods_order",
+                "temp_mods_order", "last_played_time",
+            },
+            get_profile=Mock(return_value=profile),
+            update_profile=Mock(),
+        )
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(profile_id="profile-a")
+        api.profile_mgr = profile_mgr
+        api.sorter = None
+        api._bootstrap_context = Mock()
+
+        next_path = "F:/programe/Python/RimModManager/data/profiles/profile-a-fixed"
+        payload = {
+            "_changed_keys": ["user_data_path"],
+            "_profile_id": "profile-a",
+            "user_data_path": next_path,
+        }
+        res = API.save_all_settings(api, payload)
+
+        self.assertEqual(res["status"], "success")
+        profile_mgr.update_profile.assert_called_once_with("profile-a", {"user_data_path": next_path})
+        api._bootstrap_context.assert_called_once_with("profile-a")
+
+    def test_save_all_settings_uses_changed_keys_marker_to_ignore_context_fields(self):
+        profile_mgr = SimpleNamespace(
+            PROFILE_KEYS={
+                "name", "description", "game_install_path", "user_data_path", "prefer_steam_launch",
+                "use_workshop_mods", "use_self_mods", "run_commands", "inactive_mods_order",
+                "temp_mods_order", "last_played_time",
+            },
+            get_profile=Mock(),
+            update_profile=Mock(),
+        )
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(profile_id="profile-a")
+        api.profile_mgr = profile_mgr
+        api.sorter = None
+        api._bootstrap_context = Mock()
+
+        payload = {
+            "_changed_keys": ["language"],
+            "language": settings.config.language,
+            "user_data_path": "C:/Users/Test/AppData/LocalLow/Ludeon Studios/RimWorld by Ludeon Studios",
+        }
+        res = API.save_all_settings(api, payload)
+
+        self.assertEqual(res["status"], "success")
+        profile_mgr.get_profile.assert_not_called()
+        profile_mgr.update_profile.assert_not_called()
+        api._bootstrap_context.assert_not_called()
+
+    def test_save_all_settings_keeps_clear_secret_marker_with_changed_keys(self):
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(profile_id="default")
+        api.profile_mgr = SimpleNamespace(PROFILE_KEYS=set())
+        api.sorter = None
+        api._bootstrap_context = Mock()
+
+        payload = {
+            "_changed_keys": ["ai"],
+            "_clear_secret_keys": ["ai.api_key"],
+            "ai": asdict(settings.config.ai),
+        }
+        with patch("backend.api.network_mgr.apply"), \
+             patch.object(settings, "update_from_dict", return_value=[]) as mock_update:
+            res = API.save_all_settings(api, payload)
+
+        self.assertEqual(res["status"], "success")
+        mock_update.assert_called_once()
+        self.assertEqual(mock_update.call_args.args[0]["_clear_secret_keys"], ["ai.api_key"])
+
+    def test_save_all_settings_skips_rule_reload_and_network_apply_when_values_unchanged(self):
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(profile_id="default")
+        api.profile_mgr = SimpleNamespace(PROFILE_KEYS=set())
+        api.sorter = SimpleNamespace(rule_mgr=SimpleNamespace(load_all=Mock()))
+        api._bootstrap_context = Mock()
+        api.steam_mgr = SimpleNamespace(reload_paths_from_settings=Mock())
+
+        payload = {
+            "network": asdict(settings.config.network),
+            "user_rules_path": settings.config.user_rules_path,
+            "community_rules_path": settings.config.community_rules_path,
+            "steam_path": settings.config.steam_path,
+            "steamcmd_path": settings.config.steamcmd_path,
+        }
+        with patch("backend.api.network_mgr.apply") as mock_network_apply:
+            res = API.save_all_settings(api, payload)
+
+        self.assertEqual(res["status"], "success")
+        mock_network_apply.assert_not_called()
+        api.sorter.rule_mgr.load_all.assert_not_called()
+        api._bootstrap_context.assert_not_called()
+        api.steam_mgr.reload_paths_from_settings.assert_not_called()
+
+    def test_update_from_dict_saves_once_when_secret_and_plain_settings_change(self):
+        original_model = settings.config.ai.model
+        self.addCleanup(setattr, settings.config.ai, "model", original_model)
+
+        with patch("backend.settings.secret_store.apply_secret_inputs", return_value=True) as mock_apply_secret_inputs, \
+             patch.object(settings, "save") as mock_save:
+            settings.update_from_dict({"ai": {"api_key": "secret", "model": "demo-model"}})
+
+        self.assertEqual(settings.config.ai.model, "demo-model")
+        mock_apply_secret_inputs.assert_called_once()
+        mock_save.assert_called_once()
+
+    def test_update_from_dict_restores_memory_when_save_fails(self):
+        original_language = settings.config.language
+        self.addCleanup(setattr, settings.config, "language", original_language)
+
+        with patch.object(settings, "save", side_effect=OSError("locked")):
+            with self.assertRaises(OSError):
+                settings.update_from_dict({"language": "en"})
+
+        self.assertEqual(settings.config.language, original_language)
+
+    def test_maintenance_check_tools_uses_overrides_without_persisting_timestamp(self):
+        api = API.__new__(API)
+        api.maintenance_mgr = SimpleNamespace(check_tools=Mock(return_value={"checked_at": 123, "items": [], "issues": []}))
+
+        with patch("backend.api.settings.set") as mock_set:
+            res = API.maintenance_check_tools(api, {"steamcmd_path": "D:/NewSteamCMD"})
+
+        self.assertEqual(res["status"], "success")
+        api.maintenance_mgr.check_tools.assert_called_once_with({"steamcmd_path": "D:/NewSteamCMD"})
+        mock_set.assert_not_called()
+
+    def test_maintenance_check_external_data_uses_overrides_without_persisting_timestamp(self):
+        api = API.__new__(API)
+        api.maintenance_mgr = SimpleNamespace(check_external_data=Mock(return_value={"checked_at": 123, "items": [], "failed": [], "updates": []}))
+
+        with patch("backend.api.settings.set") as mock_set:
+            res = API.maintenance_check_external_data(api, {"community_rules_path": "D:/rules.json"})
+
+        self.assertEqual(res["status"], "success")
+        api.maintenance_mgr.check_external_data.assert_called_once_with({"community_rules_path": "D:/rules.json"})
+        mock_set.assert_not_called()
+
+    def test_workspace_transfer_move_updates_database_with_actual_unique_path(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        target_root = temp_root / "target"
+        source_root = temp_root / "source"
+        target_root.mkdir()
+        source_mod = source_root / "SameName"
+        source_mod.mkdir(parents=True)
+        (target_root / "SameName").mkdir()
+
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(local_mods_path=str(target_root))
+        source_mods = [{
+            "path_hash": "old-hash",
+            "path": str(source_mod),
+            "package_id": "demo.mod",
+            "store": "local",
+            "name": "Demo",
+        }]
+        update_result = Mock()
+        update_result.where = Mock(return_value=update_result)
+        update_result.execute = Mock(return_value=1)
+        update_mock = Mock(return_value=update_result)
+
+        class QueryStub:
+            def where(self, *_args, **_kwargs):
+                return self
+
+            def dicts(self):
+                return source_mods
+
+        class FieldStub:
+            def in_(self, _values):
+                return True
+
+        mod_asset_stub = SimpleNamespace(
+            path_hash=FieldStub(),
+            path=FieldStub(),
+            package_id=FieldStub(),
+            store=FieldStub(),
+            name=FieldStub(),
+            select=Mock(return_value=QueryStub()),
+            update=update_mock,
+        )
+
+        with patch("backend.api.settings.config", SimpleNamespace(self_mods_path="", workshop_mods_path="")), \
+             patch("backend.api.ModAsset", mod_asset_stub), \
+             patch("backend.api.db.atomic", return_value=nullcontext()):
+            res = API.workspace_transfer_mods(api, ["old-hash"], "local", "move")
+
+        self.assertEqual(res["status"], "success")
+        actual_path = str(target_root / "SameName_1")
+        self.assertFalse(source_mod.exists())
+        self.assertTrue(Path(actual_path).exists())
+        update_kwargs = update_mock.call_args.kwargs
+        self.assertEqual(update_kwargs["path"], normalize_path_for_storage(actual_path))
+
+    def test_sync_steamcmd_root_link_skips_when_link_and_storage_are_same_path(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        mods_root = temp_root / "mods"
+        child = mods_root / "2877292196"
+        child.mkdir(parents=True)
+
+        original_self = settings.config.self_mods_path
+        original_steamcmd_mods = settings.config.steamcmd_mods_path
+        self.addCleanup(setattr, settings.config, "self_mods_path", original_self)
+        self.addCleanup(setattr, settings.config, "steamcmd_mods_path", original_steamcmd_mods)
+        settings.config.self_mods_path = str(mods_root)
+        settings.config.steamcmd_mods_path = str(mods_root)
+
+        with patch("backend.managers.mgr_files.logger.warning") as mock_warning, \
+             patch("backend.managers.mgr_files.logger.debug") as mock_debug:
+            self.assertTrue(FileManager.sync_steamcmd_root_link())
+
+        self.assertTrue(child.exists())
+        mock_warning.assert_not_called()
+        mock_debug.assert_called_once()
+
+    def test_bootstrap_context_does_not_crash_when_self_mods_path_is_file(self):
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+        mods_file = temp_root / "mods"
+        mods_file.write_text("not a directory", encoding="utf-8")
+
+        original_self = settings.config.self_mods_path
+        self.addCleanup(setattr, settings.config, "self_mods_path", original_self)
+        settings.config.self_mods_path = str(mods_file)
+
+        api = API.__new__(API)
+        api.game_log_mgr = None
+        api.profile_mgr = SimpleNamespace(activate_profile=Mock(return_value=SimpleNamespace(is_healthy=True)))
+
+        with patch("backend.api.ModScanner", return_value=SimpleNamespace(stop_scan=Mock(), wait_until_idle=Mock(return_value=True))), \
+             patch("backend.api.LoadOrderManager", return_value=SimpleNamespace()), \
+             patch("backend.api.GameLogManager", return_value=SimpleNamespace(start_realtime_monitor=Mock())), \
+             patch("backend.api.OrderSorter", return_value=SimpleNamespace()), \
+             patch("backend.api.logger.error") as log_error:
+            API._bootstrap_context(api, "default")
+
+        log_error.assert_any_call("管理器 Mod 路径已存在但不是目录，跳过创建: %s", str(mods_file))
+
+    def test_get_initial_data_includes_runtime_session_even_without_active_context(self):
+        api = API.__new__(API)
+        api._runtime_mode = "desktop"
+        api.file_mgr = SimpleNamespace(get_port=Mock(return_value=0), get_remote_cache_stats=Mock(return_value={}))
+        api.is_first_db_init = False
+        api.active_context = None
+        api._upgrade_context = {}
+        api.game_monitor = SimpleNamespace(get_runtime_session_data=Mock(return_value=RuntimeSession(profile_id="profile-b", state="running", source="external").to_dict()))
+
+        res = API.get_initial_data(api)
+
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["data"]["runtime_session"]["state"], "running")
+        self.assertEqual(res["data"]["runtime_session"]["profile_id"], "profile-b")
+
+    def test_get_initial_data_initializes_missing_theme_store_without_error_log(self):
+        api = API.__new__(API)
+        api._runtime_mode = "desktop"
+        api.file_mgr = SimpleNamespace(get_port=Mock(return_value=0), get_remote_cache_stats=Mock(return_value={}))
+        api.is_first_db_init = False
+        api.active_context = None
+        api._upgrade_context = {}
+        api.game_monitor = SimpleNamespace(get_runtime_session_data=Mock(return_value={}))
+
+        with patch("backend.api.ThemeStore", return_value=SimpleNamespace(list_user_themes=Mock(return_value=[{"id": "custom"}]))), \
+             patch("backend.api.logger.error") as mock_error:
+            res = API.get_initial_data(api)
+
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["data"]["user_themes"], [{"id": "custom"}])
+        mock_error.assert_not_called()
+
+    def test_startup_base_payload_initializes_missing_theme_store_without_error_log(self):
+        api = API.__new__(API)
+        api._runtime_mode = "desktop"
+        api.file_mgr = SimpleNamespace(get_port=Mock(return_value=0))
+        api.is_first_db_init = False
+        api.active_context = None
+        api._upgrade_context = {}
+        api.game_monitor = SimpleNamespace(get_runtime_session_data=Mock(return_value={}))
+
+        with patch("backend.api.ThemeStore", return_value=SimpleNamespace(list_user_themes=Mock(return_value=[{"id": "startup"}]))), \
+             patch("backend.api.logger.error") as mock_error:
+            payload = API._get_startup_base_payload(api)
+
+        self.assertEqual(payload["user_themes"], [{"id": "startup"}])
+        mock_error.assert_not_called()
+
+    def test_refresh_active_profile_context_after_update_light_updates_manager_contexts(self):
+        api = API.__new__(API)
+        refreshed_context = SimpleNamespace(profile_id="profile-a")
+        api.profile_mgr = SimpleNamespace(activate_profile=Mock(return_value=refreshed_context))
+        api._bootstrap_context = Mock()
+        api.scanner = SimpleNamespace(context=None)
+        api.load_order_mgr = SimpleNamespace(context=None)
+        api.game_log_mgr = SimpleNamespace(context=None)
+        api.sorter = SimpleNamespace(context=None, rule_mgr=SimpleNamespace(context=None))
+
+        mode = API._refresh_active_profile_context_after_update(api, "profile-a", {"use_self_mods": True})
+
+        self.assertEqual(mode, "light")
+        api.profile_mgr.activate_profile.assert_called_once_with("profile-a")
+        api._bootstrap_context.assert_not_called()
+        self.assertIs(api.active_context, refreshed_context)
+        self.assertIs(api.scanner.context, refreshed_context)
+        self.assertIs(api.load_order_mgr.context, refreshed_context)
+        self.assertIs(api.game_log_mgr.context, refreshed_context)
+        self.assertIs(api.sorter.context, refreshed_context)
+        self.assertIs(api.sorter.rule_mgr.context, refreshed_context)
+
+    def test_refresh_active_profile_context_after_update_rebootstraps_for_path_changes(self):
+        api = API.__new__(API)
+        api.profile_mgr = SimpleNamespace(activate_profile=Mock())
+        api._bootstrap_context = Mock()
+        api.scanner = None
+        api.load_order_mgr = None
+        api.game_log_mgr = None
+        api.sorter = None
+
+        mode = API._refresh_active_profile_context_after_update(api, "profile-a", {"user_data_path": "D:/Profiles/A"})
+
+        self.assertEqual(mode, "rebootstrap")
+        api._bootstrap_context.assert_called_once_with("profile-a")
+        api.profile_mgr.activate_profile.assert_not_called()
+
+    def test_profile_update_current_profile_uses_refresh_helper_instead_of_profile_activate(self):
+        api = API.__new__(API)
+        api.profile_mgr = SimpleNamespace(update_profile=Mock())
+        api._refresh_active_profile_context_after_update = Mock(side_effect=lambda *_args, **_kwargs: setattr(api, "active_context", SimpleNamespace(profile_id="profile-a")) or "light")
+        api._sync_runtime_links_for_profile = Mock(return_value=True)
+        api.profile_activate = Mock(side_effect=AssertionError("profile_activate should not be called"))
+
+        with patch("backend.api.settings.config", SimpleNamespace(current_profile_id="profile-a")):
+            res = API.profile_update(api, "profile-a", {"use_workshop_mods": True})
+
+        self.assertEqual(res["status"], "success")
+        self.assertEqual(res["data"]["refresh_mode"], "light")
+        api.profile_mgr.update_profile.assert_called_once_with("profile-a", {"use_workshop_mods": True})
+        api._refresh_active_profile_context_after_update.assert_called_once_with("profile-a", {"use_workshop_mods": True})
+        api._sync_runtime_links_for_profile.assert_not_called()
+
+    def test_sync_runtime_links_after_scan_only_runs_for_current_profile(self):
+        api = API.__new__(API)
+        api.active_context = SimpleNamespace(profile_id="profile-a")
+        api._sync_runtime_links_for_profile = Mock(side_effect=lambda *_args, **_kwargs: setattr(api, "_last_runtime_link_sync_result", {"status": "deployed"}) or True)
+
+        deploy_msg = API._sync_runtime_links_after_scan(api, "profile-a")
+        stale_msg = API._sync_runtime_links_after_scan(api, "profile-b")
+
+        self.assertEqual(deploy_msg, "Deployed runtime links")
+        self.assertEqual(stale_msg, "Skipped runtime link sync for stale profile")
+        api._sync_runtime_links_for_profile.assert_called_once_with("profile-a", include_workshop=True)
+
+    def test_bootstrap_context_stops_old_scanner_and_injects_runtime_sync_handler(self):
+        api = API.__new__(API)
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        old_scanner = Mock()
+        old_log_mgr = Mock()
+        context = SimpleNamespace(is_healthy=True, profile_id="profile-a")
+        api.scanner = old_scanner
+        api.game_log_mgr = old_log_mgr
+        api.profile_mgr = SimpleNamespace(activate_profile=Mock(return_value=context))
+
+        config = SimpleNamespace(self_mods_path=str(temp_root / "selfmods"))
+        with patch("backend.api.settings.config", config), \
+             patch("backend.api.ModScanner") as mock_scanner_cls, \
+             patch("backend.api.LoadOrderManager"), \
+             patch("backend.api.GameLogManager") as mock_log_mgr_cls, \
+             patch("backend.api.OrderSorter"), \
+             patch("backend.api.os.makedirs"):
+            new_scanner = Mock()
+            new_log_mgr = Mock()
+            mock_scanner_cls.return_value = new_scanner
+            mock_log_mgr_cls.return_value = new_log_mgr
+
+            API._bootstrap_context(api, "profile-a")
+
+        old_log_mgr.stop_realtime_monitor.assert_called_once_with()
+        old_scanner.stop_scan.assert_called_once_with()
+        old_scanner.wait_until_idle.assert_called_once_with(timeout=2.0)
+        mock_scanner_cls.assert_called_once()
+        self.assertIs(api.scanner, new_scanner)
+        handler = mock_scanner_cls.call_args.kwargs["runtime_link_sync_handler"]
+        self.assertIs(handler.__self__, api)
+        self.assertIs(handler.__func__, API._sync_runtime_links_after_scan)
+        new_log_mgr.start_realtime_monitor.assert_called_once_with()
+
+    def test_profile_activate_only_switches_active_profile_without_runtime_link_sync(self):
+        api = API.__new__(API)
+        current_profile = SimpleNamespace(id="profile-a", name="Profile A")
+
+        def bootstrap(pid, **_kwargs):
+            api.active_context = SimpleNamespace(profile_id=pid)
+
+        api._bootstrap_context = Mock(side_effect=bootstrap)
+        api._sync_runtime_links_for_profile = Mock(return_value=True)
+        api.profile_mgr = SimpleNamespace(get_current_profile=Mock(return_value=current_profile))
+
+        with patch("backend.api.asdict", return_value={}), \
+             patch("backend.api.ApiResponse.success", return_value={"status": "success"}) as mock_success:
+            res = API.profile_activate(api, "profile-a")
+
+        self.assertEqual(res["status"], "success")
+        api._bootstrap_context.assert_called_once_with("profile-a", allow_fallback=False)
+        api._sync_runtime_links_for_profile.assert_not_called()
+        mock_success.assert_called_once()
+
+    def test_profile_activate_returns_error_and_falls_back_to_default_when_target_invalid(self):
+        api = API.__new__(API)
+        current_profile = SimpleNamespace(id="default", name="Default")
+
+        def bootstrap(pid, **_kwargs):
+            if pid == "broken":
+                raise ValueError("用户数据目录失效")
+            api.active_context = SimpleNamespace(profile_id=pid)
+
+        api._bootstrap_context = Mock(side_effect=bootstrap)
+        api._sync_runtime_links_for_profile = Mock(return_value=True)
+        api.profile_mgr = SimpleNamespace(get_current_profile=Mock(return_value=current_profile))
+
+        res = API.profile_activate(api, "broken")
+
+        self.assertEqual(res["status"], "error")
+        self.assertEqual(res["error_code"], "PROFILE.ACTIVATE_FAILED")
+        self.assertIn("已回退 default", res["message"])
+        self.assertEqual(res["data"]["requested_profile_id"], "broken")
+        self.assertEqual(res["data"]["fallback_profile_id"], "default")
+        self.assertEqual(res["data"]["active_profile_id"], "default")
+        self.assertEqual(api._bootstrap_context.call_args_list[0].args, ("broken",))
+        self.assertEqual(api._bootstrap_context.call_args_list[1].args, ("default",))
+
+    def test_bootstrap_context_falls_back_to_recreated_default_when_requested_profile_missing(self):
+        api = API.__new__(API)
+        old_log_mgr = Mock()
+        old_scanner = Mock()
+        recreated_context = SimpleNamespace(is_healthy=False, profile_id="default")
+        api.game_log_mgr = old_log_mgr
+        api.scanner = old_scanner
+        api.profile_mgr = SimpleNamespace(activate_profile=Mock(side_effect=[ValueError("环境不存在"), recreated_context]))
+        api.load_order_mgr = Mock()
+        api.sorter = Mock()
+
+        with patch("backend.api.logger.error") as mock_logger_error, \
+             patch("backend.api.logger.warning") as mock_logger_warning:
+            API._bootstrap_context(api, "missing-profile")
+
+        old_log_mgr.stop_realtime_monitor.assert_called_once_with()
+        old_scanner.stop_scan.assert_called_once_with()
+        api.profile_mgr.activate_profile.assert_any_call("missing-profile")
+        api.profile_mgr.activate_profile.assert_any_call("default")
+        self.assertIs(api.active_context, recreated_context)
+        self.assertIsNone(api.load_order_mgr)
+        self.assertIsNone(api.scanner)
+        self.assertIsNone(api.game_log_mgr)
+        self.assertIsNone(api.sorter)
+        mock_logger_error.assert_called_once()
+        mock_logger_warning.assert_called_once_with(
+            "环境 %s 路径失效，进入锁定模式；请求环境: %s",
+            "default",
+            "missing-profile",
+        )
+
+    def test_sync_runtime_links_for_profile_creates_missing_local_mods_dir_before_sync(self):
+        api = API.__new__(API)
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        local_mods_root = temp_root / "Mods"
+        context = SimpleNamespace(local_mods_path=str(local_mods_root))
+        api.profile_mgr = SimpleNamespace(build_profile_context=Mock(return_value=context))
+        api.file_mgr = SimpleNamespace(sync_managed_links=Mock(return_value=(True, None)))
+
+        runtime_caps = {"workshop_detection_enabled": True, "workshop_deploy_enabled": True}
+        runtime_analysis = {"deploy_paths": ["D:/mods/a", "D:/mods/b"]}
+        with patch("backend.api.resolve_profile_runtime_capabilities", return_value=runtime_caps), \
+             patch("backend.api.ModDAO.get_profile_conflict_analysis", return_value=runtime_analysis):
+            result = API._sync_runtime_links_for_profile(api, "profile-a", include_workshop=True)
+
+        self.assertTrue(result)
+        self.assertTrue(local_mods_root.exists())
+        api.file_mgr.sync_managed_links.assert_called_once_with(str(local_mods_root), runtime_analysis["deploy_paths"])
+
+    def test_sync_runtime_links_for_profile_recalculates_on_every_call(self):
+        api = API.__new__(API)
+        temp_root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, temp_root, ignore_errors=True)
+
+        local_mods_root = temp_root / "Mods"
+        local_mods_root.mkdir(parents=True)
+        context = SimpleNamespace(local_mods_path=str(local_mods_root))
+        api.profile_mgr = SimpleNamespace(build_profile_context=Mock(return_value=context))
+        api.file_mgr = SimpleNamespace(sync_managed_links=Mock(return_value=(True, None)))
+
+        runtime_caps = {"workshop_detection_enabled": True, "workshop_deploy_enabled": True}
+        runtime_analysis = {"deploy_paths": ["D:/mods/a"]}
+        with patch("backend.api.resolve_profile_runtime_capabilities", return_value=runtime_caps), \
+             patch("backend.api.ModDAO.get_profile_conflict_analysis", return_value=runtime_analysis):
+            first = API._sync_runtime_links_for_profile(api, "profile-a", include_workshop=True)
+            second = API._sync_runtime_links_for_profile(api, "profile-a", include_workshop=True)
+
+        self.assertTrue(first)
+        self.assertTrue(second)
+        self.assertEqual(api.file_mgr.sync_managed_links.call_count, 2)
+    def test_ensure_runtime_links_for_launch_always_reconciles_target_profile(self):
+        api = API.__new__(API)
+        api._sync_runtime_links_for_profile = Mock(return_value=True)
+
+        result = API._ensure_runtime_links_for_launch(api, "profile-a", include_workshop=False)
+
+        self.assertTrue(result)
+        api._sync_runtime_links_for_profile.assert_called_once_with("profile-a", include_workshop=False)
+
+    def test_get_game_log_files_uses_runtime_scope_and_player_only_for_uninitialized_external_default(self):
+        api = API.__new__(API)
+        api.game_log_mgr = SimpleNamespace(
+            get_log_files_for_root=Mock(return_value=[{"name": "Player.log"}])
+        )
+        api.active_context = SimpleNamespace(user_data_path="")
+        api.profile_mgr = SimpleNamespace(build_profile_context=Mock(return_value=SimpleNamespace(user_data_path="")))
+        api.game_monitor = SimpleNamespace(get_runtime_session=Mock(return_value=RuntimeSession(profile_id="default", state="running", source="external")))
+
+        res = API.get_log_files(api, "game", "runtime")
+
+        self.assertEqual(res["status"], "success")
+        api.game_log_mgr.get_log_files_for_root.assert_called_once_with(user_data_root="", player_only=True)
+
+    def test_read_game_log_uses_runtime_profile_root(self):
+        api = API.__new__(API)
+        api.game_log_mgr = SimpleNamespace(
+            read_log_page_for_root=Mock(return_value={"status": "success", "blocks": [], "has_more": False})
+        )
+        api.active_context = SimpleNamespace(user_data_path="C:/Profiles/active")
+        api.profile_mgr = SimpleNamespace(build_profile_context=Mock(return_value=SimpleNamespace(user_data_path="D:/Profiles/runtime")))
+        api.game_monitor = SimpleNamespace(get_runtime_session=Mock(return_value=RuntimeSession(profile_id="profile-b", state="running", source="manager")))
+
+        res = API.read_log_page(api, "game", "RimCrow_Realtime.log", 1, 500, "runtime")
+
+        self.assertEqual(res["status"], "success")
+        api.game_log_mgr.read_log_page_for_root.assert_called_once_with(
+            "RimCrow_Realtime.log",
+            user_data_root="D:/Profiles/runtime",
+            page=1,
+            page_size=500,
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

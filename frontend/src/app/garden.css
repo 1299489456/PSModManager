@@ -1,0 +1,414 @@
+/* Greenhouse (Solarpunk) shell — the one and only look of PSModManager.
+   Loaded after desktop.css; selectors are prefixed with .garden-shell so they
+   win over component-scoped defaults without !important. */
+:root{--g-leaf:#4ade80;--g-leaf-2:#22c55e;--g-leaf-3:#16a34a;--g-ink:#166534;--g-moss:#14532d;--g-sun:#fbbf24;--g-sun-2:#f59e0b;--g-sun-ink:#78350f;--g-mint:#f0fdf4;--g-cream:#fffbeb;--g-paper:#fffdf6;--g-line:#bbf7d0;--g-line-2:#a7e3bd;--g-text:#1f2a24;--g-text-2:#3f5047;--g-text-3:#5b6f64;--g-rose:#dc2626;--g-sh:0 10px 15px -3px rgba(134,239,172,.3),0 4px 6px -4px rgba(134,239,172,.3);--g-sh-lg:0 22px 30px -8px rgba(110,200,140,.38),0 8px 12px -6px rgba(134,239,172,.35);--g-ease:cubic-bezier(.22,1,.36,1);--g-pop:cubic-bezier(.34,1.56,.64,1)}
+html,body{background:var(--g-mint)}
+.garden-shell{position:relative;height:100vh;display:flex;flex-direction:column;gap:0;padding:12px 18px 0;overflow:hidden;color:var(--g-text);font-size:15px;
+  background:radial-gradient(circle at 18% 88%,rgba(74,222,128,.16),transparent 48%),radial-gradient(circle at 88% 4%,rgba(251,191,36,.2),transparent 40%),radial-gradient(circle at 60% 110%,rgba(56,189,248,.08),transparent 40%),var(--g-mint)}
+.garden-shell ::selection{background:#bbf7d0;color:var(--g-moss)}
+.garden-shell ::-webkit-scrollbar{width:11px;height:11px}.garden-shell ::-webkit-scrollbar-thumb{background:#c8efd6;border-radius:10px;border:3px solid transparent;background-clip:padding-box}.garden-shell ::-webkit-scrollbar-thumb:hover{background:#9fe3b8;background-clip:padding-box}
+.garden-shell h1,.garden-shell h2,.garden-shell h3{color:var(--g-ink)}
+.garden-fronds{position:absolute;left:-40px;bottom:-50px;width:420px;height:420px;pointer-events:none;z-index:0;transform-origin:20% 100%;animation:garden-sway 9s ease-in-out infinite;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 360 360'%3E%3Cg fill='%2322c55e' fill-opacity='.12'%3E%3Cpath d='M40 360C40 250 90 170 200 120C150 190 120 260 110 360Z'/%3E%3Cpath d='M0 360C10 290 30 240 80 200C70 250 60 300 60 360Z'/%3E%3Cpath d='M120 360C150 300 210 260 300 250C240 280 200 320 180 360Z'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat}
+@keyframes garden-sway{0%,100%{transform:rotate(-1deg)}50%{transform:rotate(1deg)}}
+@keyframes garden-spin{to{transform:rotate(360deg)}}
+@keyframes garden-fade-up{from{opacity:0;transform:translateY(10px)}}
+@keyframes garden-grow{from{transform:scaleY(.6)}to{transform:scaleY(1.1)}}
+.garden-spin{animation:garden-spin 1.4s linear infinite}
+.garden-seedling{display:inline-block;color:var(--g-leaf-2);transform-origin:50% 100%;animation:garden-grow .8s ease-in-out infinite alternate}
+
+/* ---------- canopy ---------- */
+.garden-shell .canopy{position:relative;z-index:5;flex:none;display:flex;align-items:center;gap:20px;height:76px;margin:0 0 16px;padding:0 12px 0 16px;border-radius:28px;background:rgba(255,255,255,.74);-webkit-backdrop-filter:blur(12px) saturate(170%);backdrop-filter:blur(12px) saturate(170%);border:1px solid var(--g-line);box-shadow:var(--g-sh)}
+.canopy-brand{display:flex;align-items:center;gap:10px;flex:none}
+.canopy-logo{width:40px;height:40px;border-radius:50% 50% 50% 14px;background:linear-gradient(140deg,var(--g-leaf),var(--g-leaf-2) 50%,var(--g-sun));display:grid;place-items:center;color:#fff;box-shadow:0 8px 16px -6px rgba(74,222,128,.8)}
+.garden-shell .canopy-brand h1{font-size:16px;line-height:1.15;letter-spacing:0;margin:0}
+.canopy-brand small{display:block;font-size:12px;color:var(--g-text-3)}
+.canopy-brand small.failed{color:var(--g-rose)}
+.canopy-nav{position:relative;display:flex;align-items:center;gap:2px;margin-left:6px}
+.garden-shell .canopy-nav>button,.garden-shell .canopy-nav .profile-selector>button{position:relative;height:44px;min-height:44px;padding:0 16px;border:0;border-radius:22px;background:transparent;color:var(--g-text-2);font-size:15px;font-weight:600;display:flex;align-items:center;gap:7px;transition:color .3s,background .3s}
+.garden-shell .canopy-nav>button:hover:not(:disabled),.garden-shell .canopy-nav .profile-selector>button:hover:not(:disabled){background:rgba(74,222,128,.1);color:var(--g-ink)}
+.garden-shell .canopy-nav>button[aria-current=page]{color:var(--g-ink);background:transparent}
+.canopy-count{min-width:20px;height:20px;padding:0 6px;border-radius:10px;font-size:11.5px;display:grid;place-items:center;background:#fde68a;color:#92400e}
+.canopy-vine{position:absolute;bottom:-1px;height:14px;pointer-events:none;opacity:0;transition:left .5s var(--g-ease),width .5s var(--g-ease)}
+.canopy-vine svg{width:100%;height:100%;overflow:visible;display:block}
+.canopy-vine path{fill:none;stroke:var(--g-leaf-2);stroke-width:2.5;stroke-linecap:round;stroke-dasharray:140}
+.canopy-vine ellipse{fill:var(--g-leaf)}
+.canopy-vine.grow path{animation:garden-draw .7s var(--g-ease)}
+.canopy-vine.grow ellipse{animation:garden-leaf-in .5s .35s var(--g-ease) both}
+@keyframes garden-draw{from{stroke-dashoffset:140}}
+@keyframes garden-leaf-in{from{opacity:0}}
+.canopy-right{margin-left:auto;flex:0 1 auto;display:flex;align-items:center;justify-content:flex-end;gap:12px;min-width:0}
+.garden-shell .canopy .loader-panel{flex:0 1 auto;min-width:0;margin:0;padding:0;border:0;border-radius:0;background:none}
+.garden-shell .canopy .installation-selector{flex:0 1 auto;min-width:0}
+.garden-shell .env-pill{display:flex;align-items:center;gap:6px;height:34px;min-height:34px;min-width:0;padding:0 12px;border-radius:17px;border:1px solid var(--g-line);background:#fff;color:var(--g-ink);font-size:13px;font-weight:500;max-width:240px;transition:border-color .3s}
+.garden-shell .env-pill strong{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.garden-shell .env-pill:hover:not(:disabled){border-color:var(--g-leaf);background:#fff}
+.garden-shell .env-pill.warn{border-color:#fcd34d;background:#fef3c7;color:#92400e}
+.garden-shell .env-pill .ready{color:var(--g-leaf-3)}
+.garden-shell .installation-trigger.garden-sign{display:flex;align-items:center;gap:10px;height:52px;min-height:52px;min-width:0;max-width:280px;padding:0 14px 0 8px;border-radius:18px 18px 18px 6px;border:1px solid #fde68a;background:linear-gradient(135deg,#fffbeb,#fef3c7);color:var(--g-sun-ink);box-shadow:0 8px 14px -8px rgba(245,158,11,.5);transition:transform .4s var(--g-ease)}
+.garden-shell .installation-trigger.garden-sign:hover:not(:disabled){transform:rotate(-1deg) translateY(-1px);background:linear-gradient(135deg,#fffbeb,#fde68a)}
+.sign-art{width:38px;height:38px;flex:none;border-radius:50% 50% 50% 12px;background:linear-gradient(140deg,#fde68a,var(--g-sun) 60%,var(--g-sun-2));display:grid;place-items:center;color:var(--g-sun-ink)}
+.sign-text{display:flex;flex-direction:column;align-items:flex-start;min-width:0;overflow:hidden;line-height:1.25}
+.sign-text>span{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px}
+.sign-text>small{font-size:12px;color:#a16207}
+.garden-shell .canopy-launch{flex:none;display:flex;align-items:center;gap:10px;flex-wrap:nowrap}
+.garden-shell .sun-button{position:relative;display:flex;align-items:center;gap:12px;height:56px;min-height:56px;padding:0 20px 0 6px;border:0;border-radius:28px;background:linear-gradient(90deg,#fde68a,var(--g-sun));color:var(--g-sun-ink);font-weight:700;font-size:15px;box-shadow:0 12px 20px -8px rgba(245,158,11,.6);transition:transform .4s var(--g-ease),box-shadow .4s}
+.garden-shell .sun-button:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 18px 26px -10px rgba(245,158,11,.7);background:linear-gradient(90deg,#fde68a,var(--g-sun))}
+.garden-shell .sun-button:active:not(:disabled){transform:scale(.97)}
+.garden-shell .sun-button:disabled{filter:grayscale(.8);opacity:.55}
+.sun-disc{position:relative;width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff7d6,#fbbf24 55%,#f59e0b);display:grid;place-items:center;color:#fff}
+.sun-rays{position:absolute;inset:-9px;width:62px;height:62px;animation:garden-spin 30s linear infinite;stroke:#f59e0b;stroke-width:2.5;stroke-linecap:round;opacity:.8}
+.sun-button:hover .sun-rays{animation-duration:6s}
+.game-launch.running .sun-button{background:linear-gradient(90deg,#dcfce7,#86efac);color:var(--g-ink);box-shadow:0 12px 20px -8px rgba(34,197,94,.55)}
+.game-launch.running .sun-rays{animation-duration:3s;stroke:var(--g-leaf-2)}
+.sun-meta{display:flex;flex-direction:column;align-items:flex-start;gap:2px;max-width:150px}
+.garden-shell .game-launch-status{font-size:12px;color:var(--g-text-3);line-height:1.3}
+.garden-shell .game-launch-refresh{min-height:22px;height:22px;padding:0 6px;border-radius:11px;border:1px solid var(--g-line);background:#fff;color:var(--g-text-3)}
+.garden-shell .game-launch-error{position:absolute;right:16px;top:80px;max-width:360px;padding:8px 12px;border-radius:14px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;font-size:13px;box-shadow:var(--g-sh)}
+
+/* ---------- shared controls ---------- */
+.garden-shell .garden-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:40px;min-height:40px;padding:0 18px;border-radius:20px;border:1px solid var(--g-line);background:#fff;color:var(--g-ink);font-size:14px;font-weight:600;white-space:nowrap;transition:transform .3s var(--g-ease),box-shadow .3s,background .3s,border-color .3s}
+.garden-shell .garden-btn:hover:not(:disabled){border-color:var(--g-leaf);background:var(--g-mint);transform:translateY(-1px)}
+.garden-shell .garden-btn:active:not(:disabled){transform:scale(.97)}
+.garden-shell .garden-btn:disabled{opacity:.45}
+.garden-shell .garden-btn.green{border:0;background:linear-gradient(90deg,#22c55e,#10b981);color:#fff;box-shadow:0 10px 16px -6px rgba(34,197,94,.55)}
+.garden-shell .garden-btn.green:hover:not(:disabled){background:linear-gradient(90deg,#16a34a,#059669);transform:scale(1.03)}
+.garden-shell .garden-btn.amber{border:0;background:linear-gradient(90deg,var(--g-sun),#eab308);color:var(--g-sun-ink);box-shadow:0 10px 16px -6px rgba(245,158,11,.5)}
+.garden-shell .garden-btn.amber:hover:not(:disabled){background:linear-gradient(90deg,var(--g-sun-2),#ca8a04);transform:scale(1.03)}
+.garden-shell .garden-btn.soft{background:transparent;border-color:transparent;color:var(--g-text-2)}
+.garden-shell .garden-btn.soft:hover:not(:disabled){background:rgba(74,222,128,.12)}
+.garden-shell .garden-btn.clay{color:var(--g-rose);border-color:#fecaca}
+.garden-shell .garden-btn.clay:hover:not(:disabled){background:#fef2f2;border-color:#fca5a5}
+.garden-shell .garden-btn.clay-fill{border:0;background:linear-gradient(90deg,#ef4444,#f97316);color:#fff}
+.garden-shell .garden-btn.sm{height:32px;min-height:32px;padding:0 13px;font-size:13px;border-radius:16px}
+.garden-shell .garden-btn.icon{width:40px;padding:0}.garden-shell .garden-btn.icon.sm{width:32px}
+.garden-shell .garden-btn.wide{width:100%}
+.garden-shell .garden-btn kbd{font:11px/1 inherit;padding:2px 6px;border-radius:6px;border:1px solid var(--g-line);color:var(--g-text-3);background:#fff;font-weight:500}
+.garden-shell .garden-link{border:0;background:none;padding:0;min-height:0;color:var(--g-leaf-3);font-weight:600;display:inline-flex;align-items:center;gap:4px}
+.garden-shell .garden-link:hover:not(:disabled){background:none;text-decoration:underline;text-decoration-style:wavy;text-underline-offset:4px}
+.garden-shell button:focus-visible,.garden-shell [tabindex]:focus-visible,.garden-shell input:focus-visible{outline:3px solid rgba(34,197,94,.45);outline-offset:2px}
+.garden-muted{color:var(--g-text-3);font-size:13px}
+.garden-solar{height:10px;border-radius:999px;background:rgba(229,231,235,.7);border:1px solid rgba(134,239,172,.45);overflow:hidden}
+.garden-solar i{display:block;height:100%;border-radius:999px;background:repeating-linear-gradient(90deg,var(--g-leaf-2) 0,var(--g-leaf-2) 18px,var(--g-moss) 18px,var(--g-moss) 20px);transition:width .25s}
+.garden-solar i.indeterminate{animation:garden-solar-run 1.4s ease-in-out infinite}
+@keyframes garden-solar-run{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+.garden-shell progress{accent-color:var(--g-leaf-3)}
+.garden-shell .loader-progress progress{width:120px;height:8px}
+
+/* ---------- pages ---------- */
+.garden-bed{position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column}
+.garden-bed>*{flex:1;min-height:0}
+.garden-mods{position:relative;overflow:auto;padding:4px 12px 30px;animation:garden-fade-up .5s var(--g-ease)}
+.garden-intro{display:flex;align-items:flex-end;gap:18px;margin-bottom:12px}
+.garden-shell .garden-intro h1{margin:0;font-size:30px;font-weight:800;letter-spacing:.01em}
+.garden-intro p{margin:2px 0 0;color:var(--g-text-3);font-size:14px}
+.garden-intro p b{color:var(--g-leaf-3)}
+.garden-intro-actions{margin-left:auto;display:flex;gap:10px;align-items:center}
+.garden-intro-actions .config-editor,.garden-intro-actions .import-selector{display:flex}
+.garden-find{display:flex;align-items:center;gap:8px;height:42px;width:240px;padding:0 16px;border-radius:21px;border:1px solid var(--g-line);background:#fff;color:var(--g-leaf-3);transition:width .5s var(--g-ease),border-color .3s,box-shadow .3s}
+.garden-find:focus-within{width:320px;border-color:var(--g-leaf);box-shadow:0 0 0 4px rgba(74,222,128,.15)}
+.garden-shell .garden-find input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:14px;min-height:0;color:var(--g-text)}
+.garden-find input::placeholder{color:#86a896}
+.garden-notice{margin:0 0 8px;min-height:0;font-size:13.5px;color:var(--g-leaf-3);font-weight:500}
+.garden-notice:empty{display:none}
+.garden-care-banner{display:flex;align-items:center;gap:12px;margin:0 0 14px;padding:12px 16px 12px 20px;border-radius:6px 20px 20px 20px;background:#fef2f2;border:1px solid #fecaca;color:#7f1d1d;position:relative}
+.garden-care-banner::before,.garden-sign-banner::before{content:"";position:absolute;left:-1px;top:12px;bottom:12px;width:5px;border-radius:5px;background:linear-gradient(180deg,#f87171,#ef4444,#f59e0b)}
+.garden-care-banner>span{flex:1}
+.garden-sign-banner{position:relative;display:flex;align-items:center;gap:14px;margin:0 0 16px;padding:14px 18px 14px 22px;border-radius:6px 22px 22px 22px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fcd34d;color:var(--g-sun-ink);transform:rotate(-.4deg);box-shadow:0 10px 18px -10px rgba(217,119,6,.5);animation:garden-fade-up .5s var(--g-ease)}
+.garden-sign-banner::before{background:linear-gradient(180deg,var(--g-sun),var(--g-sun-2),#f97316)}
+.garden-sign-banner .grow{flex:1;min-width:0}
+.garden-sign-banner .loader-progress{display:flex;align-items:center;gap:10px;margin-top:6px;font-size:13px}
+.garden-sign-banner .loader-error{margin:6px 0 0;color:#991b1b;font-size:13px}
+.garden-chips{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.garden-shell .garden-chips button{height:36px;min-height:36px;padding:0 16px;border-radius:18px;border:1px solid var(--g-line);background:#fff;color:var(--g-text-2);font-size:14px;font-weight:500;transition:all .4s var(--g-ease)}
+.garden-chips button span{margin-left:6px;color:var(--g-text-3);font-size:12.5px}
+.garden-shell .garden-chips button:hover:not(:disabled){border-color:var(--g-leaf);background:#fff}
+.garden-shell .garden-chips button.on{border-radius:20px 4px 20px 4px;background:linear-gradient(90deg,#dcfce7,#bbf7d0);border-color:var(--g-leaf);color:var(--g-ink);box-shadow:0 6px 12px -6px rgba(74,222,128,.7)}
+.garden-chips button.on span{color:var(--g-leaf-3)}
+.garden-chips button.care span{color:var(--g-rose)}
+.garden-wrap{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:20px;align-items:start}
+.garden-bed-label{display:flex;align-items:center;gap:8px;margin:6px 4px 10px;font-size:13px;font-weight:700;color:var(--g-leaf-3);letter-spacing:.04em}
+.garden-bed-label span{color:var(--g-text-3);font-weight:500}
+.garden-bed-label::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--g-line),transparent)}
+.garden-plants{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:14px;margin-bottom:22px}
+.garden-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;color:var(--g-text-3);padding:50px 20px;border:2px dashed var(--g-line-2);border-radius:28px;background:rgba(255,255,255,.5)}
+.garden-empty b{color:var(--g-ink);font-size:18px}
+
+/* ---------- plant cards ---------- */
+.plant{position:relative;padding:16px 16px 14px;border-radius:24px;background:rgba(255,255,255,.9);border:1px solid var(--g-line);box-shadow:var(--g-sh);cursor:pointer;outline:none;transition:box-shadow .4s var(--g-ease),border-color .4s,filter .5s,opacity .5s,background .4s,transform .45s var(--g-ease);animation:garden-sprout-in .5s calc(var(--i, 0) * 30ms) var(--g-ease) backwards}
+@keyframes garden-sprout-in{from{opacity:0;transform:translateY(16px) scale(.97)}}
+.plant:hover{box-shadow:var(--g-sh-lg);border-color:#86efac;transform:translateY(-2px) rotate(-.4deg)}
+.plant:focus-visible{outline:3px solid rgba(34,197,94,.45);outline-offset:2px}
+.plant.off{filter:saturate(.25);opacity:.8;background:rgba(255,255,255,.66)}
+.plant.pend{border-color:#fcd34d;box-shadow:0 10px 16px -6px rgba(251,191,36,.35)}
+.plant.care{border-color:#fca5a5}
+.plant.open{grid-column:1/-1;cursor:default;background:#fff;box-shadow:var(--g-sh-lg);border-color:#86efac;transform:none;filter:none;opacity:1}
+.plant.arrive{animation:garden-arrive 1.4s var(--g-ease)}
+@keyframes garden-arrive{0%{opacity:0;transform:scale(.6)}35%{opacity:1;transform:scale(1.02);box-shadow:0 0 0 8px rgba(251,191,36,.35),var(--g-sh-lg)}100%{transform:none}}
+.plant-top{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px}
+.garden-pot{width:46px;height:46px;flex:none;border-radius:60% 40% 55% 45%/45% 55% 45% 55%;display:grid;place-items:center;background:#dcfce7;color:var(--g-leaf-3)}
+.garden-pot.lg{width:64px;height:64px;margin-bottom:6px;animation:garden-sway 3s ease-in-out infinite}
+.plant-sprout{width:30px;height:34px;margin-left:auto;margin-right:2px;color:var(--g-leaf-2);transform-origin:50% 100%;transform:scale(0);transition:transform .35s ease-in}
+.plant:not(.off) .plant-sprout{transform:scale(1);transition:transform .7s cubic-bezier(.34,1.8,.5,1)}
+.garden-shell .leaf-switch{position:relative;flex:none;width:50px;height:28px;min-height:28px;padding:0;border-radius:999px;background:#e3ebe5;border:1px solid #d1ddd4;transition:background .4s var(--g-ease)}
+.garden-shell .leaf-switch:hover:not(:disabled){background:#d8e6dc;border-color:#c3d6c8}
+.leaf-switch span{position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50% 0 50% 50%;background:#fff;box-shadow:0 2px 5px rgba(20,83,45,.25);transform:rotate(-45deg);transition:transform .5s var(--g-pop)}
+.garden-shell .leaf-switch[aria-pressed=true]{background:linear-gradient(90deg,var(--g-leaf),#10b981);border-color:transparent}
+.garden-shell .leaf-switch[aria-pressed=true]:hover:not(:disabled){background:linear-gradient(90deg,#34d399,#059669)}
+.leaf-switch[aria-pressed=true] span{transform:translateX(22px) rotate(135deg)}
+.garden-shell .leaf-switch:disabled{opacity:.45}
+.plant-name{display:block;font-size:16px;font-weight:700;color:var(--g-text);line-height:1.3;overflow-wrap:anywhere}
+.plant-sub{display:block;font-size:12.5px;color:var(--g-text-3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plant-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;min-height:24px}
+.tg{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 10px;border-radius:12px;font-size:12px;font-weight:600}
+.tg.on{background:#dcfce7;color:var(--g-leaf-3)}.tg.off{background:#f1f5f2;color:var(--g-text-3)}.tg.pend{background:#fef3c7;color:#a16207}.tg.bad{background:#fee2e2;color:var(--g-rose)}
+.plant-open{display:grid;grid-template-columns:minmax(260px,1fr) minmax(0,1.4fr);gap:24px;margin-top:14px;padding-top:14px;border-top:1px dashed var(--g-line);cursor:auto;animation:garden-fade-up .45s .08s var(--g-ease) both;user-select:text}
+.garden-shell .plant-open h3{margin:0 0 8px;font-size:13px;color:var(--g-leaf-3);display:flex;align-items:baseline;gap:8px}
+.plant-open h3 small{color:var(--g-text-3);font-weight:500}
+.garden-facts{display:grid;grid-template-columns:56px 1fr;gap:8px 12px;margin:0;font-size:13.5px}
+.garden-facts.wide{grid-template-columns:96px 1fr}
+.garden-facts dt{color:var(--g-text-3)}.garden-facts dd{margin:0;overflow-wrap:anywhere}
+.garden-care-note{position:relative;margin-bottom:12px;padding:12px 14px 12px 18px;border-radius:6px 18px 18px 18px;background:#fef2f2;border:1px solid #fecaca;color:#7f1d1d;font-size:13.5px}
+.garden-care-note b{display:block;color:#991b1b}
+.plant-actions{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:16px}
+.garden-confirm{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:16px;padding:10px 12px;border-radius:16px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-size:13.5px;animation:garden-fade-up .3s var(--g-ease)}
+.garden-confirm>span{flex:1;min-width:180px}
+.garden-tree{max-height:360px;overflow:auto;border-radius:16px;background:var(--g-mint);border:1px dashed var(--g-line-2);padding:6px 12px}
+
+/* ---------- change basket ---------- */
+.garden-basket{position:sticky;top:0;width:0;overflow:hidden;opacity:0;transition:width .5s var(--g-ease),opacity .4s}
+.garden-basket.show{width:300px;opacity:1}
+.basket-card{width:300px;padding:18px;border-radius:28px 28px 28px 10px;background:linear-gradient(170deg,#fffbeb,#fff);border:1px solid #fde68a;box-shadow:0 18px 28px -14px rgba(217,119,6,.45)}
+.basket-card.bounce{animation:garden-bounce .5s cubic-bezier(.34,1.8,.5,1)}
+@keyframes garden-bounce{40%{transform:scale(1.05) rotate(-1.5deg)}}
+.basket-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.basket-icon{width:42px;height:42px;flex:none;border-radius:50% 50% 50% 12px;background:linear-gradient(140deg,#fde68a,var(--g-sun));display:grid;place-items:center;color:var(--g-sun-ink)}
+.basket-head b{display:block;font-size:16px;color:var(--g-sun-ink)}.basket-head small{display:block;font-size:12.5px;color:#a16207}
+.basket-list{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:6px;max-height:230px;overflow:auto}
+.basket-list li{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:14px;background:#fff;border:1px solid #fef3c7;font-size:13.5px;animation:garden-fade-up .35s var(--g-ease)}
+.basket-list li>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.basket-list .v{font-size:12px;font-weight:700;padding:1px 8px;border-radius:10px;flex:none}
+.basket-list .v.on{background:#dcfce7;color:var(--g-leaf-3)}.basket-list .v.off{background:#f1f5f2;color:var(--g-text-3)}
+.basket-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.basket-actions .wide{grid-column:1/-1}
+.basket-count{margin:8px 0 12px;font-size:13px;color:#a16207;min-height:1em}
+.garden-flyleaf{position:fixed;z-index:200;width:22px;height:22px;pointer-events:none;color:var(--g-leaf-2)}
+
+/* ---------- welcome (no game yet) ---------- */
+.garden-dawn{position:relative;min-height:440px;display:grid;place-items:center}
+.garden-sunrise{position:absolute;left:50%;top:2%;width:260px;height:260px;margin-left:-130px;border-radius:50%;background:radial-gradient(circle,#fff7d6 0%,#fde68a 45%,rgba(251,191,36,0) 70%);animation:garden-rise 2.2s var(--g-ease) both}
+@keyframes garden-rise{from{transform:translateY(160px);opacity:0}}
+.garden-welcome{position:relative;width:min(660px,100%);padding:38px 42px;border-radius:36px;background:rgba(255,255,255,.92);border:1px solid var(--g-line);box-shadow:var(--g-sh-lg);text-align:center;animation:garden-fade-up .8s .3s var(--g-ease) both}
+.garden-shell .garden-welcome h2{margin:0 0 8px;font-size:28px}
+.garden-welcome p{color:var(--g-text-2);margin:0 0 24px}
+.garden-stones{list-style:none;margin:0;padding:0;display:flex;justify-content:center;gap:16px}
+.garden-stones li{width:170px;padding:14px 12px;border-radius:60% 40% 55% 45%/45% 55% 45% 55%;background:#f1f5f2;color:var(--g-text-3);font-size:13px}
+.garden-stones b{display:block;font-size:20px}
+.garden-stones li.cur{background:linear-gradient(135deg,#dcfce7,#fef3c7);color:var(--g-ink)}.garden-stones li.cur b{color:var(--g-leaf-3)}
+
+/* ---------- info page ---------- */
+.garden-settings{overflow:auto;padding:4px 12px 30px;animation:garden-fade-up .5s var(--g-ease)}
+.garden-shell .garden-settings.app-info{position:static;width:auto;max-height:none;background:transparent;border:0;box-shadow:none;border-radius:0}
+.garden-cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:1100px}
+.garden-card{padding:20px 22px;border-radius:26px;background:rgba(255,255,255,.9);border:1px solid var(--g-line);box-shadow:var(--g-sh)}
+.garden-card.wide{grid-column:1/-1}
+.garden-shell .garden-card h2{margin:0 0 4px;font-size:17px;display:flex;align-items:center;gap:8px}
+.garden-card>p{margin:0 0 14px;font-size:13.5px;color:var(--g-text-3)}
+.garden-card .check-progress{display:flex;align-items:center;gap:12px;margin-top:12px;font-size:13.5px}
+.garden-card .check-progress .garden-solar{flex:1;max-width:220px}
+.garden-connecting{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--g-ink);font-weight:600}
+.garden-error{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);z-index:30;padding:11px 18px;border-radius:22px 22px 22px 6px;background:#fff;border:1px solid #fecaca;color:#991b1b;box-shadow:var(--g-sh-lg)}
+
+/* ---------- dialogs become bottom sheets ---------- */
+.garden-shell dialog[open]{position:fixed;inset:auto 0 0 0;margin:0 auto;width:min(760px,94vw);max-height:86vh;border-radius:34px 34px 0 0;border:1px solid var(--g-line);border-bottom:0;background:#fff;color:var(--g-text);box-shadow:0 -20px 40px -20px rgba(34,197,94,.35);padding:0;animation:garden-sheet-up .55s cubic-bezier(.34,1.3,.64,1)}
+.garden-shell dialog[open]::before{content:"";display:block;width:44px;height:5px;border-radius:3px;background:#d1e7d9;margin:10px auto 0}
+.garden-shell dialog[open]::backdrop{background:rgba(20,70,45,.2);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+@keyframes garden-sheet-up{from{transform:translateY(100%)}}
+.garden-shell dialog.profile-dialog[open]{width:min(1180px,96vw);max-height:90vh}
+.garden-shell dialog[open] header{border-bottom:1px solid #dcfce7}
+.garden-shell dialog[open] footer{border-top:1px solid #dcfce7}
+.garden-shell dialog[open] h2{color:var(--g-ink)}
+.garden-shell dialog[open] button{border-radius:16px;border:1px solid var(--g-line);background:#fff;color:var(--g-ink)}
+.garden-shell dialog[open] button:hover:not(:disabled){border-color:var(--g-leaf);background:var(--g-mint)}
+.garden-shell dialog[open] button.primary,.garden-shell dialog[open] [data-testid=import-commit],.garden-shell dialog[open] [data-testid=loader-install-online]{border:0;background:linear-gradient(90deg,#22c55e,#10b981);color:#fff;font-weight:600}
+.garden-shell dialog[open] input,.garden-shell dialog[open] select,.garden-shell dialog[open] textarea{border-radius:14px;border:1px solid var(--g-line);background:#fff;color:var(--g-text)}
+.garden-shell dialog[open] code{color:var(--g-ink)}
+
+/* ---------- logs: notebook + gardener (template unchanged) ---------- */
+.garden-shell .diagnostic-workspace{padding:4px 12px 18px;color:var(--g-text);animation:garden-fade-up .5s var(--g-ease)}
+.garden-shell .diagnostic-workspace .workspace-heading h2{font-size:30px;font-weight:800;color:var(--g-ink);letter-spacing:.01em}
+.garden-shell .diagnostic-workspace button{border-radius:16px;border-color:var(--g-line);background:#fff;color:var(--g-ink)}
+.garden-shell .diagnostic-workspace button:hover:not(:disabled){border-color:var(--g-leaf);background:var(--g-mint)}
+.garden-shell .diagnostic-workspace button.primary{border:0;background:linear-gradient(90deg,#22c55e,#10b981);color:#fff;font-weight:600;box-shadow:0 10px 16px -6px rgba(34,197,94,.5)}
+.garden-shell .diagnostic-workspace input,.garden-shell .diagnostic-workspace textarea{border-radius:16px;border-color:var(--g-line);background:#fff}
+.garden-shell .diagnostic-workspace .log-pane{background:var(--g-paper);border:1px solid #ece3c8;border-radius:6px 24px 24px 24px;box-shadow:0 18px 28px -16px rgba(140,110,40,.35)}
+.garden-shell .diagnostic-workspace .log-pane .pane-heading{border-bottom:1px dashed #e8dfc6}
+.garden-shell .diagnostic-workspace .log-pane h3{color:var(--g-sun-ink)}
+.garden-shell .diagnostic-workspace .log-tabs{display:flex;gap:4px;padding:0 16px}
+.garden-shell .diagnostic-workspace .log-tabs button{border-radius:14px 14px 0 0;border:1px solid #e8dfc6;border-bottom:0;background:#f6efd9;color:#8a6d2f;font-weight:600}
+.garden-shell .diagnostic-workspace .log-tabs button.active{background:#fff;color:var(--g-sun-ink)}
+.garden-shell .diagnostic-workspace .log-scroll{background-color:var(--g-paper);background-image:linear-gradient(90deg,transparent 55px,rgba(248,113,113,.45) 55px,rgba(248,113,113,.45) 56px,transparent 56px);border-top:1px dashed #e8dfc6;border-bottom:1px dashed #e8dfc6}
+.garden-shell .diagnostic-workspace .log-line,.garden-shell .diagnostic-workspace .log-edge{min-height:28px;line-height:28px;align-items:flex-start;background:transparent;box-shadow:inset 0 -1px 0 rgba(56,189,248,.18)}
+.garden-shell .diagnostic-workspace .log-line .line-number{width:56px;flex:none;text-align:right;padding-right:14px;color:#c0a875;line-height:28px}
+.garden-shell .diagnostic-workspace .log-line code{padding-left:12px;line-height:28px;color:#33413a;background:transparent}
+.garden-shell .diagnostic-workspace .log-line.error-line code{color:#991b1b;background:linear-gradient(180deg,transparent 45%,rgba(248,113,113,.36) 45%,rgba(248,113,113,.36) 86%,transparent 86%)}
+.garden-shell .diagnostic-workspace .conversation-pane{background:rgba(255,255,255,.9);border:1px solid var(--g-line);border-radius:28px;box-shadow:var(--g-sh)}
+.garden-shell .diagnostic-workspace .conversation-heading h3::before{content:"";display:inline-block;width:22px;height:22px;margin-right:8px;vertical-align:-5px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff7d6,var(--g-sun) 60%,var(--g-sun-2));box-shadow:0 4px 10px -4px rgba(245,158,11,.6)}
+.garden-shell .diagnostic-workspace .message.user{background:#fef3c7;border:1px solid #fde68a;border-radius:22px 22px 6px 22px;color:#713f12}
+.garden-shell .diagnostic-workspace .message.assistant{background:linear-gradient(170deg,#f0fdf4,#fff);border:1px solid #dcfce7;border-radius:6px 24px 24px 24px;animation:garden-fade-up .5s var(--g-ease)}
+.garden-shell .diagnostic-workspace .composer textarea{border-radius:22px}
+.garden-shell .diagnostic-workspace .ai-progress .progress-dot{background:var(--g-leaf-2)}
+.garden-shell .diagnostic-workspace .connection-settings,.garden-shell .diagnostic-workspace .source-picker{background:#fff;border:1px solid var(--g-line);border-radius:22px;box-shadow:var(--g-sh-lg)}
+
+@media (max-width:1440px){.sun-meta{display:none}}
+@media (max-width:1320px){.garden-shell .env-pill strong{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.sign-text>span{max-width:130px}}
+@media (max-width:1180px){.garden-find{width:180px}.garden-find:focus-within{width:240px}.canopy-brand>div{display:none}}
+@media (max-width:1000px){.garden-cards{grid-template-columns:1fr}.plant-open{grid-template-columns:1fr}}
+@media (max-height:640px){.garden-shell .canopy{height:62px;margin-bottom:10px}.garden-shell .sun-button{height:48px;min-height:48px}.sun-disc{width:38px;height:38px}.garden-shell .installation-trigger.garden-sign{height:46px;min-height:46px}.garden-shell .garden-intro h1,.garden-shell .diagnostic-workspace .workspace-heading h2{font-size:24px}}
+@media (prefers-reduced-motion: reduce){.garden-shell *,.garden-shell *::before,.garden-shell *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* ===== v3: window frame, Mod toolbar, list view, pager, continuous log ===== */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.garden-shell{padding-top:0}
+.garden-titlebar{position:relative;z-index:6;flex:none;display:flex;align-items:center;gap:9px;height:40px;margin:0 -18px 6px;padding-left:20px;user-select:none;color:var(--g-ink)}
+.titlebar-logo{width:22px;height:22px;flex:none;border-radius:50% 50% 50% 7px;background:linear-gradient(140deg,var(--g-leaf),var(--g-leaf-2) 50%,var(--g-sun));color:#fff;display:grid;place-items:center;box-shadow:0 4px 10px -4px rgba(74,222,128,.8)}
+.titlebar-name{font-weight:800;font-size:14px;letter-spacing:.1em}
+.titlebar-space{flex:1;align-self:stretch}
+.titlebar-controls{display:flex;align-items:center;gap:2px;padding-right:6px;align-self:stretch}
+.garden-shell .titlebar-button{width:42px;height:30px;min-height:30px;padding:0;border:0;border-radius:15px;background:transparent;color:var(--g-text-2);transition:background .25s,color .25s,transform .3s var(--g-ease)}
+.garden-shell .titlebar-button:hover:not(:disabled){background:rgba(74,222,128,.16);color:var(--g-ink)}
+.garden-shell .titlebar-button:active:not(:disabled){transform:scale(.92)}
+.garden-shell .titlebar-button.close:hover:not(:disabled){background:linear-gradient(90deg,#ef4444,#f97316);color:#fff}
+.titlebar-button .restore-icon{transform:scaleX(-1)}
+.window-edge{position:fixed;z-index:400}
+.window-edge.n{top:0;left:10px;right:10px;height:5px;cursor:n-resize}
+.window-edge.s{bottom:0;left:10px;right:10px;height:5px;cursor:s-resize}
+.window-edge.e{right:0;top:10px;bottom:10px;width:5px;cursor:e-resize}
+.window-edge.w{left:0;top:10px;bottom:10px;width:5px;cursor:w-resize}
+.window-edge.nw{left:0;top:0;width:10px;height:10px;cursor:nw-resize}
+.window-edge.ne{right:0;top:0;width:10px;height:10px;cursor:ne-resize}
+.window-edge.sw{left:0;bottom:0;width:10px;height:10px;cursor:sw-resize}
+.window-edge.se{right:0;bottom:0;width:10px;height:10px;cursor:se-resize}
+
+.garden-toolbar{position:sticky;top:-4px;z-index:4;display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin:0 -12px 14px;padding:10px 12px;background:rgba(240,253,244,.9);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-radius:0 0 22px 22px}
+.garden-search{flex:1 1 320px;max-width:480px;display:flex;align-items:center;gap:8px;height:44px;padding:0 8px 0 16px;border-radius:22px;border:1.5px solid var(--g-line-2);background:#fff;color:var(--g-leaf-3);box-shadow:0 6px 14px -10px rgba(34,197,94,.6);transition:border-color .3s,box-shadow .3s}
+.garden-search:focus-within,.garden-search.active{border-color:var(--g-leaf);box-shadow:0 0 0 4px rgba(74,222,128,.16)}
+.garden-shell .garden-search input{flex:1;min-width:0;min-height:0;border:0;outline:0;background:transparent;font-size:15px;color:var(--g-text)}
+.garden-search input::placeholder{color:#86a896}
+.garden-search input::-webkit-search-cancel-button{display:none}
+.search-count{font-size:12.5px;color:var(--g-text-3);white-space:nowrap}
+.garden-shell .search-clear{width:28px;height:28px;min-height:28px;padding:0;border-radius:50%;border:0;background:#dcfce7;color:var(--g-ink)}
+.garden-shell .search-clear:hover:not(:disabled){background:#bbf7d0}
+.garden-search kbd{font:11px/1 var(--font-ui);padding:3px 7px;border-radius:7px;border:1px solid var(--g-line);color:var(--g-text-3);background:var(--g-mint);margin-right:6px}
+.garden-toolbar .garden-chips{margin:0}
+.garden-toolbar-end{margin-left:auto;display:flex;align-items:center;gap:10px}
+.garden-select{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--g-text-3);white-space:nowrap}
+.garden-shell .garden-select select{height:34px;min-height:34px;padding:0 10px;border-radius:17px;border:1px solid var(--g-line);background:#fff;color:var(--g-ink);font-weight:500;cursor:pointer}
+.garden-view-switch{display:flex;gap:2px;padding:3px;border-radius:18px;background:#dcfce7}
+.garden-shell .garden-view-switch button{width:34px;height:30px;min-height:30px;padding:0;border:0;border-radius:15px;background:transparent;color:var(--g-text-3)}
+.garden-shell .garden-view-switch button.on{background:#fff;color:var(--g-ink);box-shadow:0 4px 8px -4px rgba(34,197,94,.6)}
+
+.garden-plants.list{grid-template-columns:1fr;gap:6px}
+.garden-plants.list .plant{display:grid;grid-template-columns:36px minmax(0,1fr) auto auto auto;grid-template-areas:"pot name tags sw x" "pot sub tags sw x" "open open open open open";column-gap:14px;align-items:center;padding:9px 14px;border-radius:16px;animation-duration:.3s}
+.garden-plants.list .plant:hover{transform:none}
+.garden-plants.list .plant-top{display:contents}
+.garden-plants.list .garden-pot{grid-area:pot;width:36px;height:36px}
+.garden-plants.list .plant-sprout{display:none}
+.garden-plants.list .leaf-switch{grid-area:sw}
+.garden-plants.list .plant-close{grid-area:x}
+.garden-plants.list .plant-name{grid-area:name;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.garden-plants.list .plant-sub{grid-area:sub;margin:0}
+.garden-plants.list .plant-tags{grid-area:tags;margin:0;min-height:0;justify-content:flex-end}
+.garden-plants.list .plant-open{grid-area:open}
+
+.garden-pager{display:flex;align-items:center;gap:16px;margin:2px 0 10px;padding:10px 16px;border-radius:22px;background:rgba(255,255,255,.78);border:1px solid var(--g-line)}
+.pager-range{font-size:13px;color:var(--g-text-3);white-space:nowrap}
+.pager-pages{display:flex;align-items:center;gap:4px;margin:0 auto}
+.garden-shell .pager-pages button{min-width:34px;height:34px;min-height:34px;padding:0 8px;border-radius:17px;border:1px solid transparent;background:transparent;color:var(--g-text-2);font-weight:600}
+.garden-shell .pager-pages button:hover:not(:disabled){background:rgba(74,222,128,.12);border-color:var(--g-line)}
+.garden-shell .pager-pages button.on{background:linear-gradient(90deg,#22c55e,#10b981);color:#fff;border-color:transparent;box-shadow:0 6px 12px -6px rgba(34,197,94,.7)}
+.pager-gap{color:var(--g-text-3);padding:0 2px}
+
+/* exactly one ruled row, so the notebook lines stay under the text */
+.garden-shell .diagnostic-workspace .log-edge{height:28px;margin:0;padding:0;overflow:hidden;text-align:center;font:12.5px/28px var(--font-ui);color:#a08a55;background:transparent}
+.garden-shell .diagnostic-workspace .log-scroll{padding-top:0;padding-bottom:0}
+@media (max-width:1180px){.garden-toolbar-end .garden-select>span{display:none}}
+
+/* ---------- v4: 方案 / Nexus pages, calmer log reader and conversation ---------- */
+@media (max-width:1240px){.garden-shell .canopy-nav>button{padding:0 12px}.garden-shell .canopy-nav>button svg{display:none}}
+@media (max-width:1060px){.garden-shell .canopy-nav>button{padding:0 10px;font-size:14px}.sign-text>span{max-width:96px}}
+
+.garden-shell .diagnostic-workspace .workspace-heading{flex-direction:column;align-items:flex-start;gap:2px}
+.garden-shell .diagnostic-workspace .workspace-heading h2{margin:0}
+.garden-shell .diagnostic-workspace .workspace-heading p{margin:0;font-size:14px;color:var(--g-text-3)}
+
+.garden-shell .diagnostic-workspace .log-heading{align-items:flex-end;flex-wrap:nowrap;gap:8px;padding:12px 16px 0;border-bottom:1px solid #e8dfc6}
+.garden-shell .diagnostic-workspace .log-heading .log-tabs{flex:1;min-width:0;padding:0;overflow-x:auto;scrollbar-width:none}
+.garden-shell .diagnostic-workspace .log-heading .log-tabs button{margin-bottom:-1px;height:36px;padding:0 14px;font-size:13px;white-space:nowrap}
+.garden-shell .diagnostic-workspace .log-heading .log-tabs button.active{background:var(--g-paper);border-bottom:1px solid var(--g-paper)}
+.garden-shell .diagnostic-workspace .log-heading h3{align-self:center;margin:0 auto 8px 0}
+.garden-shell .diagnostic-workspace .log-heading>button{flex:none;height:32px;margin-bottom:8px;padding:0 12px;font-size:13px}
+.garden-shell .diagnostic-workspace .log-control-bar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:12px 16px 6px}
+.garden-shell .diagnostic-workspace .log-tools{flex:1 1 240px;padding:0}
+.garden-shell .diagnostic-workspace .log-tools input[type=search]{height:36px;padding:0 14px}
+.garden-shell .diagnostic-workspace .log-view-options{padding:0}
+.garden-shell .diagnostic-workspace .log-mode-switch{display:inline-flex;padding:3px;border-radius:18px;background:#f6efd9;border:1px solid #ece3c8}
+.garden-shell .diagnostic-workspace .log-mode-switch button{height:28px;padding:0 12px;border:0;border-radius:14px;background:transparent;color:#8a6d2f;font-size:12.5px}
+.garden-shell .diagnostic-workspace .log-mode-switch button.active{background:#fff;color:var(--g-sun-ink);font-weight:600;box-shadow:0 2px 6px -3px rgba(140,110,40,.5)}
+
+.garden-shell .diagnostic-workspace .conversation-pane{position:relative}
+.garden-shell .diagnostic-workspace .conversation-heading{flex-wrap:nowrap;gap:6px;padding:12px 14px 12px 18px;border-bottom:1px solid #e3f5e9}
+.garden-shell .diagnostic-workspace .conversation-heading h3{margin:0;white-space:nowrap}
+.garden-shell .diagnostic-workspace .model-chip{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:200px;height:28px;margin-left:4px;padding:0 10px;border-radius:14px;border:1px solid var(--g-line);background:var(--g-mint);color:var(--g-leaf-3);font-size:12.5px}
+.garden-shell .diagnostic-workspace .model-chip>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.garden-shell .diagnostic-workspace .heading-space{flex:1}
+.garden-shell .diagnostic-workspace .conversation-heading .ghost{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px;border-color:transparent;background:transparent;color:var(--g-text-2);font-size:13px}
+.garden-shell .diagnostic-workspace .conversation-heading .ghost:hover:not(:disabled){background:var(--g-mint);border-color:transparent}
+.garden-shell .diagnostic-workspace .conversation-heading .primary{height:36px;padding:0 16px;margin-left:4px}
+.garden-shell .diagnostic-workspace .connection-settings{top:58px;left:12px;right:12px;max-height:calc(100% - 76px);padding:16px 18px}
+
+.garden-shell .diagnostic-workspace .conversation-scroll{display:flex;flex-direction:column;gap:16px;padding:18px 18px 10px}
+.garden-shell .diagnostic-workspace .message,.garden-shell .diagnostic-workspace .message.user,.garden-shell .diagnostic-workspace .message.assistant{display:flex;align-items:flex-start;gap:10px;margin:0;padding:0;border:0;border-radius:0;background:none;animation:garden-fade-up .45s var(--g-ease)}
+.garden-shell .diagnostic-workspace .message.user{justify-content:flex-end}
+.garden-shell .diagnostic-workspace .message .bubble{min-width:0}
+.garden-shell .diagnostic-workspace .message.user .bubble{max-width:82%;padding:10px 16px;border-radius:20px 20px 6px 20px;background:#fef3c7;border:1px solid #fde68a;color:#713f12}
+.garden-shell .diagnostic-workspace .message.assistant .bubble{flex:1;padding:12px 18px 14px;border-radius:6px 22px 22px 22px;background:linear-gradient(170deg,#f0fdf4,#fff 55%);border:1px solid #dcfce7}
+.garden-shell .diagnostic-workspace .message .bubble>strong{display:block;margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--g-leaf-3)}
+.garden-shell .diagnostic-workspace .message-avatar{flex:none;width:30px;height:30px;margin-top:2px;display:grid;place-items:center;border-radius:50% 50% 50% 10px;background:linear-gradient(140deg,var(--g-leaf),var(--g-leaf-2));color:#fff;box-shadow:0 6px 12px -6px rgba(34,197,94,.8)}
+.garden-shell .diagnostic-workspace .formatted-reply>:first-child{margin-top:0}
+.garden-shell .diagnostic-workspace .formatted-reply>:last-child{margin-bottom:0}
+.garden-shell .diagnostic-workspace .reply-note{margin:-6px 0 0 40px}
+.garden-shell .diagnostic-workspace .suggestions{margin-left:40px}
+.garden-shell .diagnostic-workspace .suggestions h4{margin:0 0 8px;font-size:13px;color:var(--g-leaf-3)}
+
+.garden-shell .diagnostic-workspace .conversation-status{display:flex;flex-direction:column;gap:6px;padding:8px 16px 0}
+.garden-shell .diagnostic-workspace .conversation-status .ai-progress{padding:6px 8px 6px 12px;border-radius:14px;background:var(--g-mint)}
+.garden-shell .diagnostic-workspace .conversation-status .ai-progress button{height:28px;padding:0 12px}
+.garden-shell .diagnostic-workspace .conversation-status .error,.garden-shell .diagnostic-workspace .conversation-status .notice{margin:0 2px;font-size:13px}
+.garden-shell .diagnostic-workspace .conversation-status .notice{color:var(--g-leaf-3)}
+.garden-shell .diagnostic-workspace .status-actions{display:flex;gap:8px}
+.garden-shell .diagnostic-workspace .conversation-status .retry-button{margin:0;height:32px;padding:0 14px;font-size:13px}
+
+.garden-shell .diagnostic-workspace .composer{padding:10px 14px 14px;border-top:0}
+.garden-shell .composer-box{display:flex;flex-direction:column;border:1.5px solid var(--g-line-2);border-radius:22px;background:#fff;transition:border-color .3s,box-shadow .3s}
+.garden-shell .composer-box:focus-within{border-color:var(--g-leaf);box-shadow:0 0 0 4px rgba(74,222,128,.16)}
+.garden-shell .diagnostic-workspace .composer textarea,.garden-shell .diagnostic-workspace .composer textarea:focus-visible{min-height:52px;height:auto;max-height:140px;padding:12px 16px 4px;border:0;border-radius:22px 22px 0 0;background:transparent;resize:none;outline:none;box-shadow:none}
+.garden-shell .diagnostic-workspace .composer-actions{flex-wrap:nowrap;justify-content:flex-start;gap:8px;padding:6px 8px 8px 10px}
+.garden-shell .diagnostic-workspace .composer-actions>.composer-hint{margin-left:auto;font-size:12px;color:var(--g-text-3);white-space:nowrap}
+.garden-shell .diagnostic-workspace .composer .send{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 16px;border-radius:17px}
+.garden-shell .attach{position:relative;min-width:0}
+.garden-shell .attach summary{display:inline-flex;align-items:center;gap:6px;max-width:100%;height:30px;padding:0 12px;border-radius:15px;border:1px solid #e2e8e4;background:#f6f8f6;color:var(--g-text-3);font-size:12.5px;cursor:pointer;list-style:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.garden-shell .attach summary::-webkit-details-marker{display:none}
+.garden-shell .attach summary.ready{border-color:var(--g-line);background:var(--g-mint);color:var(--g-leaf-3);font-weight:600}
+.garden-shell .attach-panel{position:absolute;left:-10px;bottom:calc(100% + 14px);z-index:20;width:min(420px,calc(100vw - 80px));max-height:min(440px,60vh);overflow:auto;padding:14px 16px;border-radius:20px;background:#fff;border:1px solid var(--g-line);box-shadow:var(--g-sh-lg);font-size:13px;line-height:1.6;animation:garden-fade-up .25s var(--g-ease)}
+.garden-shell .attach-panel h4{margin:0 0 8px;font-size:14px;color:var(--g-ink)}
+.garden-shell .attach-choice{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px}
+.garden-shell .attach-choice button{height:30px;padding:0 12px;font-size:12.5px}
+.garden-shell .attach-panel .checkbox{align-items:flex-start;margin:6px 0 10px}
+.garden-shell .attach-panel .checkbox input{margin-top:4px}
+.garden-shell .attach-panel dl{display:grid;grid-template-columns:96px 1fr;gap:4px 10px;margin:0 0 8px}
+.garden-shell .attach-panel dt{color:var(--g-text-3)}
+.garden-shell .attach-panel dd{margin:0;overflow-wrap:anywhere}
+.garden-shell .attach-panel .context-mods{margin:0 0 8px;padding:0;list-style:none}
+.garden-shell .attach-panel .context-mods li{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px dashed #e3f5e9}
+.garden-shell .attach-panel .muted{margin:6px 0 0}

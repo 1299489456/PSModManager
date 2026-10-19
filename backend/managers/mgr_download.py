@@ -1,0 +1,638 @@
+# backend/managers/mgr_download.py
+import os
+import re
+import time
+import uuid
+import hashlib
+import shutil
+import threading
+import requests
+from concurrent.futures import ThreadPoolExecutor, Future
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Dict, Optional, Callable, Any
+from urllib.parse import urlparse, unquote
+
+from backend.i18n.messages import tr
+from backend.utils.error_contract import classify_exception
+from backend.utils.logger import logger
+from backend.utils.event_bus import EventBus
+from backend.managers.mgr_network import build_retry_session, merge_headers
+
+class TaskStatus(Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    PAUSED = "paused"
+    VERIFYING = "verifying"  # 校验中状态
+    COMPLETED = "completed"
+    ERROR = "error"
+    CANCELLED = "cancelled"
+
+@dataclass
+class DownloadTask:
+    url: str
+    dest_path: str
+    task_id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    filename: str = ""
+    total_size: int = 0
+    downloaded_size: int = 0
+    status: TaskStatus = TaskStatus.PENDING
+    error_msg: str = ""
+    user_message: str = ""
+    error_type: str = ""
+    error_code: str = ""
+    error_id: str = ""
+    message_key: str = ""
+    message_params: Dict[str, Any] = field(default_factory=dict)
+    created_at: float = field(default_factory=time.time)
+    speed: str = "0 B/s"
+    # 校验相关
+    expected_hash: Optional[str] = None
+    hash_algorithm: str = "md5"
+    # 回调函数 (接收 Task 对象)
+    on_complete: Optional[Callable[['DownloadTask'], Any]] = None
+    on_error: Optional[Callable[['DownloadTask'], Any]] = None
+    task_type: str = "download"
+    title: str = ""
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    # 内部控制
+    _cancel_event: threading.Event = field(default_factory=threading.Event)
+    _future: Optional[Future] = None  # 存储线程池的 Future 对象
+
+class DownloadManager:
+    _instance = None
+    _lock = threading.Lock() # -线程锁
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(DownloadManager, cls).__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+
+    def __init__(self):
+        if self._initialized: return
+        self._initialized = True
+        # 任务存储 {task_id: DownloadTask}
+        self.tasks: Dict[str, DownloadTask] = {}
+        # 线程池 (默认最大5并发)
+        self.executor = ThreadPoolExecutor(max_workers=5, thread_name_prefix="Downloader")
+        logger.info("下载管理器已初始化。")
+
+    def _sanitize_url(self, url: str) -> str:
+        """
+        智能清洗 URL，处理特殊站点的链接规则
+        """
+        # 规则1: GitHub Blob -> Raw
+        # 输入: https://github.com/user/repo/blob/main/file.json
+        # 输出: https://raw.githubusercontent.com/user/repo/main/file.json
+        if "github.com" in url and "/blob/" in url:
+            new_url = url.replace("github.com", "raw.githubusercontent.com").replace("/blob/", "/")
+            logger.debug("已将 GitHub 页面链接转换为原始文件链接: %s -> %s", self._safe_url_marker(url), self._safe_url_marker(new_url))
+            return new_url
+        return url
+
+    @staticmethod
+    def _default_title(task_type: str, filename: str) -> str:
+        mapping = {
+            "download": "下载任务",
+            "update": "软件更新",
+            "steamcmd-init": "SteamCMD 初始化",
+        }
+        return mapping.get(str(task_type or "").strip().lower(), filename or "任务")
+
+    def add_task(self, url: str, dest_dir: str, filename: Optional[str] = None, expected_hash: Optional[str] = None, hash_algorithm: str = "md5",
+                 on_complete: Optional[Callable[[DownloadTask], Any]] = None, on_error: Optional[Callable[[DownloadTask], Any]] = None,
+                 task_type: str = "download", title: str = "", metadata: Optional[Dict[str, Any]] = None) -> str:
+        """
+        添加下载任务
+        :param url: 下载地址
+        :param dest_dir: 目标文件夹 (注意：现在要求传入目录，文件名自动探测或指定)
+        :param filename: 强制指定文件名 (可选)
+        :param expected_hash: 期望的 Hash 值 (可选，若提供则会自动校验)
+        :param hash_algorithm: Hash 算法 (md5, sha1, sha256)
+        :param on_complete: 完成后的回调函数 (在子线程执行，请勿操作 GUI)
+        :param on_error: 失败后的回调函数
+        """
+        real_url = self._sanitize_url(url)
+        EventBus.resume()   # 恢复事件总线，确保下载任务能够正常执行
+        
+        # 确保目标目录存在
+        os.makedirs(dest_dir, exist_ok=True)
+
+        # 文件名解析逻辑
+        if not filename:
+            filename = self._resolve_filename(real_url)
+        
+        final_path = os.path.join(dest_dir, filename)
+
+        # 创建任务对象
+        resolved_title = title or self._default_title(task_type, filename)
+        task = DownloadTask( url=real_url, dest_path=final_path, filename=filename,
+            expected_hash=expected_hash, hash_algorithm=hash_algorithm,
+            on_complete=on_complete, on_error=on_error,
+            task_type=task_type, title=resolved_title, metadata=dict(metadata or {})
+        )
+        with self._lock:
+            self.tasks[task.task_id] = task
+        
+        logger.info(f"已加入下载任务: filename={filename}, task_id={task.task_id}, hash_check={bool(expected_hash)}")
+        self._emit_progress(task)
+        
+        # 提交到线程池并保存 future
+        task._future = self.executor.submit(self._download_worker, task)
+        return task.task_id
+
+    def _resolve_filename(self, url: str) -> str:
+        """
+        全能型文件名解析器
+        """
+        try:
+            # --- 策略 A: 从 URL 路径中提取并解码 ---
+            parsed = urlparse(url)
+            # unquote 处理 URL 编码的中文，如 %E6%B5%8B%E8%AF%95 -> 测试
+            path_filename = unquote(os.path.basename(parsed.path))
+            
+            # --- 策略 B: 从查询参数中寻找常见关键字 (针对网盘/CDN) ---
+            # 匹配 ?file=xxx, ?name=xxx, ?fileName=xxx 等
+            from urllib.parse import parse_qs
+            qs = parse_qs(parsed.query)
+            for param in ['filename', 'file_name', 'file', 'name']:
+                for k in qs.keys():
+                    if k.lower() == param: return self._clean_filename(unquote(qs[k][0]))
+
+            # --- 策略 C: 预检 HTTP Headers (最专业的方法) ---
+            # 注意：这会发起一次同步请求，如果对响应速度要求极高，可以跳过此步
+            # 使用 HEAD 请求只读取 Header，不下载内容，速度极快
+            # allow_redirects=True 必须开启，因为很多下载是 302 跳转
+            with build_retry_session().head(url, timeout=(5, 20), allow_redirects=True) as r:
+                # 检查 Content-Disposition
+                cd = r.headers.get('Content-Disposition')
+                if cd:
+                    # 匹配 filename="abc.exe" 或 filename=abc.exe
+                    fname = re.findall(r'filename=["\']?(.*?)["\']?$', cd)
+                    if fname: return self._clean_filename(unquote(fname[0]))
+                    
+                    # 匹配 RFC 5987 标准的 filename*=UTF-8''%e4%bd%a0%e5%a5%bd.txt
+                    fname_rfc = re.findall(r"filename\s*=.*''(.+)", cd)
+                    if fname_rfc: return self._clean_filename(unquote(fname_rfc[0]))
+
+                # 如果 HEAD 请求没拿到结果，尝试从路径名判断
+                if path_filename: return self._clean_filename(path_filename)
+        except Exception as e:
+            logger.debug("下载文件名网络预检失败，将使用 URL 路径或兜底文件名。url=%s error=%s", self._safe_url_marker(url), e.__class__.__name__)
+
+        # --- 策略 D: 兜底逻辑 ---
+        if path_filename: return self._clean_filename(path_filename)
+        
+        return "downloaded_file_" + os.urandom(4).hex()
+
+    def _clean_filename(self, filename: str) -> str:
+        """清理文件名中的非法字符，防止系统报错"""
+        # 移除 Windows 下非法的路径字符 \ / : * ? " < > |
+        return re.sub(r'[\\/:*?"<>|]', '_', filename).strip()
+
+    @staticmethod
+    def _safe_url_marker(url: str) -> str:
+        parsed = urlparse(str(url or "").strip())
+        if not parsed.scheme or not parsed.netloc:
+            return ""
+        return f"{parsed.scheme}://{parsed.netloc}{parsed.path or ''}"
+
+    @classmethod
+    def _task_log_context(cls, task: DownloadTask) -> dict[str, Any]:
+        context = {
+            "task_id": task.task_id,
+            "url": cls._safe_url_marker(task.url),
+            "filename": task.filename,
+            "dest_name": os.path.basename(task.dest_path or ""),
+            "phase": str((task.metadata or {}).get("phase") or ""),
+        }
+        metadata = dict(task.metadata or {})
+        for key in ("external_data_type", "version", "source_name", "source_key", "attempted_source_keys", "has_fallback_source", "ready_to_install"):
+            if key in metadata:
+                context[key] = metadata[key]
+        return context
+
+    @staticmethod
+    def _parse_size_header(value: Any) -> int:
+        text = str(value or '').strip()
+        if not text.isdigit():
+            return 0
+        try:
+            return int(text)
+        except ValueError:
+            return 0
+
+    @classmethod
+    def _extract_total_size_from_headers(cls, headers, *, trust_content_length: bool = True) -> int:
+        content_range = str(headers.get('content-range') or '').strip()
+        if content_range:
+            match = re.search(r'/(\d+)$', content_range)
+            if match:
+                try:
+                    return int(match.group(1))
+                except ValueError:
+                    pass
+
+        # 某些对象存储/CDN 会同时返回“传输层长度”和“原始对象长度”。
+        # 当前端展示文件大小时，我们优先要“原始对象长度”。
+        preferred_headers = (
+            'x-goog-stored-content-length',
+            'x-linked-size',
+            'x-original-content-length',
+            'x-ms-blob-content-length',
+            'x-amz-meta-content-length',
+        )
+        for header_name in preferred_headers:
+            size = cls._parse_size_header(headers.get(header_name))
+            if size > 0: return size
+
+        if trust_content_length:
+            size = cls._parse_size_header(headers.get('content-length'))
+            if size > 0: return size
+        return 0
+
+    @staticmethod
+    def _uses_encoded_transfer(headers) -> bool:
+        content_encoding = str(headers.get('content-encoding') or '').strip().lower()
+        return bool(content_encoding and content_encoding != 'identity')
+
+    def _probe_total_size(self, session, probe_urls: list[str], base_headers: dict[str, str]) -> int:
+        """
+        对没有 Content-Length 的下载源做一次轻量预探测。
+
+        典型场景：
+        - GitHub codeload 源码包：正常流式 GET 可能返回 chunked，没有 content-length
+        - 某些 CDN / 重定向链：HEAD 不给长度，但 Range GET 能拿到 content-range
+        """
+        normalized_urls: list[str] = []
+        for candidate in probe_urls:
+            value = str(candidate or '').strip()
+            if value and value not in normalized_urls:
+                normalized_urls.append(value)
+
+        head_headers = {
+            **base_headers,
+            'Accept-Encoding': 'identity',
+        }
+        range_headers = {
+            **head_headers,
+            'Range': 'bytes=0-0',
+        }
+
+        for url in normalized_urls:
+            try:
+                with session.head(url, timeout=(15, 60), allow_redirects=True, headers=head_headers) as probe:
+                    probe.raise_for_status()
+                    total = self._extract_total_size_from_headers(
+                        probe.headers,
+                        trust_content_length=not self._uses_encoded_transfer(probe.headers),
+                    )
+                    if total > 0:
+                        logger.debug(
+                            "下载文件大小预探测成功（HEAD）: url=%s final_url=%s total=%s",
+                            self._safe_url_marker(url),
+                            self._safe_url_marker(probe.url),
+                            total,
+                        )
+                        return total
+            except Exception as e:
+                logger.debug("下载文件大小 HEAD 预探测失败: url=%s error=%s", self._safe_url_marker(url), e.__class__.__name__)
+
+            try:
+                with session.get(url, stream=True, timeout=(15, 60), headers=range_headers) as probe:
+                    probe.raise_for_status()
+                    total = self._extract_total_size_from_headers(
+                        probe.headers,
+                        trust_content_length=not self._uses_encoded_transfer(probe.headers),
+                    )
+                    if total > 0:
+                        logger.debug(
+                            "下载文件大小预探测成功（Range）: url=%s final_url=%s total=%s",
+                            self._safe_url_marker(url),
+                            self._safe_url_marker(probe.url),
+                            total,
+                        )
+                        return total
+            except Exception as e:
+                logger.debug("下载文件大小 Range 预探测失败: url=%s error=%s", self._safe_url_marker(url), e.__class__.__name__)
+        return 0
+
+    @staticmethod
+    def _set_task_phase(task: DownloadTask, phase: str | None):
+        task.metadata = dict(task.metadata or {})
+        if phase:
+            task.metadata['phase'] = phase
+        else:
+            task.metadata.pop('phase', None)
+
+    def cancel_task(self, task_id: str):
+        with self._lock:
+            task = self.tasks.get(task_id)
+            if task and task.status in [TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.VERIFYING]:
+                task._cancel_event.set()
+                future = task._future
+                if task.status == TaskStatus.PENDING and future and future.cancel():
+                    self._set_task_phase(task, None)
+                    task.status = TaskStatus.CANCELLED
+                    task.speed = "已取消"
+                    self._emit_progress(task)
+                    logger.info(f"下载任务在开始前已取消: task_id={task_id}")
+                    return
+
+                self._set_task_phase(task, "cancelling")
+                self._emit_progress(task)
+                logger.info(f"收到下载任务取消请求: task_id={task_id}")
+
+    def get_tasks_info(self):
+        """获取所有任务的简要信息 (供前端轮询或初始化)"""
+        return [
+            {
+                "id": t.task_id,
+                "filename": t.filename,
+                "status": EventBus._normalize_progress_status(t.status.value),
+                "progress": self._calc_percent(t),
+                "speed": t.speed,
+                "error": t.error_msg,
+                "user_message": t.user_message,
+                "error_type": t.error_type,
+                "error_code": t.error_code,
+                "error_id": t.error_id,
+                "message_key": t.message_key,
+                "message_params": dict(t.message_params or {}),
+            }
+            for t in self.tasks.values()
+        ]
+
+    def _download_worker(self, task: DownloadTask):
+        """实际下载执行逻辑"""
+        if task._cancel_event.is_set():
+            self._set_task_phase(task, None)
+            task.status = TaskStatus.CANCELLED
+            task.speed = "已取消"
+            self._emit_progress(task)
+            return
+
+        task.status = TaskStatus.RUNNING
+        # 初始状态发送
+        self._emit_progress(task)
+        
+        # 使用临时文件：filename.downloading
+        temp_path = task.dest_path + ".downloading"
+        start_time = time.time()
+        last_emit_time = 0
+        
+        try:
+            # 1. 准备 Session (应用代理)
+            session = build_retry_session()
+            # 这里的代理配置复用了 requests 对环境变量的支持
+            # mgr_network.py 已经设置了 os.environ['HTTP_PROXY']
+            # 但为了保险，也可以显式读取 settings
+            # proxies = {}
+            # proxy_cfg = settings.config.network.proxy
+            # if proxy_cfg.enabled and proxy_cfg.host:
+            #     p_str = f"{proxy_cfg.type}://{proxy_cfg.host}:{proxy_cfg.port}"
+            #     proxies = {"http": p_str, "https": p_str}
+            
+            # 2. 发起请求 (Stream模式)
+            # with session.get(task.url, stream=True, proxies=proxies, timeout=15) as response:
+            # 模拟浏览器 Header，防止某些 CDN 拦截
+            headers = merge_headers({'Accept-Encoding': 'identity'})
+            with session.get(task.url, stream=True, timeout=(15, 120), headers=headers) as response:
+                response.raise_for_status()
+                uses_encoded_transfer = self._uses_encoded_transfer(response.headers)
+                logger.debug(
+                    "下载响应信息: final_url=%s content_length=%s content_range=%s transfer_encoding=%s content_encoding=%s stored_length=%s",
+                    self._safe_url_marker(response.url),
+                    response.headers.get('content-length'),
+                    response.headers.get('content-range'),
+                    response.headers.get('transfer-encoding'),
+                    response.headers.get('content-encoding'),
+                    response.headers.get('x-goog-stored-content-length'),
+                )
+                # 获取文件大小
+                task.total_size = self._extract_total_size_from_headers(
+                    response.headers,
+                    trust_content_length=not uses_encoded_transfer,
+                )
+                if task.total_size <= 0:
+                    task.total_size = self._probe_total_size(session, [response.url, task.url], headers)
+                if uses_encoded_transfer and task.total_size <= 0:
+                    logger.debug(
+                        "下载总大小不可用，响应启用了内容编码: url=%s final_url=%s content_encoding=%s",
+                        self._safe_url_marker(task.url),
+                        self._safe_url_marker(response.url),
+                        response.headers.get('content-encoding'),
+                    )
+                
+                # 增大 chunk_size 减少循环次数，降低 CPU 占用
+                chunk_size = 64 * 1024 # 64KB
+                # 3. 写入文件
+                with open(temp_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=chunk_size):
+                        # 检查取消信号
+                        if task._cancel_event.is_set():
+                            raise InterruptedError("Task cancelled by user")
+                        
+                        if chunk:
+                            f.write(chunk)
+                            task.downloaded_size += len(chunk)
+                            if task.total_size > 0:
+                                overflow = task.downloaded_size - task.total_size
+                                overflow_tolerance = max(chunk_size, int(task.total_size * 0.02))
+                                if overflow > overflow_tolerance:
+                                    logger.debug(
+                                    "下载字节数超过服务器报告大小，已清空总大小用于继续显示进度: url=%s filename=%s current=%s total=%s",
+                                        self._safe_url_marker(task.url),
+                                        task.filename,
+                                        task.downloaded_size,
+                                        task.total_size,
+                                    )
+                                    task.total_size = 0
+                            
+                            # 计算速度与回调 (限制频率: 每 0.1s 更新一次)
+                            curr_time = time.time()
+                            # 【优化】降低节流阈值到 0.1s，保证 UI 流畅度
+                            if curr_time - last_emit_time > 0.1:
+                                elapsed = curr_time - start_time
+                                if elapsed > 0:
+                                    # 简单平均速度
+                                    task.speed = self._fmt_speed(task.downloaded_size / elapsed)
+                                self._emit_progress(task)
+                                last_emit_time = curr_time
+            
+            # 【关键】循环结束后，强制发送一次“下载完成，正在处理”的状态
+            # 确保前端收到 downloaded_size == total_size
+            if task.total_size <= 0:
+                task.total_size = task.downloaded_size
+            elif task.downloaded_size < task.total_size:
+                remaining = task.total_size - task.downloaded_size
+                if remaining <= chunk_size:
+                    task.downloaded_size = task.total_size
+            elif task.downloaded_size > task.total_size:
+                logger.debug(
+                    "下载完成后发现实际大小大于服务器报告大小，已修正总大小: url=%s filename=%s current=%s total=%s",
+                    self._safe_url_marker(task.url),
+                    task.filename,
+                    task.downloaded_size,
+                    task.total_size,
+                )
+                task.total_size = task.downloaded_size
+            # --- 校验阶段 ---
+            if task.expected_hash:
+                task.status = TaskStatus.VERIFYING
+                task.speed = "正在校验"
+                self._emit_progress(task)
+                
+                logger.debug(f"正在校验下载文件哈希: filename={task.filename}")
+                if not self._verify_hash(temp_path, task.expected_hash, task.hash_algorithm):
+                    raise ValueError("文件哈希不一致，下载内容可能已损坏。")
+            
+            # --- 文件移动 ---
+            if os.path.exists(task.dest_path):
+                os.remove(task.dest_path) # 覆盖旧文件
+            shutil.move(temp_path, task.dest_path)
+            
+            # 最后发送 COMPLETED，确保 100%
+            self._set_task_phase(task, None)
+            task.status = TaskStatus.COMPLETED
+            task.speed = "完成"
+            self._emit_progress(task)
+            logger.info(f"下载任务完成: path={task.dest_path}")
+            
+            # 执行回调
+            if task.on_complete:
+                try:
+                    task.on_complete(task)
+                except Exception as cb_e:
+                    logger.error(f"下载完成回调执行失败: task_id={task.task_id}, error={cb_e}")
+        except InterruptedError:
+            # 取消时不视为错误
+            self._set_task_phase(task, None)
+            task.status = TaskStatus.CANCELLED
+            task.speed = "已取消"
+            self._cleanup(temp_path)
+            self._emit_progress(task)
+        except Exception as e:
+            self._set_task_phase(task, None)
+            task.status = TaskStatus.ERROR
+            task.error_msg = str(e)
+            diagnostic_context = self._task_log_context(task)
+            classified = classify_exception(
+                e,
+                module="download",
+                action=task.task_type,
+                context=diagnostic_context,
+            )
+            task.user_message = classified.user_message or tr("errors.download.failed", "下载失败。请检查网络连接、代理设置、下载源可用性和目标目录权限。")
+            task.error_type = classified.error_type
+            task.error_code = classified.error_code
+            task.error_id = uuid.uuid4().hex[:10]
+            task.message_key = classified.message_key or "errors.download.failed"
+            task.message_params = dict(classified.message_params or {})
+            task.metadata = {
+                **dict(task.metadata or {}),
+                "error_type": task.error_type,
+                "error_code": task.error_code,
+                "error_id": task.error_id,
+                "message_key": task.message_key,
+                "message_params": dict(task.message_params or {}),
+                "user_message": task.user_message,
+            }
+            self._cleanup(temp_path)
+            self._emit_progress(task)
+            logger.error(
+                "下载任务失败: task_id=%s filename=%s",
+                task.task_id,
+                task.filename,
+                exc_info=True,
+                extra={
+                    "error_type": task.error_type,
+                    "error_code": task.error_code,
+                    "error_id": task.error_id,
+                    "user_message": task.user_message,
+                    "message_key": task.message_key,
+                    "message_params": dict(task.message_params or {}),
+                    "extra_context": diagnostic_context,
+                },
+            )
+            # 执行失败回调
+            if task.on_error:
+                try:
+                    task.on_error(task)
+                except: pass
+
+    def _verify_hash(self, file_path: str, expected: str, algo: str = "md5") -> bool:
+        """校验文件 Hash"""
+        try:
+            h = hashlib.new(algo)
+            with open(file_path, 'rb') as f:
+                while chunk := f.read(8192):
+                    h.update(chunk)
+            calculated = h.hexdigest().lower()
+            expected = expected.lower()
+            
+            if calculated != expected:
+                logger.warning(f"下载文件哈希不一致: calculated={calculated}, expected={expected}")
+                return False
+            return True
+        except Exception as e:
+            logger.error(f"下载文件哈希校验失败: path={file_path}, error={e}")
+            return False
+    def _cleanup(self, path):
+        if os.path.exists(path):
+            try: os.remove(path)
+            except: pass
+
+    def _emit_progress(self, task: DownloadTask):
+        """发送事件到前端"""
+        progress = self._calc_percent(task)
+        metrics = {
+            "filename": task.filename,
+            "total": task.total_size,
+            "current": task.downloaded_size,
+            "speed": task.speed,
+            "title": task.title or task.filename,
+            **dict(task.metadata or {}),
+        }
+        if task.status == TaskStatus.COMPLETED:
+            metrics["file_path"] = task.dest_path
+        if task.status == TaskStatus.ERROR:
+            metrics["error"] = task.user_message or task.error_msg
+        if task.status == TaskStatus.VERIFYING:
+            metrics["phase"] = "verifying"
+        extra_context = self._task_log_context(task) if task.status == TaskStatus.ERROR else None
+        EventBus.emit_progress(
+            task.task_id,
+            task.task_type,
+            status=EventBus._normalize_progress_status(task.status.value),
+            progress=progress,
+            message=task.user_message or task.filename or task.title or tr("tasks.download.running", "下载中..."),
+            metrics=metrics,
+            message_key=task.message_key,
+            message_params=task.message_params,
+            error_type=task.error_type,
+            error_code=task.error_code,
+            error_id=task.error_id,
+            user_message=task.user_message,
+            extra_context=extra_context,
+        )
+
+    def _calc_percent(self, task) -> int:
+        # 如果是完成状态，强制返回 100
+        if task.status == TaskStatus.COMPLETED: return 100
+        if task.total_size <= 0: return 0
+        return min(int((task.downloaded_size / task.total_size) * 100), 100) # 封顶 100
+
+    def _fmt_speed(self, bytes_per_sec: float) -> str:
+        if bytes_per_sec > 1024 * 1024:
+            return f"{bytes_per_sec / 1024 / 1024:.1f} MB/s"
+        if bytes_per_sec > 1024:
+            return f"{bytes_per_sec / 1024:.1f} KB/s"
+        return f"{int(bytes_per_sec)} B/s"
+    
+    # 同步等待方法
+    def get_task_future(self, task_id: str) -> Optional[Future]:
+        """获取任务的 Future 对象，用于同步等待"""
+        task = self.tasks.get(task_id)
+        return task._future if task else None

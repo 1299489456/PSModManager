@@ -1,0 +1,918 @@
+# backend/settings.py
+
+import json
+import os
+import platform
+import shutil
+import threading
+from copy import deepcopy
+from dataclasses import dataclass, asdict, field, fields, is_dataclass
+from pathlib import Path
+import sys
+from typing import Dict, Any, List, Optional, Tuple, Set
+from backend.utils.constants import RIMWORLD_STEAM_APP_ID_STR, normalize_language_code
+from backend.migrations.app_relocation import apply_config_relocation
+from backend.utils.json_io import write_json_atomic
+from backend.utils.secret_store import SECRET_FIELDS, SecretStoreError, secret_store
+from backend.paths.game_locations import normalize_steam_root
+from backend.utils.tools import normalize_path_for_storage, normalize_string_list, normalize_text, same_path
+from backend.window_state import WindowStateConfig
+
+
+def _resolve_base_resource_dir() -> Path:
+    """解析内置资源目录，兼容 PyInstaller 与 Nuitka 的不同冻结模型。"""
+    if getattr(sys, 'frozen', False):
+        pyinstaller_temp_dir = getattr(sys, '_MEIPASS', None)
+        if pyinstaller_temp_dir:
+            return Path(pyinstaller_temp_dir)
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent.parent
+
+
+# 1. 资源目录：存放前端文件、内置工具 (对应开发时的项目根目录)
+BASE_RESOURCE_DIR = _resolve_base_resource_dir()
+
+# 配置文件路径
+HOME_DIR = Path(os.getcwd())
+# 获取 exe 所在的真实目录
+if getattr(sys, 'frozen', False):
+    # PyInstaller 打包模式 时，指向 exe 所在目录
+    HOME_DIR = Path(sys.executable).parent
+else:
+    # 开发模式, 指向当前文件所在目录的上一级（项目根目录）
+    HOME_DIR = Path(__file__).resolve().parent.parent
+
+DATA_DIR = HOME_DIR / "data"                # 数据目录
+CONFIG_PATH = DATA_DIR / "config.json"      # 配置文件路径
+CONFIG_UPDATE_BACKUP_PATH = DATA_DIR / "config.json.update.bak"
+UPDATE_DIR = HOME_DIR / "updates"     # 更新目录
+TOOLS_DIR = HOME_DIR / "tools"                # 工具目录
+MODS_DIR = HOME_DIR / "mods"                # 模组目录
+TOOL_MODS_DIR = HOME_DIR / "toolmods"    # 工具模组目录
+CACHE_DIR = HOME_DIR / "cache"                # 缓存目录
+BACKUP_DIR = HOME_DIR / "backups"                # 备份目录
+# 定义缓存目录
+GALLERY_CACHE_DIR = CACHE_DIR / "gallery"       # 定义画廊缓存目录
+THUMBNAIL_CACHE_DIR = CACHE_DIR / "thumbnails"  # 定义缩略图缓存目录
+# 规则存放路径
+RULES_DIR = DATA_DIR / "rules"
+USER_RULES_PATH = RULES_DIR / "user_rules.json"             # 用户规则路径
+COMMUNITY_RULES_PATH = RULES_DIR / "communityRules.json"    # 社区库规则路径
+# 外置数据库路径
+COMMUNITY_WORKSHOP_DB_PATH = DATA_DIR / "steamDB.json"         # 社区库数据库路径
+COMMUNITY_INSTEAD_DB_PATH = DATA_DIR / "replacements.json.gz"  # 替代Mod数据库路径
+MULTIPLAYER_COMPAT_DB_PATH = DATA_DIR / "multiplayerCompatibility.json"  # Multiplayer 官方兼容表
+MP_COMPAT_PACKAGE_IDS_PATH = DATA_DIR / "mpCompatPackageIds.json"         # Multiplayer Compatibility 适配包名表
+GIT_PROVIDER_CATALOG_DIR = DATA_DIR / "git_catalogs"  # Git 推荐清单缓存目录
+
+
+@dataclass
+class ProxyConfig:
+    enabled: bool = False
+    # 代理类型: 'http' 或 'socks5'
+    type: str = 'http' 
+    host: str = ''
+    port: int = 0
+    username: str = ''
+    password: str = ''
+    # 排除列表 (不走代理的域名/IP)
+    bypass_list: List[str] = field(default_factory=lambda: [
+        "127.0.0.1", "localhost", "::1", 
+    ])
+
+@dataclass
+class NetworkConfig:
+    proxy: ProxyConfig = field(default_factory=ProxyConfig)
+    # 自定义 Hosts (域名 -> IP 映射)
+    hosts: Dict[str, str] = field(default_factory=dict) 
+    write_to_system_hosts: bool = False         # 是否将自定义 Hosts 写入系统 hosts 文件
+    use_proxy_on_steamcmd: bool = False         # SteamCMD 是否使用代理
+    use_proxy_on_ai: bool = False               # AI 是否使用代理
+
+@dataclass
+class AIConfig:
+    enabled: bool = False
+    provider: str = "openai_compatible"  # openai, anthropic, google
+    # OpenAI-compatible 的 endpoint 选择策略
+    endpoint_mode: str = "auto"     # auto / chat_completions / responses
+    base_url: str = "https://api.openai.com/v1"  # 允许自定义，如 DeepSeek, LocalAI
+    api_key: str = ""
+    model: str = "gpt-3.5-turbo"
+    temperature: Optional[float] = 0.7     # 温度参数（控制输出随机性）允许“不传”
+    max_output_tokens: int = 0     # 单次请求最大输出 Token；0 表示按模型自动
+    max_input_tokens: int = 0      # 高级输入预算；0 表示自动按上下文窗口或输出预算推导
+    context_window_tokens: int = 0 # 模型上下文窗口；0 表示按模型预设
+    max_concurrency: int = 3     # 最大并发请求数（避免被API封锁）
+
+    def model_token_budget(self) -> dict[str, Any]:
+        """返回当前模型的 token 预算预设。"""
+        from backend.ai.def_model_capabilities import resolve_model_token_budget
+
+        base_url = self.base_url
+        if not base_url and str(self.provider or "").strip().lower() == "ollama":
+            base_url = "http://127.0.0.1:11434"
+        return resolve_model_token_budget(self.model, base_url)
+
+    def resolved_context_window_tokens(self) -> int:
+        """解析模型上下文窗口，用户显式配置优先，否则走模型预设。"""
+        try:
+            explicit_context = int(self.context_window_tokens or 0)
+        except (TypeError, ValueError):
+            explicit_context = 0
+        if explicit_context > 0:
+            return explicit_context
+        return int(self.model_token_budget().get("context_window_tokens") or 32768)
+
+    def resolved_max_output_tokens(self) -> int:
+        """解析单次请求输出上限，用户显式配置优先，否则走模型预设。"""
+        try:
+            explicit_output = int(self.max_output_tokens or 0)
+        except (TypeError, ValueError):
+            explicit_output = 0
+        if explicit_output > 0:
+            return explicit_output
+        return int(self.model_token_budget().get("default_output_tokens") or 4096)
+
+    def resolved_max_input_tokens(self) -> int:
+        """解析输入预算，避免把输出上限误当上下文窗口。"""
+        try:
+            explicit_input = int(self.max_input_tokens or 0)
+        except (TypeError, ValueError):
+            explicit_input = 0
+        if explicit_input > 0:
+            return explicit_input
+
+        output_budget = self.resolved_max_output_tokens()
+        context_window = self.resolved_context_window_tokens()
+        if context_window > 0:
+            return max(1000, context_window - output_budget - 512)
+
+        from backend.ai.def_model_capabilities import DEFAULT_INPUT_TOKENS
+        return max(2000, min(DEFAULT_INPUT_TOKENS, output_budget * 2))
+
+
+def default_translation_settings() -> Dict[str, Dict[str, Any]]:
+    """翻译设置按功能键保存，未知键保留给后续功能模块或外部插件。"""
+    return {
+        "default": {
+            "target_language": "follow_ui",
+            "provider": "ai.default",
+        },
+        "workshop_detail": {
+            "target_language": "default",
+            "provider": "default",
+            "prefer_ui_language_translation": True,
+            "auto_translate_missing": False,
+            "source_detection": {"enabled": False, "mode": "or", "terms": []},
+        },
+    }
+
+
+@dataclass
+class UIConfig:
+    theme_id: str = "obsidian-cyan"  # 当前使用的主题 ID；完整主题数据由主题文件管理。
+    font_size: int = 16
+    drag_delay: int = 30            # 拖动判定延迟 (毫秒)
+    detail_delay: int = 200         # Mod 详情页加载延迟 (毫秒)
+    tooltip_hover_time: int = 1000  # 鼠标悬停显示提示时间 (毫秒)
+    show_mod_hover_panel: bool = True  # 是否显示 Mod 悬停面板
+    double_click_active_mod: bool = True  # 是否双击启用/停用 Mod
+    
+    # 主界面布局配置
+    main_layout: List[Dict[str, Any]] = field(default_factory=lambda: [
+        { 'id': 'details', 'visible': True },
+        { 'id': 'library', 'visible': True },
+        { 'id': 'active', 'visible': True },
+        { 'id': 'sidebar', 'visible': True },
+    ])
+    
+    show_icons_cloud: bool = True  # 是否显示动态图标云
+    
+    # Mod 详情面板布局配置
+    mod_details_layout: List[Dict[str, Any]] = field(default_factory=lambda: [
+        { 'id': 'basic_info', 'visible': True }, # 包ID、作者、链接、路径
+        { 'id': 'files_info', 'visible': True },
+        { 'id': 'time_info', 'visible': True },
+        { 'id': 'relations_info', 'visible': True },
+        { 'id': 'user_info', 'visible': True }, # 标签、备注、分组
+        { 'id': 'description', 'visible': True },
+    ])
+
+    show_dependency_graph: bool = True  # 是否显示依赖关系图
+    smooth_list_target_scroll: bool = True  # 定位到列表项时是否使用平滑滚动
+    hidden_dependency_graph_source_ids: List[str] = field(default_factory=list)  # 全局隐藏的依赖源包名列表
+    keybindings: Dict[str, Any] = field(default_factory=lambda: {
+        "version": 1,
+        "bindings": {},
+        "disabledDefaults": {},
+    })  # 快捷键覆盖配置；实际默认键位由前端命令注册表提供
+    enable_active_section_collapse: bool = False  # 是否启用启用列表标题分组折叠
+    enable_inactive_section_collapse: bool = False  # 是否启用停用列表标题分组折叠
+    default_collapse_active_sections: bool = False  # 在没有历史折叠状态时，是否让启用列表分割组首次默认折叠
+    default_collapse_inactive_sections: bool = False  # 在没有历史折叠状态时，是否让停用列表分割组首次默认折叠
+    persist_temp_mod_list: bool = False  # 是否按环境保存临时列表
+    mod_list_simple_view: Dict[str, bool] = field(default_factory=dict)  # 主界面 Mod 列表视图状态
+    show_list_index: bool = True  # 是否显示列表索引列
+    show_list_icon: bool = True  # 是否显示 Mod 图标
+    show_list_mod_icon: bool = True  # 是否显示 Mod 图标
+    show_list_modtype_icon: bool = True  # 是否显示 Mod 类型图标
+    
+    show_group_index: bool = True  # 是否显示分组索引列
+    show_group_icon: bool = True  # 是否显示分组图标
+    
+# 贴图优化配置类
+@dataclass
+class TextureOptConfig:
+    texture_tools_path: str = str(TOOLS_DIR / "texture_tools")  # 贴图工具目录
+    process_mode: str = "scaled_only_overwrite"
+    output_format: str = "dds"                 # 输出格式：dds 或 zstd
+    generate_mipmaps: bool = True            # 是否生成 Mipmap
+    scale_factor: float = 1.0                # 缩放倍率，小于1时会缩小贴图
+    max_size: int = 128                      # 最低清晰度
+    skip_small_textures: bool = True         # 超出建议范围时不参与缩放
+    min_dimension: int = 128                 # 最短边低于该值时不参与缩放
+    max_source_dimension: int = 2048         # 最长边高于该值时不参与缩放
+    encode_batch_timeout_seconds: int = 480  # todds 批处理超时
+    zstd_clean_old_dds: bool = False         # ZSTD 生成成功后是否清理旧 DDS
+    clean_output_format: str = "dds"         # 清理格式：dds 或 zstd
+
+
+@dataclass
+class AppConfig:
+    """
+    配置数据结构定义。
+    在这里定义字段和默认值，类型安全且清晰。
+    """
+    # --- 路径设置 ---
+    # game_install_path: str = ""    # RimWorld 安装路径
+    # user_data_path: str = ""       # 用户数据文件夹
+    # game_config_path: str = ""     # RimWorld 配置文件夹
+    # game_saves_path: str = ""      # RimWorld 存档文件夹
+    # game_dlc_path: str = ""        # RimWorld DLC 文件夹
+    # local_mods_path: str = ""      # RimWorld 本地模组文件夹
+    workshop_mods_path: str = ""   # RimWorld 公共工坊模组文件夹
+    # use_workshop_mods: bool = True  # 是否使用公共工坊模组
+    steam_path: str = ""          # Steam 安装路径
+    home_path: str = str(HOME_DIR) # 本程序路径
+    
+    ripgrep_path: str = str(TOOLS_DIR / "ripgrep")
+    
+    # steamcmd 下载路径
+    steamcmd_path: str = str(TOOLS_DIR / "steamcmd")
+    steamcmd_mods_path: str = str(TOOLS_DIR / "steamcmd" / "steamapps" / "workshop" / "content" / RIMWORLD_STEAM_APP_ID_STR)
+    self_mods_path: str = str(MODS_DIR)  # 本程序默认模组路径
+    # use_self_mods: bool = True          # 是否使用本程序模组
+    move_old_self_mods: bool = False    # 修改路径后是否移动原有模组
+    load_order_import_dir_mode: str = "default"    # 导入文件选择器初始目录策略: default / remember / custom
+    load_order_import_custom_path: str = ""        # 导入文件选择器自定义目录（全局）
+    load_order_import_last_path: str = ""          # 导入文件选择器上次成功目录（全局）
+    load_order_export_dir_mode: str = "default"    # 导出文件选择器初始目录策略: default / remember / custom
+    load_order_export_custom_path: str = ""        # 导出文件选择器自定义目录（全局）
+    load_order_export_last_path: str = ""          # 导出文件选择器上次成功目录（全局）
+    load_order_export_use_raw_package_ids: bool = False  # 排序导出是否去掉来源后缀
+    
+    # --- 游戏设置 ---
+    # game_version: str = ""               # RimWorld 版本
+    current_profile_id: str = "default"   # 当前激活的环境ID
+    # run_commands: List[str] = field(default_factory=list)   # 启动时运行的命令
+    enable_tool_mods: bool = False           # 是否启用 ToolMods 目录下的伴生模组
+    link_deployment_mode_full: bool = False # 链接部署模式: true=完全重建, false=增量部署
+    prefer_steam_url_for_no_args: bool = False  # 无启动参数时优先使用 Steam URL
+    
+    # --- 高级设置 ---
+    backup_retention_days: int = 30           # 备份保留天数
+    bundle_compress_level: int = 6            # 打包压缩级别：0 最快，9 最省空间
+    bundle_mod_folder_name_type: str = "default"  # 模组包内文件夹命名方式
+    
+    enable_auto_scan: bool = True             # 启动时自动扫描
+    enable_launch_profile_quick_scan: bool = True  # 环境列表直启前是否执行检查同步
+    enable_file_size_scan: bool = False         # 扫描时是否检查文件大小
+    enable_mod_residue_scan: bool = True      # 扫描完成后是否识别卸载残留
+    startup_inventory_first_seen_mod_changes: bool = True  # 启动库存提醒是否只显示新发现的问题
+    strict_disabled_mode: bool = False          # 扫描时是否按数据库记录自动恢复被外部解除的禁用状态
+    
+    delete_missing_mods_data: bool = False     # 是否删除数据库中缺失的 Mod 数据
+    open_url_on_system: bool = False          # 是否在系统默认浏览器打开链接
+    auto_sort_strategy: str = "edge_enhanced_sort_logic" # 自动排序策略: classic_sort_logic, edge_enhanced_sort_logic
+    sort_mods_by: str = "name"                # 排序方式: name, id, alias
+    coexist_mod_folder_name_type: str = "workshop_id" # 共存Mod生成方式: workshop_id, package_id, name, alias
+    show_coexistence_message: bool = False      # 是否显示共存Mod提示
+    check_language_support: bool = True        # 是否检查语言支持
+    wide_language_pack_detection: bool = False # 是否启用宽泛语言包判定
+    enable_action_prechecks: bool = True       # 是否启用操作前检查功能
+    reset_active_list: Dict[str, Any] = field(default_factory=lambda: {
+        "user_ids": [],
+        "excluded_builtin_ids": [],
+        "excluded_derived_ids": [],
+    })  # 重置启用列表时的用户预设与排除项
+    skip_language_pack_alias_generation: bool = True  # 批量生成别名备注时是否跳过语言包
+    regular_mods_follow_dependencies: bool = False # 是否让普通模组贴紧其最后一个依赖目标
+    language_packs_follow_targets: bool = False # 是否让语言包贴紧其最后一个前置/依赖目标
+    enable_multiplayer_compatibility_check: bool = False # 是否显示 Multiplayer 联机兼容性
+
+    # --- 社区设置 ---
+    community_workshop_db_url: str = "https://github.com/RimSort/Steam-Workshop-Database/blob/main/steamDB.json"
+    community_workshop_db_path: str = str(COMMUNITY_WORKSHOP_DB_PATH)
+    community_instead_db_url: str = "https://github.com/emipa606/UseThisInstead/blob/main/replacements.json.gz"
+    community_instead_db_path: str = str(COMMUNITY_INSTEAD_DB_PATH)
+    community_rules_url: str = "https://github.com/RimSort/Community-Rules-Database/blob/main/communityRules.json"
+    community_rules_path: str = str(COMMUNITY_RULES_PATH)
+    multiplayer_compatibility_url: str = "https://bot.rimworldmultiplayer.com/mod-compatibility?version=1.1&format=metadata"
+    multiplayer_compatibility_path: str = str(MULTIPLAYER_COMPAT_DB_PATH)
+    mp_compat_package_ids_url: str = "https://github.com/rwmt/Multiplayer-Compatibility/archive/refs/heads/master.zip"
+    mp_compat_package_ids_path: str = str(MP_COMPAT_PACKAGE_IDS_PATH)
+    git_provider_catalog_url: str = "RJW|https://gitgud.io/api/v4/projects/AblativeAbsolute%2Flibidinous_loader_providers/packages/generic/provider_nopin/latest/providers.json"
+    user_rules_path: str = str(USER_RULES_PATH)
+    enable_steam_enhanced_api: bool = False  # 是否启用 Steam Web API 增强工坊搜索
+    steam_web_api_key: str = ""  # Steamworks Web API 鉴权密钥，仅供需要受限接口的后端请求使用
+    
+    # --- 开发与调试设置 ---
+    browser_mode: bool = False            # 是否默认使用浏览器模式启动
+    auto_enter_silent_mode: bool = True   # 游戏运行时是否自动进入静默模式
+    silent_mode_default_view: str = "home" # 静默模式默认落点: home / logs
+    debug_mode: bool = False  # 开发模式开关
+    log_retention_days: int = 7  # 日志保留天数
+    log_level: str = "INFO"  # 默认日志等级 DEBUG, INFO, WARNING, ERROR
+    enable_auto_update_check: bool = True  # 自动检查更新开关
+    ignored_update_version: str = ""       # 跳过的版本号
+    last_update_check_time: float = 0      # 上次检查时间（用于限流）
+    # 以下三类检查负责启动维护；外部库可选择自动刷新，工具和管理器模组仍只提醒。
+    enable_auto_tool_check: bool = True
+    tool_check_interval_days: int = 3
+    last_tool_check_time: float = 0
+    
+    enable_auto_external_data_update_check: bool = True
+    enable_silent_external_data_update: bool = False
+    external_data_update_check_interval_days: int = 1
+    last_external_data_update_check_time: float = 0
+    
+    enable_auto_steamcmd_mod_update_check: bool = True
+    steamcmd_mod_update_check_interval_days: int = 1
+    last_steamcmd_mod_update_check_time: float = 0
+    
+    last_run_time: float = 0               # 上次运行时间（用于判断Mod是否存在变动）
+    run_count: int = 0                     # 运行次数（用于判断是否需要重新扫描）
+    
+    # --- 界面设置 ---
+    language: str = "zh-CN"     # 默认语言
+    window_width: int = 1400
+    window_height: int = 900
+    window_state: WindowStateConfig = field(default_factory=WindowStateConfig)
+    completed_guides: Dict[str, str] = field(default_factory=dict) # 存储已完成的引导, e.g. {"main_v1.0": "done"}
+    ui: UIConfig = field(default_factory=UIConfig)
+    
+    # --- 功能设置 ---
+    network: NetworkConfig = field(default_factory=NetworkConfig)
+    ai: AIConfig = field(default_factory=AIConfig)
+    translation: Dict[str, Dict[str, Any]] = field(default_factory=default_translation_settings)
+    texture_opt: TextureOptConfig = field(default_factory=TextureOptConfig)
+    
+
+class SettingsManager:
+    _instance = None
+    
+    def __new__(cls):
+        """单例模式：确保全局只有一个 SettingsManager 实例"""
+        if cls._instance is None:
+            cls._instance = super(SettingsManager, cls).__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+
+    def __init__(self):
+        if self._initialized: return
+        self._ensure_config_dir()
+        self._save_lock = threading.Lock()
+        self.last_relocation = None
+        # self.config: AppConfig = self._load() # 加载配置
+        
+        # 1. 先初始化一个空的配置对象，防止加载过程中访问 self.config 崩溃
+        self.config = AppConfig()
+        # 2. 执行加载（此时 _recursive_update 访问 self.config 就安全了）
+        self._load_to_config()
+        self._hydrate_secrets()
+        
+        self._initialized = True
+
+    def _ensure_config_dir(self):
+        """ 确保配置目录存在 """
+        if not DATA_DIR.exists():
+            DATA_DIR.mkdir(parents=True)
+        # 确保日志目录存在
+        log_dir = DATA_DIR / "logs"
+        if not log_dir.exists():
+            log_dir.mkdir(parents=True)
+        if not TOOL_MODS_DIR.exists():
+            TOOL_MODS_DIR.mkdir(parents=True)
+            
+    def _recursive_update(self, target_obj, source_dict: Dict[str, Any]):
+        """
+        递归更新 dataclass 对象。
+        :param target_obj: 初始化的 dataclass 对象 (包含默认值)
+        :param source_dict: 从 JSON 加载的字典
+        """
+        # 获取目标对象的所有字段定义
+        target_fields = {f.name: f for f in fields(target_obj)}
+        
+        for key, value in source_dict.items():
+            # 1. 忽略未知字段 (配置文件里有，但代码里没有定义的)
+            if key not in target_fields: continue
+            # 获取当前对象上的属性值
+            current_attr = getattr(target_obj, key)
+            # 2. 判断是否需要递归
+            # 如果当前属性是 dataclass 实例，且来源值是字典，则递归更新
+            if is_dataclass(current_attr):
+                if isinstance(value, dict):
+                    self._recursive_update(current_attr, value)
+                continue
+            # 3. 普通赋值
+            else:
+                # 这里可以加一些简单的类型保护，比如防止把 str 赋给 int，但 Python 鸭子类型通常允许直接赋值，除非为了极高的健壮性
+                setattr(target_obj, key, value)
+                
+    def _load_raw_config(self, path: Path) -> Dict[str, Any]:
+        with open(path, 'r', encoding='utf-8-sig') as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError("Config root is not an object")
+        return data
+
+    def _extract_compatible_config_values(self, raw_dict: Dict[str, Any], target_obj) -> Dict[str, Any]:
+        """
+        从原始配置中提取“当前版本仍然可识别”的字段。
+        设计原因：
+        1. 更新后字段结构可能变化，不能因为少数字段异常就整份判死刑。
+        2. 只要还能识别出一部分字段，就优先保留用户数据，其余部分交给默认值补齐。
+        """
+        compatible: Dict[str, Any] = {}
+        target_fields = {f.name: f for f in fields(target_obj)}
+
+        for key, value in raw_dict.items():
+            if key not in target_fields:
+                continue
+
+            current_attr = getattr(target_obj, key)
+            if is_dataclass(current_attr):
+                # 嵌套配置块必须仍是对象；若被写坏成字符串/数组，则忽略该块并保留默认值。
+                if not isinstance(value, dict):
+                    continue
+                nested_compatible = self._extract_compatible_config_values(value, current_attr)
+                if nested_compatible:
+                    compatible[key] = nested_compatible
+                continue
+
+            compatible[key] = value
+
+        return compatible
+
+    def _is_config_valid(self) -> bool:
+        return all([
+            str(self.config.home_path or "").strip(),
+            str(self.config.self_mods_path or "").strip(),
+            str(self.config.steamcmd_path or "").strip(),
+            str(self.config.current_profile_id or "").strip(),
+        ])
+
+    def _merge_config_dicts(self, base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        递归合并两个配置片段。
+        base 一般来自备份，override 一般来自当前配置，因此 override 优先级更高。
+        """
+        merged = dict(base)
+        for key, value in override.items():
+            if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+                merged[key] = self._merge_config_dicts(merged[key], value)
+                continue
+            merged[key] = value
+        return merged
+
+    def _parse_config_fragment(self, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        从原始 JSON 对象中提取当前版本仍可识别的配置片段。
+        这里故意采用“宽进严出”策略：
+        1. 只要还能识别出一部分字段，就把它们留下；
+        2. 识别不到的字段直接忽略，不因为局部损坏把整份配置判死刑。
+        """
+        compatible = self._extract_compatible_config_values(data, AppConfig())
+        return compatible or None
+
+    def _read_config_fragment(self, path: Path, source_name: str) -> Optional[Dict[str, Any]]:
+        """
+        尝试宽松读取一个配置源。
+        """
+        if not path.exists(): return None
+
+        try:
+            data = self._load_raw_config(path)
+        except Exception as e:
+            print(f"Config read error [{source_name}]: {e}")
+            return None
+
+        compatible = self._parse_config_fragment(data)
+        if compatible:
+            return compatible
+
+        print(f"Config parse warning [{source_name}]: no compatible fields found")
+        return None
+
+    def _apply_config_fragment(self, data: Dict[str, Any]):
+        """
+        将“已筛选过的兼容字段”应用到默认配置骨架上。
+        实现原理：
+        - 先构建完整默认值；
+        - 再把仍可识别的用户字段覆盖进去；
+        - 最后统一做归一化与衍生路径同步。
+        """
+        self.config = AppConfig()
+        self._recursive_update(self.config, data)
+        self._normalize_config()
+        self._sync_derived_paths()
+        if not self._is_config_valid():
+            raise ValueError("Config validation failed after normalization")
+
+    def _load_to_config(self):
+        """
+        将磁盘配置加载到现有的 self.config 中
+        """
+        current_fragment = self._read_config_fragment(CONFIG_PATH, "current")
+        backup_fragment = self._read_config_fragment(CONFIG_UPDATE_BACKUP_PATH, "update-backup")
+
+        if current_fragment is None and backup_fragment is None:
+            self._normalize_config()
+            self._sync_derived_paths()
+            return
+
+        try:
+            effective_fragment = current_fragment or {}
+            recovered_from_backup = False
+
+            if backup_fragment is not None:
+                # 只要更新备份还在，就把它当作“缺失字段补丁源”参与合并：
+                # 1. 当前配置完全损坏/丢失时，可直接由备份兜底；
+                # 2. 当前配置只能解析出一部分字段时，可从备份补齐剩余可识别字段；
+                # 3. 当前配置中已经成功读取出的值始终优先，避免旧备份反向覆盖用户最新设置。
+                merged_fragment = self._merge_config_dicts(backup_fragment or {}, effective_fragment)
+                recovered_from_backup = merged_fragment != effective_fragment
+                effective_fragment = merged_fragment
+
+            self._apply_config_fragment(effective_fragment)
+
+            # 只有备份确实补进了缺失字段时才回写，避免“备份一直存在时每次启动都重写配置”。
+            if recovered_from_backup or (self.last_relocation and self.last_relocation.moved):
+                self.save()
+        except Exception as e:
+            print(f"Config load error: {e}")
+            self.config = AppConfig()
+            self._normalize_config()
+            self._sync_derived_paths()
+
+    def _hydrate_secrets(self):
+        """加载配置后迁移旧明文，并把系统凭据库中的值回灌到运行时配置。"""
+        migrated = secret_store.migrate_and_hydrate(self.config)
+        if migrated:
+            self.save()
+
+    def _normalize_config(self) -> list[str]:
+        warnings: list[str] = []
+        previous_home_path = str(self.config.home_path or "").strip()
+        relocation = apply_config_relocation(self.config, previous_home_path, str(HOME_DIR))
+        if relocation.moved:
+            self.last_relocation = relocation
+        self.config.home_path = str(HOME_DIR)
+        self.config.current_profile_id = str(self.config.current_profile_id or "").strip() or "default"
+        self.config.steam_path = normalize_steam_root(self.config.steam_path, system_name=platform.system())
+        self.config.workshop_mods_path = normalize_path_for_storage(self.config.workshop_mods_path)
+        self.config.steamcmd_path = normalize_path_for_storage(self.config.steamcmd_path) or str(TOOLS_DIR / "steamcmd")
+        self.config.self_mods_path = normalize_path_for_storage(self.config.self_mods_path) or str(MODS_DIR)
+        if self.config.workshop_mods_path and same_path(self.config.self_mods_path, self.config.workshop_mods_path):
+            self.config.self_mods_path = str(MODS_DIR)
+            warnings.append("self_mods_path_reset")
+        self.config.ripgrep_path = normalize_path_for_storage(self.config.ripgrep_path) or str(TOOLS_DIR / "ripgrep")
+        self.config.load_order_import_custom_path = normalize_path_for_storage(self.config.load_order_import_custom_path)
+        self.config.load_order_import_last_path = normalize_path_for_storage(self.config.load_order_import_last_path)
+        self.config.load_order_export_custom_path = normalize_path_for_storage(self.config.load_order_export_custom_path)
+        self.config.load_order_export_last_path = normalize_path_for_storage(self.config.load_order_export_last_path)
+        self.config.community_workshop_db_path = normalize_path_for_storage(self.config.community_workshop_db_path) or str(COMMUNITY_WORKSHOP_DB_PATH)
+        self.config.community_instead_db_path = normalize_path_for_storage(self.config.community_instead_db_path) or str(COMMUNITY_INSTEAD_DB_PATH)
+        self.config.community_rules_path = normalize_path_for_storage(self.config.community_rules_path) or str(COMMUNITY_RULES_PATH)
+        self.config.multiplayer_compatibility_path = normalize_path_for_storage(self.config.multiplayer_compatibility_path) or str(MULTIPLAYER_COMPAT_DB_PATH)
+        self.config.mp_compat_package_ids_path = normalize_path_for_storage(self.config.mp_compat_package_ids_path) or str(MP_COMPAT_PACKAGE_IDS_PATH)
+        self.config.user_rules_path = normalize_path_for_storage(self.config.user_rules_path) or str(USER_RULES_PATH)
+        self.config.texture_opt.texture_tools_path = normalize_path_for_storage(self.config.texture_opt.texture_tools_path) or str(TOOLS_DIR / "texture_tools")
+        for url_key in (
+            "community_workshop_db_url",
+            "community_instead_db_url",
+            "community_rules_url",
+            "multiplayer_compatibility_url",
+            "mp_compat_package_ids_url",
+            "git_provider_catalog_url",
+        ):
+            setattr(self.config, url_key, normalize_text(getattr(self.config, url_key, "")))
+
+        proxy = self.config.network.proxy
+        proxy.host = normalize_text(proxy.host)
+        proxy.type = normalize_text(proxy.type, default="http").lower()
+        if proxy.type not in {"http", "socks5"}:
+            proxy.type = "http"
+        raw_bypass_list = proxy.bypass_list
+        proxy.bypass_list = normalize_string_list(
+            raw_bypass_list if isinstance(raw_bypass_list, (list, tuple)) else []
+        )
+        raw_hosts = self.config.network.hosts
+        if isinstance(raw_hosts, dict):
+            normalized_hosts = {}
+            for host, address in raw_hosts.items():
+                host_text = normalize_text(host)
+                address_text = normalize_text(address)
+                if host_text and address_text:
+                    normalized_hosts[host_text] = address_text
+            self.config.network.hosts = normalized_hosts
+        else:
+            self.config.network.hosts = {}
+
+        self.config.language = normalize_language_code(self.config.language, default="zh-CN") or "zh-CN"
+        valid_modes = {"default", "remember", "custom"}
+        if str(self.config.load_order_import_dir_mode or "").strip().lower() not in valid_modes:
+            self.config.load_order_import_dir_mode = "default"
+        else:
+            self.config.load_order_import_dir_mode = str(self.config.load_order_import_dir_mode).strip().lower()
+        if str(self.config.load_order_export_dir_mode or "").strip().lower() not in valid_modes:
+            self.config.load_order_export_dir_mode = "default"
+        else:
+            self.config.load_order_export_dir_mode = str(self.config.load_order_export_dir_mode).strip().lower()
+        raw_export_package_id_setting = getattr(self.config, "load_order_export_use_raw_package_ids", False)
+        self.config.load_order_export_use_raw_package_ids = (
+            raw_export_package_id_setting.strip().lower() in {"1", "true", "yes", "on"}
+            if isinstance(raw_export_package_id_setting, str)
+            else bool(raw_export_package_id_setting)
+        )
+        try:
+            self.config.bundle_compress_level = max(0, min(9, int(self.config.bundle_compress_level or 0)))
+        except (TypeError, ValueError):
+            self.config.bundle_compress_level = 6
+        valid_mod_folder_name_types = {"default", "workshop_id", "package_id", "name", "alias_name"}
+        mod_folder_name_type = str(getattr(self.config, "bundle_mod_folder_name_type", "default") or "default").strip().lower()
+        self.config.bundle_mod_folder_name_type = mod_folder_name_type if mod_folder_name_type in valid_mod_folder_name_types else "default"
+        ai_cfg = self.config.ai
+        if isinstance(ai_cfg, AIConfig):
+            ai_cfg.base_url = normalize_text(ai_cfg.base_url)
+            try:
+                ai_cfg.max_output_tokens = max(0, int(ai_cfg.max_output_tokens or 0))
+            except (TypeError, ValueError):
+                ai_cfg.max_output_tokens = 0
+            try:
+                ai_cfg.max_input_tokens = max(0, int(ai_cfg.max_input_tokens or 0))
+            except (TypeError, ValueError):
+                ai_cfg.max_input_tokens = 0
+            try:
+                ai_cfg.context_window_tokens = max(0, int(ai_cfg.context_window_tokens or 0))
+            except (TypeError, ValueError):
+                ai_cfg.context_window_tokens = 0
+        self.config.skip_language_pack_alias_generation = bool(self.config.skip_language_pack_alias_generation)
+        self.config.wide_language_pack_detection = bool(self.config.wide_language_pack_detection)
+        if not isinstance(self.config.ui.mod_list_simple_view, dict):
+            self.config.ui.mod_list_simple_view = {}
+        else:
+            self.config.ui.mod_list_simple_view = {
+                str(key).strip(): bool(value)
+                for key, value in self.config.ui.mod_list_simple_view.items()
+                if str(key).strip()
+            }
+        translation_cfg = self.config.translation
+        default_translation = default_translation_settings()
+        if not isinstance(translation_cfg, dict):
+            translation_cfg = default_translation
+        else:
+            translation_cfg = {
+                str(key).strip(): value
+                for key, value in translation_cfg.items()
+                if str(key).strip() and isinstance(value, dict)
+            }
+            default_cfg = {
+                **default_translation["default"],
+                **translation_cfg.get("default", {}),
+            }
+            default_cfg["provider"] = str(default_cfg.get("provider") or "").strip() or "ai.default"
+            default_cfg["target_language"] = str(default_cfg.get("target_language") or "").strip() or "follow_ui"
+            workshop_detail_cfg = {
+                **default_translation["workshop_detail"],
+                **translation_cfg.get("workshop_detail", {}),
+            }
+            workshop_detail_cfg["provider"] = str(workshop_detail_cfg.get("provider") or "").strip() or "default"
+            workshop_detail_cfg["target_language"] = str(workshop_detail_cfg.get("target_language") or "").strip() or "default"
+            workshop_detail_cfg["prefer_ui_language_translation"] = bool(workshop_detail_cfg.get("prefer_ui_language_translation"))
+            workshop_detail_cfg["auto_translate_missing"] = bool(workshop_detail_cfg.get("auto_translate_missing"))
+            source_detection = workshop_detail_cfg.get("source_detection")
+            source_detection = source_detection if isinstance(source_detection, dict) else {}
+            source_terms = source_detection.get("terms")
+            workshop_detail_cfg["source_detection"] = {
+                "enabled": bool(source_detection.get("enabled")),
+                "mode": "and" if str(source_detection.get("mode") or "").lower() == "and" else "or",
+                "terms": [str(item).strip() for item in source_terms if str(item).strip()] if isinstance(source_terms, list) else [],
+            }
+            translation_cfg["default"] = default_cfg
+            translation_cfg["workshop_detail"] = workshop_detail_cfg
+        self.config.translation = translation_cfg
+        return warnings
+    
+    def _sync_derived_paths(self):
+        """
+        统一管理所有依赖路径的计算逻辑。
+        """
+        # 根据 steamcmd_path 计算 steamcmd_mods_path
+        if self.config.steamcmd_path:
+            new_path = normalize_path_for_storage(Path(self.config.steamcmd_path) / "steamapps" / "workshop" / "content" / RIMWORLD_STEAM_APP_ID_STR)
+            self.config.steamcmd_mods_path = new_path
+            
+    def get_default_external_paths(self):
+        """获取“外部依赖”页相关路径的默认值。"""
+        return {
+            # 目录型外部工具统一在这里给出默认位置。
+            # SteamCMD 的工坊内容目录仍由 `_sync_derived_paths()` 负责衍生，不在这里直接暴露。
+            "steamcmd_path": str(TOOLS_DIR / "steamcmd"),
+            "ripgrep_path": str(TOOLS_DIR / "ripgrep"),
+            "texture_opt": {
+                "texture_tools_path": str(TOOLS_DIR / "texture_tools"),
+            },
+            "community_workshop_db_path": str(COMMUNITY_WORKSHOP_DB_PATH),
+            "community_instead_db_path": str(COMMUNITY_INSTEAD_DB_PATH),
+            "community_rules_path": str(COMMUNITY_RULES_PATH),
+            "multiplayer_compatibility_path": str(MULTIPLAYER_COMPAT_DB_PATH),
+            "mp_compat_package_ids_path": str(MP_COMPAT_PACKAGE_IDS_PATH),
+            "user_rules_path": str(USER_RULES_PATH),
+        }
+        
+    
+    def get(self, key: str) -> Any:
+        """
+        获取配置项。
+        支持: settings.get('language')
+        """
+        if hasattr(self.config, key):
+            return getattr(self.config, key)
+        return None
+
+    def _snapshot_config(self) -> "AppConfig":
+        return deepcopy(self.config)
+
+    def set(self, key: str, value: Any):
+        """
+        设置配置项并自动处理路径同步逻辑
+        """
+        if not hasattr(self.config, key):
+            print(f"Warning: Unknown key {key}")
+            return
+        old_config = self._snapshot_config()
+        before_state = asdict(self.config)
+        try:
+            current_attr = getattr(self.config, key)
+            if is_dataclass(current_attr) and isinstance(value, dict):
+                self._recursive_update(current_attr, value)
+            else:
+                setattr(self.config, key, value)
+            self._normalize_config()
+            self._sync_derived_paths()
+            after_state = asdict(self.config)
+            if after_state == before_state: return
+            old_self_mods_path = before_state.get('self_mods_path', '')
+            old_steamcmd_path = before_state.get('steamcmd_path', '')
+            new_self_mods_path = after_state.get('self_mods_path', '')
+            new_steamcmd_path = after_state.get('steamcmd_path', '')
+            # --- 逻辑触发区 ---
+            # 1. 重新计算衍生路径
+            # 2. 如果 self_mods_path 变了，触发同步
+            if old_self_mods_path != new_self_mods_path:
+                from backend.managers.mgr_files import FileManager
+                FileManager.sync_steamcmd_root_link(
+                    old_mods_path=old_self_mods_path,
+                    move_old_data=self.config.move_old_self_mods
+                )
+            # 3. 如果 steamcmd_path 变了，也触发同步
+            if old_steamcmd_path != new_steamcmd_path:
+                from backend.managers.mgr_files import FileManager
+                FileManager.sync_steamcmd_root_link()
+            self.save()
+        except Exception:
+            self.config = old_config
+            raise
+
+    def save(self):
+        """保存当前配置到磁盘"""
+        try:
+            self._normalize_config()
+            self._sync_derived_paths()
+            write_json_atomic(CONFIG_PATH, self.to_storage_dict(), indent=4, lock=self._save_lock)
+            # print("Settings saved.")
+        except Exception as e:
+            print(f"Error saving settings: {e}")
+            raise
+
+    def apply_secret_inputs(self, data_dict: Dict[str, Any], *, save: bool = True) -> bool:
+        """应用设置提交中的密钥：只有显式清除标记才删除已保存密钥。"""
+        try:
+            changed = secret_store.apply_secret_inputs(self.config, data_dict)
+            if changed and save:
+                self.save()
+            return changed
+        except SecretStoreError as e:
+            raise RuntimeError(str(e)) from e
+
+    def clear_secret(self, secret_key: str):
+        secret_store.delete_secret(secret_key)
+        secret_store.clear_runtime_secret(self.config, secret_key)
+        self.save()
+
+    def reveal_secret(self, secret_key: str) -> str:
+        value = secret_store.get_secret(secret_key)
+        if value:
+            return value
+        path = SECRET_FIELDS[secret_store.validate_key(secret_key)]
+        current: Any = self.config
+        for segment in path:
+            current = getattr(current, segment, "") if not isinstance(current, dict) else current.get(segment, "")
+        return str(current or "")
+
+    def get_secret_status(self) -> dict[str, dict[str, Any]]:
+        return secret_store.status_map(self.config)
+
+    def to_storage_dict(self) -> Dict[str, Any]:
+        payload = asdict(self.config)
+        self._clear_secret_fields(payload, preserve_keys=secret_store.fallback_keys)
+        return payload
+
+    def to_public_dict(self) -> Dict[str, Any]:
+        payload = self.to_storage_dict()
+        payload["_secret_status"] = self.get_secret_status()
+        if secret_store.fallback_keys:
+            payload["_secret_storage_warning"] = "secret_storage_warning"
+            payload["_secret_storage_warning_key"] = "toast.settings.secret_storage_warning"
+            payload["_secret_storage_warning_params"] = {}
+        return payload
+
+    def _clear_secret_fields(self, payload: Dict[str, Any], preserve_keys: Set[str] | None = None) -> None:
+        for key, path in SECRET_FIELDS.items():
+            if preserve_keys and key in preserve_keys:
+                continue
+            current: Any = payload
+            for segment in path[:-1]:
+                current = current.get(segment) if isinstance(current, dict) else None
+                if current is None:
+                    break
+            if isinstance(current, dict):
+                current[path[-1]] = ""
+
+    def update_from_dict(self, data_dict: Dict[str, Any]) -> list[str]:
+        """
+        全量更新，同样需要处理逻辑触发
+        """
+        old_config = self._snapshot_config()
+        before_state = asdict(self.config)
+        try:
+            self.apply_secret_inputs(data_dict, save=False)
+            self._recursive_update(self.config, data_dict)
+            normalization_warnings = self._normalize_config()
+            self._sync_derived_paths()
+            after_state = asdict(self.config)
+            if after_state == before_state:
+                return normalization_warnings
+            old_self_mods_path = before_state.get('self_mods_path', '')
+            old_steamcmd_path = before_state.get('steamcmd_path', '')
+            new_self_mods_path = after_state.get('self_mods_path', '')
+            new_steamcmd_path = after_state.get('steamcmd_path', '')
+            # 检查并同步
+            if old_self_mods_path != new_self_mods_path or \
+               old_steamcmd_path != new_steamcmd_path:
+                from backend.managers.mgr_files import FileManager
+                sync_ok = FileManager.sync_steamcmd_root_link(
+                    old_mods_path=old_self_mods_path,
+                    move_old_data=self.config.move_old_self_mods
+                )
+                if not sync_ok:
+                    normalization_warnings.append("steamcmd_junction_sync_failed")
+            self.save()
+            return normalization_warnings
+        except Exception:
+            self.config = old_config
+            raise
+
+    def update_paths(self, paths_dict: Dict[str, str]):
+        """批量更新路径"""
+        changed = False
+        for k, v in paths_dict.items():
+            if hasattr(self.config, k):
+                setattr(self.config, k, v)
+                changed = True
+        if changed:
+            self.save()
+
+# 全局单例实例
+settings = SettingsManager()
+
+
+def backup_config_for_update() -> bool:
+    if not CONFIG_PATH.exists(): return False
+    try:
+        shutil.copy2(CONFIG_PATH, CONFIG_UPDATE_BACKUP_PATH)
+        return True
+    except Exception as e:
+        print(f"Backup config for update error: {e}")
+        return False

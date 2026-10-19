@@ -1,0 +1,7 @@
+{
+  "initial_comparison": "FAIL",
+  "initial_cause": "Patch added a final newline to historical HTML; original text otherwise unchanged",
+  "final_comparison": "PASS",
+  "change": "Only current-scope banner inserted; original HTML bytes and EOF preserved",
+  "product_verification": "NOT_EVALUATED"
+}

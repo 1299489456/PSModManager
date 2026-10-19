@@ -1,0 +1,865 @@
+[
+  {
+    "name": "Installation-unknown_schema",
+    "entity": "Installation",
+    "input": {
+      "installation_id": "00000000-0000-4000-8000-000000000001",
+      "canonical_root": "C:/synthetic/game",
+      "file_identity": "volume:1:file:2",
+      "channel": "synthetic",
+      "app_id": null,
+      "build_id": null,
+      "fingerprint_id": "00000000-0000-4000-8000-000000000002",
+      "schema_version": 2
+    }
+  },
+  {
+    "name": "Installation-extra_write_field",
+    "entity": "Installation",
+    "input": {
+      "installation_id": "00000000-0000-4000-8000-000000000001",
+      "canonical_root": "C:/synthetic/game",
+      "file_identity": "volume:1:file:2",
+      "channel": "synthetic",
+      "app_id": null,
+      "build_id": null,
+      "fingerprint_id": "00000000-0000-4000-8000-000000000002",
+      "schema_version": 1,
+      "untrusted_write": "x"
+    }
+  },
+  {
+    "name": "RuntimeFingerprint-unknown_schema",
+    "entity": "RuntimeFingerprint",
+    "input": {
+      "fingerprint_id": "00000000-0000-4000-8000-000000000002",
+      "game_version_raw": null,
+      "unity_version": null,
+      "loader_version": null,
+      "exe_hash": null,
+      "game_assembly_hash": null,
+      "metadata_hash": null,
+      "observed_at": "2026-09-28T00:00:00Z",
+      "source": {
+        "kind": "embedded_metadata",
+        "reference": "manifest.json",
+        "observed_at": "2026-09-28T00:00:00Z"
+      },
+      "coverage": "partial",
+      "schema_version": 2
+    }
+  },
+  {
+    "name": "RuntimeFingerprint-extra_write_field",
+    "entity": "RuntimeFingerprint",
+    "input": {
+      "fingerprint_id": "00000000-0000-4000-8000-000000000002",
+      "game_version_raw": null,
+      "unity_version": null,
+      "loader_version": null,
+      "exe_hash": null,
+      "game_assembly_hash": null,
+      "metadata_hash": null,
+      "observed_at": "2026-09-28T00:00:00Z",
+      "source": {
+        "kind": "embedded_metadata",
+        "reference": "manifest.json",
+        "observed_at": "2026-09-28T00:00:00Z"
+      },
+      "coverage": "partial",
+      "schema_version": 1,
+      "untrusted_write": "x"
+    }
+  },
+  {
+    "name": "ModPackage-unknown_schema",
+    "entity": "ModPackage",
+    "input": {
+      "package_id": "00000000-0000-4000-8000-000000000003",
+      "display_name": "Same name",
+      "source": {
+        "kind": "embedded_metadata",
+        "reference": "manifest.json",
+        "observed_at": "2026-09-28T00:00:00Z"
+      },
+      "trust": "unknown",
+      "schema_version": 2
+    }
+  },
+  {
+    "name": "ModPackage-extra_write_field",
+    "entity": "ModPackage",
+    "input": {
+      "package_id": "00000000-0000-4000-8000-000000000003",
+      "display_name": "Same name",
+      "source": {
+        "kind": "embedded_metadata",
+        "reference": "manifest.json",
+        "observed_at": "2026-09-28T00:00:00Z"
+      },
+      "trust": "unknown",
+      "schema_version": 1,
+      "untrusted_write": "x"
+    }
+  },
+  {
+    "name": "ModRelease-unknown_schema",
+    "entity": "ModRelease",
+    "input": {
+      "release_id": "00000000-0000-4000-8000-000000000004",
+      "package_id": "00000000-0000-4000-8000-000000000003",
+      "version_raw": "api19-local",
+      "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "schema_version": 2
+    }
+  },
+  {
+    "name": "ModRelease-extra_write_field",
+    "entity": "ModRelease",
+    "input": {
+      "release_id": "00000000-0000-4000-8000-000000000004",
+      "package_id": "00000000-0000-4000-8000-000000000003",
+      "version_raw": "api19-local",
+      "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "schema_version": 1,
+      "untrusted_write": "x"
+    }
+  },
+  {
+    "name": "Component-unknown_schema",
+    "entity": "Component",
+    "input": {
+      "component_id": "00000000-0000-4000-8000-000000000005",
+      "release_id": "00000000-0000-4000-8000-000000000004",
+      "artifact_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "file_name": "Example.dll",
+      "assembly_name": null,
+      "assembly_version": null,
+      "melon_info": null,
+      "roles": [
+        "melon_mod",
+        "itemforge_content"
+      ],
+      "content_ids": [
+        {
+          "framework": "itemforge",
+          "type": "BundleId",
+          "value": "same"
+        },
+        {
+          "framework": "another",
+          "type": "BundleId",
+          "value": "same"
+        }
+      ],
+      "schema_version": 2
+    }
+  },
+  {
+    "name": "Component-extra_write_field",
+    "entity": "Component",
+    "input": {
+      "component_id": "00000000-0000-4000-8000-000000000005",
+      "release_id": "00000000-0000-4000-8000-000000000004",
+      "artifact_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "file_name": "Example.dll",
+      "assembly_name": null,
+      "assembly_version": null,
+      "melon_info": null,
+      "roles": [
+        "melon_mod",
+        "itemforge_content"
+      ],
+      "content_ids": [
+        {
+          "framework": "itemforge",
+          "type": "BundleId",
+          "value": "same"
+        },
+        {
+          "framework": "another",
+          "type": "BundleId",
+          "value": "same"
+        }
+      ],
+      "schema_version": 1,
+      "untrusted_write": "x"
+    }
+  },
+  {
+    "name": "Artifact-unknown_schema",
+    "entity": "Artifact",
+    "input": {
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size": 10,
+      "library_relative_path": "sha256/Example.dll",
+      "schema_version": 2
+    }
+  },
+  {
+    "name": "Artifact-extra_write_field",
+    "entity": "Artifact",
+    "input": {
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size": 10,
+      "library_relative_path": "sha256/Example.dll",
+      "schema_version": 1,
+      "untrusted_write": "x"
+    }
+  },
+  {
+    "name": "FileEntry-unknown_schema",
+    "entity": "FileEntry",
+    "input": {
+      "file_entry_id": "00000000-0000-4000-8000-000000000006",
+      "release_id": "00000000-0000-4000-8000-000000000004",
+      "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_root_kind": "mods",
+      "relative_path": "Example.dll",
+      "lifecycle": "immutable",
+      "ownership": "exclusive",
+      "schema_version": 2
+    }
+  },
+  {
+    "name": "FileEntry-extra_write_field",
+    "entity": "FileEntry",
+    "input": {
+      "file_entry_id": "00000000-0000-4000-8000-000000000006",
+      "release_id": "00000000-0000-4000-8000-000000000004",
+      "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_root_kind": "mods",
+      "relative_path": "Example.dll",
+      "lifecycle": "immutable",
+      "ownership": "exclusive",
+      "schema_version": 1,
+      "untrusted_write": "x"
+    }
+  },
+  {
+    "name": "Relation-unknown_schema",
+    "entity": "Relation",
+    "input": {
+      "relation_id": "00000000-0000-4000-8000-000000000007",
+      "from_id": "00000000-0000-4000-8000-000000000005",
+      "to_id": null,
+      "capability": "itemforge.runtime_api",
+      "kind": "capability_requirement",
+      "requirement_raw": 19,
+      "source": {
+        "kind": "embedded_metadata",
+        "reference": "manifest.json",
+        "observed_at": "2026-09-28T00:00:00Z"
+      },
+      "confidence": "confirmed",
+      "fingerprint_scope": "00000000-0000-4000-8000-000000000002",
+      "schema_version": 2
+    }
+  },
+  {
+    "name": "Relation-extra_write_field",
+    "entity": "Relation",
+    "input": {
+      "relation_id": "00000000-0000-4000-8000-000000000007",
+      "from_id": "00000000-0000-4000-8000-000000000005",
+      "to_id": null,
+      "capability": "itemforge.runtime_api",
+      "kind": "capability_requirement",
+      "requirement_raw": 19,
+      "source": {
+        "kind": "embedded_metadata",
+        "reference": "manifest.json",
+        "observed_at": "2026-09-28T00:00:00Z"
+      },
+      "confidence": "confirmed",
+      "fingerprint_scope": "00000000-0000-4000-8000-000000000002",
+      "schema_version": 1,
+      "untrusted_write": "x"
+    }
+  },
+  {
+    "name": "Profile-unknown_schema",
+    "entity": "Profile",
+    "input": {
+      "profile_id": "00000000-0000-4000-8000-000000000008",
+      "installation_id": "00000000-0000-4000-8000-000000000001",
+      "revision": 0,
+      "selections": [
+        {
+          "release_id": "00000000-0000-4000-8000-000000000004",
+          "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "selected": true
+        }
+      ],
+      "config_overrides": {},
+      "display_order": [
+        "00000000-0000-4000-8000-000000000005"
+      ],
+      "schema_version": 2
+    }
+  },
+  {
+    "name": "Profile-extra_write_field",
+    "entity": "Profile",
+    "input": {
+      "profile_id": "00000000-0000-4000-8000-000000000008",
+      "installation_id": "00000000-0000-4000-8000-000000000001",
+      "revision": 0,
+      "selections": [
+        {
+          "release_id": "00000000-0000-4000-8000-000000000004",
+          "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "selected": true
+        }
+      ],
+      "config_overrides": {},
+      "display_order": [
+        "00000000-0000-4000-8000-000000000005"
+      ],
+      "schema_version": 1,
+      "untrusted_write": "x"
+    }
+  },
+  {
+    "name": "BaselineSnapshot-unknown_schema",
+    "entity": "BaselineSnapshot",
+    "input": {
+      "snapshot_id": "00000000-0000-4000-8000-000000000009",
+      "installation_id": "00000000-0000-4000-8000-000000000001",
+      "scan_generation": 1,
+      "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "files": [
+        {
+          "relative_path": "Mods/Example.dll",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 10
+        }
+      ],
+      "coverage": "complete",
+      "schema_version": 2
+    }
+  },
+  {
+    "name": "BaselineSnapshot-extra_write_field",
+    "entity": "BaselineSnapshot",
+    "input": {
+      "snapshot_id": "00000000-0000-4000-8000-000000000009",
+      "installation_id": "00000000-0000-4000-8000-000000000001",
+      "scan_generation": 1,
+      "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "files": [
+        {
+          "relative_path": "Mods/Example.dll",
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 10
+        }
+      ],
+      "coverage": "complete",
+      "schema_version": 1,
+      "untrusted_write": "x"
+    }
+  },
+  {
+    "name": "DeploymentGeneration-unknown_schema",
+    "entity": "DeploymentGeneration",
+    "input": {
+      "generation_id": "00000000-0000-4000-8000-000000000010",
+      "installation_id": "00000000-0000-4000-8000-000000000001",
+      "sequence": 1,
+      "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "transaction_id": "00000000-0000-4000-8000-000000000017",
+      "committed_at": "2026-09-28T00:00:00Z",
+      "schema_version": 2
+    }
+  },
+  {
+    "name": "DeploymentGeneration-extra_write_field",
+    "entity": "DeploymentGeneration",
+    "input": {
+      "generation_id": "00000000-0000-4000-8000-000000000010",
+      "installation_id": "00000000-0000-4000-8000-000000000001",
+      "sequence": 1,
+      "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "transaction_id": "00000000-0000-4000-8000-000000000017",
+      "committed_at": "2026-09-28T00:00:00Z",
+      "schema_version": 1,
+      "untrusted_write": "x"
+    }
+  },
+  {
+    "name": "RuntimeSession-unknown_schema",
+    "entity": "RuntimeSession",
+    "input": {
+      "session_id": "00000000-0000-4000-8000-000000000011",
+      "installation_id": "00000000-0000-4000-8000-000000000001",
+      "generation_id": null,
+      "pid": null,
+      "started_at": null,
+      "log_file_ids": [],
+      "association_confidence": "unknown",
+      "schema_version": 2
+    }
+  },
+  {
+    "name": "RuntimeSession-extra_write_field",
+    "entity": "RuntimeSession",
+    "input": {
+      "session_id": "00000000-0000-4000-8000-000000000011",
+      "installation_id": "00000000-0000-4000-8000-000000000001",
+      "generation_id": null,
+      "pid": null,
+      "started_at": null,
+      "log_file_ids": [],
+      "association_confidence": "unknown",
+      "schema_version": 1,
+      "untrusted_write": "x"
+    }
+  },
+  {
+    "name": "Observation-unknown_schema",
+    "entity": "Observation",
+    "input": {
+      "observation_id": "00000000-0000-4000-8000-000000000012",
+      "session_id": "00000000-0000-4000-8000-000000000011",
+      "component_id": "00000000-0000-4000-8000-000000000005",
+      "event_kind": "registered",
+      "stage": "loader-registration",
+      "evidence_ids": [
+        "00000000-0000-4000-8000-000000000013"
+      ],
+      "schema_version": 2
+    }
+  },
+  {
+    "name": "Observation-extra_write_field",
+    "entity": "Observation",
+    "input": {
+      "observation_id": "00000000-0000-4000-8000-000000000012",
+      "session_id": "00000000-0000-4000-8000-000000000011",
+      "component_id": "00000000-0000-4000-8000-000000000005",
+      "event_kind": "registered",
+      "stage": "loader-registration",
+      "evidence_ids": [
+        "00000000-0000-4000-8000-000000000013"
+      ],
+      "schema_version": 1,
+      "untrusted_write": "x"
+    }
+  },
+  {
+    "name": "DiagnosticEvidence-unknown_schema",
+    "entity": "DiagnosticEvidence",
+    "input": {
+      "evidence_id": "00000000-0000-4000-8000-000000000013",
+      "source_id": "00000000-0000-4000-8000-000000000014",
+      "epoch": 0,
+      "byte_start": 0,
+      "byte_end": 10,
+      "excerpt_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_time": null,
+      "rule_id": null,
+      "component_ids": [
+        "00000000-0000-4000-8000-000000000005"
+      ],
+      "schema_version": 2
+    }
+  },
+  {
+    "name": "DiagnosticEvidence-extra_write_field",
+    "entity": "DiagnosticEvidence",
+    "input": {
+      "evidence_id": "00000000-0000-4000-8000-000000000013",
+      "source_id": "00000000-0000-4000-8000-000000000014",
+      "epoch": 0,
+      "byte_start": 0,
+      "byte_end": 10,
+      "excerpt_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_time": null,
+      "rule_id": null,
+      "component_ids": [
+        "00000000-0000-4000-8000-000000000005"
+      ],
+      "schema_version": 1,
+      "untrusted_write": "x"
+    }
+  },
+  {
+    "name": "ActionPlan-unknown_schema",
+    "entity": "ActionPlan",
+    "input": {
+      "plan_id": "00000000-0000-4000-8000-000000000015",
+      "installation_id": "00000000-0000-4000-8000-000000000001",
+      "profile_id": "00000000-0000-4000-8000-000000000008",
+      "profile_revision": 0,
+      "base_generation": null,
+      "baseline_snapshot_id": "00000000-0000-4000-8000-000000000009",
+      "baseline_manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "fingerprint_id": "00000000-0000-4000-8000-000000000002",
+      "plan_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "idempotency_key": "00000000-0000-4000-8000-000000000018",
+      "operations": [
+        {
+          "operation_id": "00000000-0000-4000-8000-000000000019",
+          "kind": "install_owned",
+          "target_root_kind": "mods",
+          "relative_path": "Example.dll",
+          "expected_before": "absent",
+          "desired_after": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "owner_ids": [
+            "00000000-0000-4000-8000-000000000003"
+          ]
+        }
+      ],
+      "preconditions": [
+        {
+          "kind": "baseline_hash",
+          "reference": "00000000-0000-4000-8000-000000000009",
+          "expected": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "verification_checks": [
+        {
+          "kind": "target_hash",
+          "reference": "Mods/Example.dll",
+          "expected": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "evidence_ids": [],
+      "disk_estimate_by_volume": {
+        "synthetic_volume": 1024
+      },
+      "backup_scope": [
+        "owned_files"
+      ],
+      "restart_required": false,
+      "approval_scope": [
+        "install_owned"
+      ],
+      "expires_at": "2026-09-28T00:00:00Z",
+      "schema_version": 2
+    }
+  },
+  {
+    "name": "ActionPlan-extra_write_field",
+    "entity": "ActionPlan",
+    "input": {
+      "plan_id": "00000000-0000-4000-8000-000000000015",
+      "installation_id": "00000000-0000-4000-8000-000000000001",
+      "profile_id": "00000000-0000-4000-8000-000000000008",
+      "profile_revision": 0,
+      "base_generation": null,
+      "baseline_snapshot_id": "00000000-0000-4000-8000-000000000009",
+      "baseline_manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "fingerprint_id": "00000000-0000-4000-8000-000000000002",
+      "plan_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "idempotency_key": "00000000-0000-4000-8000-000000000018",
+      "operations": [
+        {
+          "operation_id": "00000000-0000-4000-8000-000000000019",
+          "kind": "install_owned",
+          "target_root_kind": "mods",
+          "relative_path": "Example.dll",
+          "expected_before": "absent",
+          "desired_after": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "owner_ids": [
+            "00000000-0000-4000-8000-000000000003"
+          ]
+        }
+      ],
+      "preconditions": [
+        {
+          "kind": "baseline_hash",
+          "reference": "00000000-0000-4000-8000-000000000009",
+          "expected": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "verification_checks": [
+        {
+          "kind": "target_hash",
+          "reference": "Mods/Example.dll",
+          "expected": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "evidence_ids": [],
+      "disk_estimate_by_volume": {
+        "synthetic_volume": 1024
+      },
+      "backup_scope": [
+        "owned_files"
+      ],
+      "restart_required": false,
+      "approval_scope": [
+        "install_owned"
+      ],
+      "expires_at": "2026-09-28T00:00:00Z",
+      "schema_version": 1,
+      "untrusted_write": "x"
+    }
+  },
+  {
+    "name": "Approval-unknown_schema",
+    "entity": "Approval",
+    "input": {
+      "approval_id": "00000000-0000-4000-8000-000000000016",
+      "plan_id": "00000000-0000-4000-8000-000000000015",
+      "plan_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "scope": [
+        "install_owned"
+      ],
+      "actor": "synthetic-user",
+      "expires_at": "2026-09-28T00:00:00Z",
+      "schema_version": 2
+    }
+  },
+  {
+    "name": "Approval-extra_write_field",
+    "entity": "Approval",
+    "input": {
+      "approval_id": "00000000-0000-4000-8000-000000000016",
+      "plan_id": "00000000-0000-4000-8000-000000000015",
+      "plan_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "scope": [
+        "install_owned"
+      ],
+      "actor": "synthetic-user",
+      "expires_at": "2026-09-28T00:00:00Z",
+      "schema_version": 1,
+      "untrusted_write": "x"
+    }
+  },
+  {
+    "name": "Transaction-unknown_schema",
+    "entity": "Transaction",
+    "input": {
+      "transaction_id": "00000000-0000-4000-8000-000000000017",
+      "plan_id": "00000000-0000-4000-8000-000000000015",
+      "state": "planned",
+      "journal_path": "journals/transaction.jsonl",
+      "target_generation": "00000000-0000-4000-8000-000000000010",
+      "last_sequence": 0,
+      "schema_version": 2
+    }
+  },
+  {
+    "name": "Transaction-extra_write_field",
+    "entity": "Transaction",
+    "input": {
+      "transaction_id": "00000000-0000-4000-8000-000000000017",
+      "plan_id": "00000000-0000-4000-8000-000000000015",
+      "state": "planned",
+      "journal_path": "journals/transaction.jsonl",
+      "target_generation": "00000000-0000-4000-8000-000000000010",
+      "last_sequence": 0,
+      "schema_version": 1,
+      "untrusted_write": "x"
+    }
+  },
+  {
+    "name": "ModRelease-manifest_hash-34",
+    "entity": "ModRelease",
+    "input": {
+      "release_id": "00000000-0000-4000-8000-000000000004",
+      "package_id": "00000000-0000-4000-8000-000000000003",
+      "version_raw": "api19-local",
+      "manifest_hash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "ModRelease-release_id-35",
+    "entity": "ModRelease",
+    "input": {
+      "release_id": "not-uuid",
+      "package_id": "00000000-0000-4000-8000-000000000003",
+      "version_raw": "api19-local",
+      "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "RuntimeFingerprint-coverage-36",
+    "entity": "RuntimeFingerprint",
+    "input": {
+      "fingerprint_id": "00000000-0000-4000-8000-000000000002",
+      "game_version_raw": null,
+      "unity_version": null,
+      "loader_version": null,
+      "exe_hash": null,
+      "game_assembly_hash": null,
+      "metadata_hash": null,
+      "observed_at": "2026-09-28T00:00:00Z",
+      "source": {
+        "kind": "embedded_metadata",
+        "reference": "manifest.json",
+        "observed_at": "2026-09-28T00:00:00Z"
+      },
+      "coverage": "complete",
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "Component-roles-37",
+    "entity": "Component",
+    "input": {
+      "component_id": "00000000-0000-4000-8000-000000000005",
+      "release_id": "00000000-0000-4000-8000-000000000004",
+      "artifact_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "file_name": "Example.dll",
+      "assembly_name": null,
+      "assembly_version": null,
+      "melon_info": null,
+      "roles": [],
+      "content_ids": [
+        {
+          "framework": "itemforge",
+          "type": "BundleId",
+          "value": "same"
+        },
+        {
+          "framework": "another",
+          "type": "BundleId",
+          "value": "same"
+        }
+      ],
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "Relation-to_id-38",
+    "entity": "Relation",
+    "input": {
+      "relation_id": "00000000-0000-4000-8000-000000000007",
+      "from_id": "00000000-0000-4000-8000-000000000005",
+      "to_id": "00000000-0000-4000-8000-000000000003",
+      "capability": "itemforge.runtime_api",
+      "kind": "capability_requirement",
+      "requirement_raw": 19,
+      "source": {
+        "kind": "embedded_metadata",
+        "reference": "manifest.json",
+        "observed_at": "2026-09-28T00:00:00Z"
+      },
+      "confidence": "confirmed",
+      "fingerprint_scope": "00000000-0000-4000-8000-000000000002",
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "Profile-revision-39",
+    "entity": "Profile",
+    "input": {
+      "profile_id": "00000000-0000-4000-8000-000000000008",
+      "installation_id": "00000000-0000-4000-8000-000000000001",
+      "revision": true,
+      "selections": [
+        {
+          "release_id": "00000000-0000-4000-8000-000000000004",
+          "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "selected": true
+        }
+      ],
+      "config_overrides": {},
+      "display_order": [
+        "00000000-0000-4000-8000-000000000005"
+      ],
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "DiagnosticEvidence-byte_end-40",
+    "entity": "DiagnosticEvidence",
+    "input": {
+      "evidence_id": "00000000-0000-4000-8000-000000000013",
+      "source_id": "00000000-0000-4000-8000-000000000014",
+      "epoch": 0,
+      "byte_start": 0,
+      "byte_end": -1,
+      "excerpt_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_time": null,
+      "rule_id": null,
+      "component_ids": [
+        "00000000-0000-4000-8000-000000000005"
+      ],
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "FileEntry-relative_path-41",
+    "entity": "FileEntry",
+    "input": {
+      "file_entry_id": "00000000-0000-4000-8000-000000000006",
+      "release_id": "00000000-0000-4000-8000-000000000004",
+      "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "target_root_kind": "mods",
+      "relative_path": "../escape.dll",
+      "lifecycle": "immutable",
+      "ownership": "exclusive",
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "Artifact-library_relative_path-42",
+    "entity": "Artifact",
+    "input": {
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size": 10,
+      "library_relative_path": "C:/escape.dll",
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "Transaction-state-43",
+    "entity": "Transaction",
+    "input": {
+      "transaction_id": "00000000-0000-4000-8000-000000000017",
+      "plan_id": "00000000-0000-4000-8000-000000000015",
+      "state": "verified",
+      "journal_path": "journals/transaction.jsonl",
+      "target_generation": "00000000-0000-4000-8000-000000000010",
+      "last_sequence": 0,
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "RuntimeFingerprint-observed_at-44",
+    "entity": "RuntimeFingerprint",
+    "input": {
+      "fingerprint_id": "00000000-0000-4000-8000-000000000002",
+      "game_version_raw": null,
+      "unity_version": null,
+      "loader_version": null,
+      "exe_hash": null,
+      "game_assembly_hash": null,
+      "metadata_hash": null,
+      "observed_at": "2026-09-28T00:00:00",
+      "source": {
+        "kind": "embedded_metadata",
+        "reference": "manifest.json",
+        "observed_at": "2026-09-28T00:00:00Z"
+      },
+      "coverage": "partial",
+      "schema_version": 1
+    }
+  },
+  {
+    "name": "RuntimeFingerprint-observed_at-45",
+    "entity": "RuntimeFingerprint",
+    "input": {
+      "fingerprint_id": "00000000-0000-4000-8000-000000000002",
+      "game_version_raw": null,
+      "unity_version": null,
+      "loader_version": null,
+      "exe_hash": null,
+      "game_assembly_hash": null,
+      "metadata_hash": null,
+      "observed_at": "2026-09-28T00:00:00+08:00",
+      "source": {
+        "kind": "embedded_metadata",
+        "reference": "manifest.json",
+        "observed_at": "2026-09-28T00:00:00Z"
+      },
+      "coverage": "partial",
+      "schema_version": 1
+    }
+  }
+]

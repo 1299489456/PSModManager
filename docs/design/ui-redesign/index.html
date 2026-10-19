@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>PSModManager · 界面风格对比</title>
+<style>
+body{margin:0;padding:28px 32px 40px;background:#F3F4F6;font:14px/1.5 "Segoe UI","Microsoft YaHei UI",sans-serif;color:#1C2230}
+h1{margin:0 0 4px;font-size:22px}
+p.lead{margin:0 0 22px;color:#5B6576}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px}
+.item{background:#fff;border:1px solid #E3E6EB;border-radius:14px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.04),0 6px 20px rgba(0,0,0,.05)}
+.frame{position:relative;width:100%;aspect-ratio:1360/860;overflow:hidden;background:#ddd}
+.frame iframe{position:absolute;left:0;top:0;width:1360px;height:860px;border:0;transform-origin:0 0}
+.meta{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid #EEF0F3}
+.meta b{font-size:15px}.meta span{color:#7C8595;flex:1}
+.meta a{color:#2457D6;text-decoration:none;font-weight:500;white-space:nowrap}.meta a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<h1>PSModManager 界面风格对比</h1>
+<p class="lead">浅色基础版是第一版布局；三个风格版各有自己的布局、交互和动效，只共用同一套数据和业务规则。缩略图可以直接操作；点“全屏打开”能看到原尺寸，再用标题栏的“原型演示”切换各种状态。</p>
+<div class="grid">
+  <div class="item"><div class="frame"><iframe src="prototype.html" title="浅色基础版"></iframe></div><div class="meta"><b>浅色基础版</b><span>第一版 · 侧栏 + 列表 + 详情，信息密度最高</span><a href="prototype.html" target="_blank">全屏打开 ↗</a></div></div>
+  <div class="item"><div class="frame"><iframe src="prototype-glass.html" title="玻璃拟态"></iframe></div><div class="meta"><b>玻璃拟态</b><span>深色 · 底部 Dock + 会变形的灵动岛，弹性滑动的选中光斑，景深转场</span><a href="prototype-glass.html" target="_blank">全屏打开 ↗</a></div></div>
+  <div class="item"><div class="frame"><iframe src="prototype-cyber.html#noboot=1" title="赛博动漫"></iframe></div><div class="meta"><b>赛博动漫</b><span>深色 · 驾驶舱：状态仪表 + 数据表格，锁定框、任务队列终端、长按卸载、故障闪切</span><a href="prototype-cyber.html" target="_blank">全屏打开 ↗</a></div></div>
+  <div class="item"><div class="frame"><iframe src="prototype-solarpunk.html" title="太阳朋克"></iframe></div><div class="meta"><b>太阳朋克</b><span>浅色 · 温室：卡片网格长出嫩芽，叶子飞入待保存篮，原位展开、笔记本日志</span><a href="prototype-solarpunk.html" target="_blank">全屏打开 ↗</a></div></div>
+</div>
+<script>
+function fit(){document.querySelectorAll('.frame').forEach(f=>{f.querySelector('iframe').style.transform=`scale(${f.clientWidth/1360})`})}
+addEventListener('resize',fit);fit();
+</script>
+</body>
+</html>

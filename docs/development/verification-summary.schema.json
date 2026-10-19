@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:psmodmanager:verification-summary:1",
+  "title": "PSModManager verification summary v1",
+  "$defs": {
+    "cases": {"type": "object", "required": ["schema_version", "cases"], "properties": {
+      "schema_version": {"const": 1}, "cases": {"type": "array", "items": {"type": "object", "required": ["case_id", "profile", "status", "failure_reasons"], "properties": {
+        "case_id": {"type": "string", "pattern": "^CASE-[0-9]{3}$"}, "profile": {"type": "string"}, "status": {"enum": ["PASS", "FAIL", "BLOCKED", "NOT_RUN"]}, "failure_reasons": {"type": "array", "items": {"type": "string"}},
+        "scenarios": {"type": "array", "items": {"type": "object", "required": ["name", "class", "status"], "properties": {"name": {"type": "string"}, "class": {"type": "string"}, "status": {"enum": ["PASS", "FAIL", "BLOCKED"]}}}}
+      }}}
+    }},
+    "environment": {"type": "object", "required": ["schema_version", "os", "architecture", "python", "git", "code_fingerprint", "isolation_root", "dependencies", "constraints"], "properties": {
+      "schema_version": {"const": 1}, "os": {"type": "string"}, "architecture": {"type": "string"}, "python": {"type": ["string", "null"]}, "git": {"type": "string"}, "code_fingerprint": {"type": "string"}, "isolation_root": {"type": "string"}, "dependencies": {"type": "object"}, "constraints": {"type": "string"}
+    }}
+  },
+  "type": "object",
+  "required": ["schema_version", "task_id", "profile", "run_id", "verification_status", "started_at", "ended_at", "command", "exit_code", "runner_exit_code", "reference_commit", "git_commit", "counts", "required_cases", "blockers", "gaps", "evidence", "commands"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": 1},
+    "task_id": {"type": "string"}, "profile": {"type": "string"}, "run_id": {"type": "string"},
+    "verification_status": {"enum": ["PASS", "FAIL", "BLOCKED", "NOT_RUN"]},
+    "started_at": {"type": "string"}, "ended_at": {"type": "string"},
+    "command": {"type": "array", "items": {"type": "string"}},
+    "exit_code": {"type": ["integer", "null"]}, "runner_exit_code": {"type": "integer"},
+    "reference_commit": {"type": "string"}, "git_commit": {"type": ["string", "null"]},
+    "counts": {"type": "object", "required": ["discovered", "executed", "passed", "failed", "skipped"], "additionalProperties": {"type": "integer", "minimum": 0}},
+    "required_cases": {"type": "array", "items": {"type": "string"}},
+    "blockers": {"type": "array", "items": {"type": "string"}}, "gaps": {"type": "array", "items": {"type": "string"}},
+    "evidence": {"type": "array", "items": {"type": "string"}}, "commands": {"type": "array", "items": {"type": "object"}}
+  },
+  "allOf": [{"if": {"properties": {"verification_status": {"const": "PASS"}}}, "then": {
+    "properties": {"exit_code": {"const": 0}, "runner_exit_code": {"const": 0}, "blockers": {"maxItems": 0}, "counts": {"properties": {"discovered": {"minimum": 1}, "executed": {"minimum": 1}, "failed": {"const": 0}, "skipped": {"const": 0}}}}
+  }}]
+}

@@ -1,0 +1,2411 @@
+{
+  "schema_version": 1,
+  "task_id": "PS-05-02",
+  "product": "PSModManager",
+  "version": "0.1.0",
+  "target": "windows-x64",
+  "artifact": {
+    "bundle": "E:\\WorkSpace\\ForTools\\PSModManager\\.preview\\p502-07\\dist\\PSModManager",
+    "archive": "E:\\WorkSpace\\ForTools\\PSModManager\\.preview\\p502-07\\PSModManager-v0.1.0-windows-x64.zip",
+    "archive_sha256": "c318cd4cf4e1bcf93a8cd0d06aca1ef24dc46c18e05c268e96d3227646ca9ab6",
+    "archive_bytes": 68970123,
+    "files": 404,
+    "installed_bytes": 142636428
+  },
+  "build": {
+    "schema_version": 1,
+    "product": "PSModManager",
+    "version": "0.1.0",
+    "target": "windows-x64",
+    "build_utc": "2026-10-14T04:25:06.533554+00:00",
+    "packaging": "PyInstaller onedir; shared _internal",
+    "requirements": [
+      "Windows 10/11 x64",
+      ".NET Framework 4.8+",
+      "WebView2 Runtime"
+    ],
+    "tools": {
+      "python": "3.11.14 (main, Feb  3 2026, 22:51:29) [MSC v.1944 64 bit (AMD64)]",
+      "pyinstaller": "6.19.0"
+    },
+    "dependencies": [
+      {
+        "name": "annotated-types",
+        "version": "0.7.0",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "anyio",
+        "version": "4.12.1",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "attrs",
+        "version": "25.4.0",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "backports.tarfile",
+        "version": "1.2.0",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "bottle",
+        "version": "0.13.4",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "certifi",
+        "version": "2026.6.17",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "cffi",
+        "version": "2.0.0",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "click",
+        "version": "8.3.1",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "clr_loader",
+        "version": "0.2.10",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "colorama",
+        "version": "0.4.6",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "h11",
+        "version": "0.16.0",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "httpcore",
+        "version": "1.0.9",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "httpx",
+        "version": "0.28.1",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "idna",
+        "version": "3.11",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "importlib_metadata",
+        "version": "8.7.1",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "jaraco.classes",
+        "version": "3.4.0",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "jaraco.context",
+        "version": "6.1.2",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "jaraco.functools",
+        "version": "4.5.0",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "Jinja2",
+        "version": "3.1.6",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "keyring",
+        "version": "25.7.0",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "markdown-it-py",
+        "version": "4.0.0",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "MarkupSafe",
+        "version": "3.0.3",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "mdurl",
+        "version": "0.1.2",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "more-itertools",
+        "version": "11.1.0",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "packaging",
+        "version": "26.2",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "pillow",
+        "version": "12.2.0",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "proxy_tools",
+        "version": "0.1.0",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "pycparser",
+        "version": "3.0",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "pydantic",
+        "version": "2.12.5",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "pydantic_core",
+        "version": "2.41.5",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "Pygments",
+        "version": "2.19.2",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "pyinstaller",
+        "version": "6.19.0",
+        "role": "build"
+      },
+      {
+        "name": "pyinstaller-hooks-contrib",
+        "version": "2026.1",
+        "role": "build"
+      },
+      {
+        "name": "pytest",
+        "version": "9.0.3",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "python-dotenv",
+        "version": "1.2.1",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "pythonnet",
+        "version": "3.0.5",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "pywebview",
+        "version": "6.2.1",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "pywin32",
+        "version": "311",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "pywin32-ctypes",
+        "version": "0.2.3",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "rich",
+        "version": "14.3.3",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "setuptools",
+        "version": "69.5.1",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "sniffio",
+        "version": "1.3.1",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "typing_extensions",
+        "version": "4.15.0",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "typing-inspection",
+        "version": "0.4.2",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "zipp",
+        "version": "3.23.0",
+        "role": "bundled_dependency"
+      },
+      {
+        "name": "zstandard",
+        "version": "0.25.0",
+        "role": "bundled_dependency"
+      }
+    ],
+    "licenses": [
+      "licenses/CPython/LICENSE.txt",
+      "licenses/annotated-types/LICENSE",
+      "licenses/anyio/LICENSE",
+      "licenses/attrs/LICENSE",
+      "licenses/backports.tarfile/LICENSE",
+      "licenses/bottle/LICENSE",
+      "licenses/certifi/LICENSE",
+      "licenses/cffi/LICENSE",
+      "licenses/click/LICENSE.txt",
+      "licenses/colorama/LICENSE.txt",
+      "licenses/h11/LICENSE.txt",
+      "licenses/httpcore/LICENSE.md",
+      "licenses/httpx/LICENSE.md",
+      "licenses/idna/LICENSE.md",
+      "licenses/importlib_metadata/LICENSE",
+      "licenses/jaraco.classes/LICENSE",
+      "licenses/jaraco.context/LICENSE",
+      "licenses/jaraco.functools/LICENSE",
+      "licenses/Jinja2/LICENSE.txt",
+      "licenses/keyring/LICENSE",
+      "licenses/markdown-it-py/LICENSE",
+      "licenses/markdown-it-py/LICENSE.markdown-it",
+      "licenses/MarkupSafe/LICENSE.txt",
+      "licenses/mdurl/LICENSE",
+      "licenses/more-itertools/LICENSE",
+      "licenses/packaging/LICENSE",
+      "licenses/packaging/LICENSE.APACHE",
+      "licenses/packaging/LICENSE.BSD",
+      "licenses/pillow/LICENSE",
+      "licenses/pycparser/LICENSE",
+      "licenses/pydantic/LICENSE",
+      "licenses/pydantic_core/LICENSE",
+      "licenses/Pygments/LICENSE",
+      "licenses/pyinstaller/COPYING.txt",
+      "licenses/pyinstaller-hooks-contrib/LICENSE",
+      "licenses/pytest/LICENSE",
+      "licenses/python-dotenv/LICENSE",
+      "licenses/pywebview/LICENSE",
+      "licenses/pywin32/license.txt",
+      "licenses/pywin32/license.txt",
+      "licenses/pywin32/license.txt",
+      "licenses/pywin32/License.txt",
+      "licenses/pywin32-ctypes/LICENSE.txt",
+      "licenses/rich/LICENSE",
+      "licenses/setuptools/LICENSE",
+      "licenses/sniffio/LICENSE",
+      "licenses/sniffio/LICENSE.APACHE2",
+      "licenses/sniffio/LICENSE.MIT",
+      "licenses/typing_extensions/LICENSE",
+      "licenses/typing-inspection/LICENSE",
+      "licenses/zipp/LICENSE",
+      "licenses/zstandard/LICENSE"
+    ],
+    "helper": {
+      "schema_version": 1,
+      "target": "win-x64",
+      "framework": "net10.0",
+      "sdk_version": "10.0.400",
+      "runtime_version": "10.0.11",
+      "reference_version": "10.0.11",
+      "self_contained": true,
+      "single_file": false,
+      "trimmed": false,
+      "offline_feed": "caller-owned copy of cached Microsoft.NETCore.App.Runtime.win-x64",
+      "runtime_package_sha256": "822b247bddbd88a290a8072be89815ffeac26e5aac0d41b1eab95fda5279f443",
+      "source_sha256": "9903079091fbd85480c81537cee05d1a170b7c226eca96038a9fb590ce17eb6a",
+      "project_sha256": "9f403538deb2a2c45c83f55891b17b39f7075dfa0195b4fe24f23dc612f69848",
+      "commands_exit_codes": [
+        0,
+        0
+      ]
+    },
+    "inputs": [
+      {
+        "path": "main.py",
+        "sha256": "c28b3f9678f50d5f03cd709a72a58873d5ce7ddee767062c900cbcb6c7664a0e"
+      },
+      {
+        "path": "PSModManager.spec",
+        "sha256": "344e41a2a3bf84dd8c4324d60bb2cff55509e0406528065b3a91285c0de1856e"
+      },
+      {
+        "path": "pack_pyinstaller.py",
+        "sha256": "d455a8aa2ceda53129eaf5cd9ca6b2736e396e4ba0f24267c9a9a8913ace26dc"
+      },
+      {
+        "path": "pyproject.toml",
+        "sha256": "e62038bfc9bd0e57e7fe9f44d40cb2619ca58cfe388323e475628ebca8cc867e"
+      },
+      {
+        "path": "uv.lock",
+        "sha256": "f276518b2d23399d1eb062a45d4e5f98443e39d4a6e756ff0406d3c12e434c19"
+      },
+      {
+        "path": "frontend/package-lock.json",
+        "sha256": "ebd760db0ca739fe11f8ae89eea0bfb92a38689c99021be8bc5012180d2c4335"
+      },
+      {
+        "path": "backend/scanning/worker_host.py",
+        "sha256": "4d9edaed43db82e6deb7ffc3c7727360114f8bbac1f1cb33f005177d95146bcc"
+      },
+      {
+        "path": "backend/scanning/worker_client.py",
+        "sha256": "bf02976c5452e4ae29d72db978cd289784cfbeabf3eaa30c78d95a02fdf76fa3"
+      },
+      {
+        "path": "tools/PSModManager.Metadata/build.py",
+        "sha256": "09ea92e7ca41973596557754e45c6c0be0409bea25c1cb7b0d3bb7ed2c80e990"
+      },
+      {
+        "path": "tools/PSModManager.Metadata/Program.cs",
+        "sha256": "9903079091fbd85480c81537cee05d1a170b7c226eca96038a9fb590ce17eb6a"
+      },
+      {
+        "path": "tools/PSModManager.Metadata/PSModManager.Metadata.csproj",
+        "sha256": "9f403538deb2a2c45c83f55891b17b39f7075dfa0195b4fe24f23dc612f69848"
+      },
+      {
+        "path": "tools/PSModManager.Metadata/console_host_main.py",
+        "sha256": "30f09457d0f80d259a1b58d88ff2d1eba7d8225dfd52689de0ef0003f407b0db"
+      },
+      {
+        "path": "frontend/dist/index.html",
+        "sha256": "636dcd9160a2e05e8b6f0e006fb8a0608bb398db43717b78520cc76ebd88334a"
+      }
+    ],
+    "self_excluded": [
+      "build-manifest.json",
+      "SHA256SUMS.txt"
+    ],
+    "files": [
+      {
+        "path": "_internal/_asyncio.pyd",
+        "size": 53248,
+        "sha256": "a1e639a11d0e0e4fc189b6b88061a83e14eff963d08d7989b9ddfc34c6f49343"
+      },
+      {
+        "path": "_internal/_bz2.pyd",
+        "size": 72704,
+        "sha256": "fabeb541704c08f679564df2640d4c35e7613df8dc459286a696328efdb239d2"
+      },
+      {
+        "path": "_internal/_cffi_backend.cp311-win_amd64.pyd",
+        "size": 178688,
+        "sha256": "8100f667a3f64eeb37b9326d0c53a931e0ea3cea4ade5dbdc638c368355c0948"
+      },
+      {
+        "path": "_internal/_ctypes.pyd",
+        "size": 119296,
+        "sha256": "cb033da7c3df3a0321e13c26fd331a1c8bb20c21191110b35d1d7baca302154b"
+      },
+      {
+        "path": "_internal/_decimal.pyd",
+        "size": 245248,
+        "sha256": "0ec0a9861a1a78ec428295f62896f575db77b5c1ae355e7dc6262e4b5ff37c81"
+      },
+      {
+        "path": "_internal/_elementtree.pyd",
+        "size": 116736,
+        "sha256": "44786c20f38ad808fcc0ef8dd9f5af355671200e44499b33ecac7dddfaed181f"
+      },
+      {
+        "path": "_internal/_hashlib.pyd",
+        "size": 53760,
+        "sha256": "40bd11a523328ad73112470c55103f48119cecf8a8c03933093632dd68c1dd18"
+      },
+      {
+        "path": "_internal/_lzma.pyd",
+        "size": 152576,
+        "sha256": "3cfb156e9205278f66fecae6fc398e425367252b7821d7adefea17c5a9d210a9"
+      },
+      {
+        "path": "_internal/_multiprocessing.pyd",
+        "size": 22528,
+        "sha256": "eec4ecd7b043305988a173f9d5ec9363309e6c4de619f16193a443cae25ee346"
+      },
+      {
+        "path": "_internal/_overlapped.pyd",
+        "size": 39424,
+        "sha256": "c526fc5f2436bcfb62ea8145629812cf8b5b0768545384d2cda1e7995f86b863"
+      },
+      {
+        "path": "_internal/_queue.pyd",
+        "size": 20480,
+        "sha256": "a4c1c676a280a473c89be5fb67592294c30df83a628f22a26f66d0c6e14caf01"
+      },
+      {
+        "path": "_internal/_socket.pyd",
+        "size": 67584,
+        "sha256": "7b080974571f9151b64668ffbce3d99f084496277ed82e57f4a9a37c577d15c1"
+      },
+      {
+        "path": "_internal/_sqlite3.pyd",
+        "size": 109568,
+        "sha256": "5cd28a31dff44181ada2c15bb6fa8d732bf9040d0f198f0edcb6e745edb33bc4"
+      },
+      {
+        "path": "_internal/_ssl.pyd",
+        "size": 166912,
+        "sha256": "94c54a4c6612348929ec463b28290cf60f8bba69da86e45507e160015a2e084a"
+      },
+      {
+        "path": "_internal/_uuid.pyd",
+        "size": 13824,
+        "sha256": "90ea453a734106f579d26e6d5549f0db2f62d053f9ac237f72b19f192745e527"
+      },
+      {
+        "path": "_internal/_zoneinfo.pyd",
+        "size": 33792,
+        "sha256": "d087178f477f34ef5a5ff9b5b6e2c861932e4bfe22ca28fffde9c2a32e8ac85b"
+      },
+      {
+        "path": "_internal/api-ms-win-core-console-l1-1-0.dll",
+        "size": 22872,
+        "sha256": "015bd08815c7b934a8952c3a7578e9ce59f21136e8a880d42bbd414bec2c6058"
+      },
+      {
+        "path": "_internal/api-ms-win-core-datetime-l1-1-0.dll",
+        "size": 22896,
+        "sha256": "5534812cdbdae94ba45cb216e5eb9af686b853948df54365103555abbbaf9d9a"
+      },
+      {
+        "path": "_internal/api-ms-win-core-debug-l1-1-0.dll",
+        "size": 22872,
+        "sha256": "837d2b1b2cd03e03fc6ccb050698b6b5763af17c201304872342a5eae9e0a2d2"
+      },
+      {
+        "path": "_internal/api-ms-win-core-errorhandling-l1-1-0.dll",
+        "size": 22872,
+        "sha256": "de43b165f568c276c00e95acd454e3092f352a18e95874595f4f4658c06d2ec7"
+      },
+      {
+        "path": "_internal/api-ms-win-core-fibers-l1-1-0.dll",
+        "size": 22872,
+        "sha256": "3cebc45bf479ad74cfabf2c6bfd4994d7ad639ed1221025981d19cedf9ce0416"
+      },
+      {
+        "path": "_internal/api-ms-win-core-fibers-l1-1-1.dll",
+        "size": 22872,
+        "sha256": "5ef70308bcca628ce6b0e2856b15b1c7ae340c3f9bbbc4c1071d8c191a34a5c3"
+      },
+      {
+        "path": "_internal/api-ms-win-core-file-l1-1-0.dll",
+        "size": 27008,
+        "sha256": "250ac829f2617bcac1c6e5b8c4f630462e20765863ba573526a3e11bbfb94a9a"
+      },
+      {
+        "path": "_internal/api-ms-win-core-file-l1-2-0.dll",
+        "size": 22888,
+        "sha256": "ae14079a114733f60ce87b92cba42acd8083c2cd67594e53bc37dc0b97a4b465"
+      },
+      {
+        "path": "_internal/api-ms-win-core-file-l2-1-0.dll",
+        "size": 22912,
+        "sha256": "914bf26a298713119477ea0a8e7bd43171b91344ebe24fb47ad77c49686e3d87"
+      },
+      {
+        "path": "_internal/api-ms-win-core-handle-l1-1-0.dll",
+        "size": 22896,
+        "sha256": "ab5489955e371b15f77906c08ec3c7affe2c7a46a08c514ca628768b4478974b"
+      },
+      {
+        "path": "_internal/api-ms-win-core-heap-l1-1-0.dll",
+        "size": 22872,
+        "sha256": "c70f9644d8377fa39c5b71f2e9734c1400d7598904fdeb772e8502099982dcb7"
+      },
+      {
+        "path": "_internal/api-ms-win-core-interlocked-l1-1-0.dll",
+        "size": 22888,
+        "sha256": "f8129710188e407bb0e6f46d30aeba277d67b947ece5fe09e883fde2323f3ae6"
+      },
+      {
+        "path": "_internal/api-ms-win-core-kernel32-legacy-l1-1-1.dll",
+        "size": 22888,
+        "sha256": "5200b16cb2ddc61cfc07373a9a84aa85a3ab50806ca96c879c883275832944c1"
+      },
+      {
+        "path": "_internal/api-ms-win-core-libraryloader-l1-1-0.dll",
+        "size": 22872,
+        "sha256": "48786fb88b001dcd1f63acea903d3ca9cc0b3060d5a325e3f2f3cbc3bfd53166"
+      },
+      {
+        "path": "_internal/api-ms-win-core-localization-l1-2-0.dll",
+        "size": 22872,
+        "sha256": "9ec3898f7eba91faa28b51616c211a2689e3a13aeef8de6e13cb674e49d689eb"
+      },
+      {
+        "path": "_internal/api-ms-win-core-memory-l1-1-0.dll",
+        "size": 22896,
+        "sha256": "3a6cbc524c99e1cd80d5368f5601402a37ad602528b1ab628093573ef638eb3b"
+      },
+      {
+        "path": "_internal/api-ms-win-core-namedpipe-l1-1-0.dll",
+        "size": 22888,
+        "sha256": "97145ef89c44949fcf0f04ac834a8bc7d687ef49ee73ae9fc32f3c11136b7201"
+      },
+      {
+        "path": "_internal/api-ms-win-core-processenvironment-l1-1-0.dll",
+        "size": 22872,
+        "sha256": "8bc7c10b1851aea644e9c9f381cdb935e091fee6b0be3d3aedc6fffaac96adb7"
+      },
+      {
+        "path": "_internal/api-ms-win-core-processthreads-l1-1-0.dll",
+        "size": 22912,
+        "sha256": "d8030b777617c71f0f94564607699dbf7561487d779db9756aed378c5675213f"
+      },
+      {
+        "path": "_internal/api-ms-win-core-processthreads-l1-1-1.dll",
+        "size": 22872,
+        "sha256": "f5e676713340f73a03a3d41a6ec9883b431da7d16c7f07bd0a920fb80e6c0753"
+      },
+      {
+        "path": "_internal/api-ms-win-core-profile-l1-1-0.dll",
+        "size": 22872,
+        "sha256": "f023d47e44d3eea6b0743580f57e8c6ba81e79d5ebfa7da26250076c647b980e"
+      },
+      {
+        "path": "_internal/api-ms-win-core-rtlsupport-l1-1-0.dll",
+        "size": 22888,
+        "sha256": "9746d8930704153578a628c010638a5f818ffe5a927e25591b108e256dc6afca"
+      },
+      {
+        "path": "_internal/api-ms-win-core-string-l1-1-0.dll",
+        "size": 22896,
+        "sha256": "7c53ae24c982d16ffd1bf7f918d115b11b7f30e57bc7feaa18cb9781e4abb926"
+      },
+      {
+        "path": "_internal/api-ms-win-core-synch-l1-1-0.dll",
+        "size": 22896,
+        "sha256": "56d9d62ca5dba79a6581b8d574a7d8b2a64a5ecb71e47dcf06ed0285708b1859"
+      },
+      {
+        "path": "_internal/api-ms-win-core-synch-l1-2-0.dll",
+        "size": 22888,
+        "sha256": "f6482bbec5612c39ecb4822787a333f2b7570f7a5f922a4059be41ba957bb372"
+      },
+      {
+        "path": "_internal/api-ms-win-core-sysinfo-l1-1-0.dll",
+        "size": 22896,
+        "sha256": "272d02765fdd3582618236c2d309abba069642f9bc1062ede069d0c144e17007"
+      },
+      {
+        "path": "_internal/api-ms-win-core-sysinfo-l1-2-0.dll",
+        "size": 22912,
+        "sha256": "8a0900788859d0eb51c2f48f50cc6ed376a120b518100fa20e11d7702ccde260"
+      },
+      {
+        "path": "_internal/api-ms-win-core-timezone-l1-1-0.dll",
+        "size": 22896,
+        "sha256": "ff35de6c03812b332e140f17dade25c5dd4775156da9eeb1eaae3fddd27236ec"
+      },
+      {
+        "path": "_internal/api-ms-win-core-util-l1-1-0.dll",
+        "size": 22896,
+        "sha256": "191ef3e98641a57296f19d572d8eb62489470ff1ef6030d136af170c2f835173"
+      },
+      {
+        "path": "_internal/api-ms-win-crt-conio-l1-1-0.dll",
+        "size": 22872,
+        "sha256": "54ee5ec719a051496ff60aa00dbeaa94b9a7d2cdac27fe9b7317f1a666b6a2aa"
+      },
+      {
+        "path": "_internal/api-ms-win-crt-convert-l1-1-0.dll",
+        "size": 26992,
+        "sha256": "8b94662429171019fcd63c70bbf2095a075170599704a5e7dcdbe3da13f3a429"
+      },
+      {
+        "path": "_internal/api-ms-win-crt-environment-l1-1-0.dll",
+        "size": 22912,
+        "sha256": "39e5929593709e8af3bc9e0a75ec1155778d6f4a247f4cdfc58928ad6db88434"
+      },
+      {
+        "path": "_internal/api-ms-win-crt-filesystem-l1-1-0.dll",
+        "size": 22872,
+        "sha256": "5a8ecebac32edf4e1f3c5c6c1c8ea1a1add6cda4f9c9cb26f752fb295bea6865"
+      },
+      {
+        "path": "_internal/api-ms-win-crt-heap-l1-1-0.dll",
+        "size": 22872,
+        "sha256": "c71080cbcb43bf1f8f3e391deb12a582eb0abefc80946f340675a2c616e4feb4"
+      },
+      {
+        "path": "_internal/api-ms-win-crt-locale-l1-1-0.dll",
+        "size": 22896,
+        "sha256": "6c68648e524187e03c4ad9aaa4a99113c6ee9f29fb39cc0ed93f951975138e63"
+      },
+      {
+        "path": "_internal/api-ms-win-crt-math-l1-1-0.dll",
+        "size": 31064,
+        "sha256": "d4fbcccbe29371cbce431e43b2eb4f7ba9a6f04a3d740a071f02457a505e9dc8"
+      },
+      {
+        "path": "_internal/api-ms-win-crt-process-l1-1-0.dll",
+        "size": 22896,
+        "sha256": "47c1935942e3ac0812e4dcf18c0e265e565f0194a3349111c299712f5565f7ac"
+      },
+      {
+        "path": "_internal/api-ms-win-crt-runtime-l1-1-0.dll",
+        "size": 26968,
+        "sha256": "72adc1b3677e0814d9c4ebf0964000e84bb2acf67336c8963061665e44f78029"
+      },
+      {
+        "path": "_internal/api-ms-win-crt-stdio-l1-1-0.dll",
+        "size": 26968,
+        "sha256": "900afc3989673c9bb1a687ed38c192f46db9e6ba6d11a668898a539e7fc23798"
+      },
+      {
+        "path": "_internal/api-ms-win-crt-string-l1-1-0.dll",
+        "size": 26968,
+        "sha256": "fcf12466cc12fd3b73611fc0763a5a1f9d44e90349513c34a0c83b0f36421793"
+      },
+      {
+        "path": "_internal/api-ms-win-crt-time-l1-1-0.dll",
+        "size": 22912,
+        "sha256": "886e57c4a6adb299b38f02945369f590a67da4e79a798359fc60aaa067212d7c"
+      },
+      {
+        "path": "_internal/api-ms-win-crt-utility-l1-1-0.dll",
+        "size": 22912,
+        "sha256": "5f8f26b216ade615b67a41f6fbbb910972fc6153315a65bb8f09912be50215b1"
+      },
+      {
+        "path": "_internal/attrs-25.4.0.dist-info/INSTALLER",
+        "size": 2,
+        "sha256": "e6184ce10e266134fdcfa401e8f1a95005bcd4f18d16b62b757323e2833fe9a9"
+      },
+      {
+        "path": "_internal/attrs-25.4.0.dist-info/licenses/LICENSE",
+        "size": 1109,
+        "sha256": "882115c95dfc2af1eeb6714f8ec6d5cbcabf667caff8729f42420da63f714e9f"
+      },
+      {
+        "path": "_internal/attrs-25.4.0.dist-info/METADATA",
+        "size": 10473,
+        "sha256": "d917abc63eda81c311c62c1d92dea50b682ea870269062821f5de75962bb6684"
+      },
+      {
+        "path": "_internal/attrs-25.4.0.dist-info/RECORD",
+        "size": 2743,
+        "sha256": "5536b0b121383d1f21ba1a69874bb6a00f48b2c9b32ce8f5e3db3b6f0643a73d"
+      },
+      {
+        "path": "_internal/attrs-25.4.0.dist-info/REQUESTED",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "_internal/attrs-25.4.0.dist-info/WHEEL",
+        "size": 87,
+        "sha256": "aad0b0a12256807936d52d4a6f88a1773236ae527564a688bab4e3fe780e8724"
+      },
+      {
+        "path": "_internal/backend/diagnostics/rules/definitions.json",
+        "size": 5050,
+        "sha256": "497416b22d2f9727aac07cf0d29f4d5fe5b49f33ff9c9077231ce72f427b2384"
+      },
+      {
+        "path": "_internal/base_library.zip",
+        "size": 1444808,
+        "sha256": "5c2906816713d5b528f4602c1a2cdf166187ae96e10a362e33175b96df4cc367"
+      },
+      {
+        "path": "_internal/certifi/cacert.pem",
+        "size": 234354,
+        "sha256": "bbc7e9c01d7551bb8a159b5dedd989b8ee3ce105aff522b68eb1b01bf854cab0"
+      },
+      {
+        "path": "_internal/certifi/py.typed",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "_internal/click-8.3.1.dist-info/INSTALLER",
+        "size": 2,
+        "sha256": "e6184ce10e266134fdcfa401e8f1a95005bcd4f18d16b62b757323e2833fe9a9"
+      },
+      {
+        "path": "_internal/click-8.3.1.dist-info/licenses/LICENSE.txt",
+        "size": 1475,
+        "sha256": "9a8ad106a394e853bfe21f42f4e72d592819a22805d991b5f3275029292b658d"
+      },
+      {
+        "path": "_internal/click-8.3.1.dist-info/METADATA",
+        "size": 2621,
+        "sha256": "5d9781acc004d2085313cf128dfad20ee4b2342a413e9971251d6d6f00fda198"
+      },
+      {
+        "path": "_internal/click-8.3.1.dist-info/RECORD",
+        "size": 1808,
+        "sha256": "dff6b00633c0a5e3c58114a465b95b8f570cdabe98e59d713b53d700066bbf41"
+      },
+      {
+        "path": "_internal/click-8.3.1.dist-info/REQUESTED",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "_internal/click-8.3.1.dist-info/WHEEL",
+        "size": 82,
+        "sha256": "1b68144734c4b66791f27add5d425f3620775585718a03d0f9b110ba3a4d88db"
+      },
+      {
+        "path": "_internal/clr_loader/ffi/dlls/amd64/ClrLoader.dll",
+        "size": 10240,
+        "sha256": "e6cb8b51dbd5d5b5548696e6ddf17875af73b8abd99ca1572d32b1df98028591"
+      },
+      {
+        "path": "_internal/clr_loader/ffi/dlls/x86/ClrLoader.dll",
+        "size": 10240,
+        "sha256": "d7b659e28d18d0e2b1f709861d51b5cb3cd37bb12056feab5764cd03165a2c9d"
+      },
+      {
+        "path": "_internal/frontend/dist/assets/index-BpynETbs.js",
+        "size": 297822,
+        "sha256": "71dd61dd295bcdb57d30a58169b582416b9d725d1e550fb831118fa2008c19f6"
+      },
+      {
+        "path": "_internal/frontend/dist/assets/style-Ch3F_uO8.css",
+        "size": 67512,
+        "sha256": "e20051abf0c50559406cb8332e9d3772da67e72a388e255803f60f9e329337ab"
+      },
+      {
+        "path": "_internal/frontend/dist/index.html",
+        "size": 650,
+        "sha256": "636dcd9160a2e05e8b6f0e006fb8a0608bb398db43717b78520cc76ebd88334a"
+      },
+      {
+        "path": "_internal/importlib_metadata-8.7.1.dist-info/INSTALLER",
+        "size": 2,
+        "sha256": "e6184ce10e266134fdcfa401e8f1a95005bcd4f18d16b62b757323e2833fe9a9"
+      },
+      {
+        "path": "_internal/importlib_metadata-8.7.1.dist-info/licenses/LICENSE",
+        "size": 10278,
+        "sha256": "458502e12d97bbf64438606a20044aa85eb05fb0a8a807bb35dbec253fd1fc04"
+      },
+      {
+        "path": "_internal/importlib_metadata-8.7.1.dist-info/METADATA",
+        "size": 4670,
+        "sha256": "a3e38b9ee4326289d4864704f30e299ee769e2309ce9f4a75f0de1a50ad0a356"
+      },
+      {
+        "path": "_internal/importlib_metadata-8.7.1.dist-info/RECORD",
+        "size": 1868,
+        "sha256": "52a6b8ee0de15cf7fd99625f43b97cd2e3942ac86f16054ea90de48e66f29355"
+      },
+      {
+        "path": "_internal/importlib_metadata-8.7.1.dist-info/REQUESTED",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "_internal/importlib_metadata-8.7.1.dist-info/top_level.txt",
+        "size": 19,
+        "sha256": "08eddf0fdcb29403625e4acca38a872d5fe6a972f6b02e4914a82dd725804fe0"
+      },
+      {
+        "path": "_internal/importlib_metadata-8.7.1.dist-info/WHEEL",
+        "size": 91,
+        "sha256": "ff309ddcdd65ebd02bc724dbf2bcc4a0ff53a5b61792a44548d383e4ebb19d3b"
+      },
+      {
+        "path": "_internal/keyring-25.7.0.dist-info/entry_points.txt",
+        "size": 334,
+        "sha256": "f226f273dcc7d924f52436475a54191c450fc7d9156977d5cbccf969fffa3949"
+      },
+      {
+        "path": "_internal/keyring-25.7.0.dist-info/INSTALLER",
+        "size": 2,
+        "sha256": "e6184ce10e266134fdcfa401e8f1a95005bcd4f18d16b62b757323e2833fe9a9"
+      },
+      {
+        "path": "_internal/keyring-25.7.0.dist-info/licenses/LICENSE",
+        "size": 1076,
+        "sha256": "5a57cb4db85e2a2dd88c290628908add57e3451449e0a9a71fdfb38776fd759d"
+      },
+      {
+        "path": "_internal/keyring-25.7.0.dist-info/METADATA",
+        "size": 21447,
+        "sha256": "bd54de98fede6dc3e1f3cd89b4e37c95d8842a523bdbb9e52ab40edff1837163"
+      },
+      {
+        "path": "_internal/keyring-25.7.0.dist-info/RECORD",
+        "size": 3243,
+        "sha256": "1f2a9344301f919cf1da03e5c5334266d0023da6f1f41557296dc66d45eb956b"
+      },
+      {
+        "path": "_internal/keyring-25.7.0.dist-info/REQUESTED",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "_internal/keyring-25.7.0.dist-info/top_level.txt",
+        "size": 8,
+        "sha256": "a218757647b6f3f35d48d919ea79154b020a90b2533b021f1309d72af6b7a648"
+      },
+      {
+        "path": "_internal/keyring-25.7.0.dist-info/WHEEL",
+        "size": 91,
+        "sha256": "ff309ddcdd65ebd02bc724dbf2bcc4a0ff53a5b61792a44548d383e4ebb19d3b"
+      },
+      {
+        "path": "_internal/libcrypto-3-x64.dll",
+        "size": 7976960,
+        "sha256": "d58e39d168b3f21471c43ddecaafcf0b4bb3162c34f1330d8850e88439f07fcb"
+      },
+      {
+        "path": "_internal/libffi-8.dll",
+        "size": 28160,
+        "sha256": "42ed84481cc37b6044816c28ecd97cd911cb40902dc7b571f689658ac008be13"
+      },
+      {
+        "path": "_internal/libssl-3-x64.dll",
+        "size": 1579008,
+        "sha256": "46643400cdefb3e24efd80b26873d7cb00f1e53fa1c1cdffd3a23489607e6eb5"
+      },
+      {
+        "path": "_internal/markupsafe/_speedups.cp311-win_amd64.pyd",
+        "size": 13312,
+        "sha256": "755b26c10a4ece4acfb14a30201b5a5ff97b930784a0800b1bbc9bd93407a9fd"
+      },
+      {
+        "path": "_internal/markupsafe-3.0.3.dist-info/INSTALLER",
+        "size": 2,
+        "sha256": "e6184ce10e266134fdcfa401e8f1a95005bcd4f18d16b62b757323e2833fe9a9"
+      },
+      {
+        "path": "_internal/markupsafe-3.0.3.dist-info/licenses/LICENSE.txt",
+        "size": 1503,
+        "sha256": "4631ec0db5fd90a547e336817264c6798214338146f8ac94b4a57f96ee8c9ec4"
+      },
+      {
+        "path": "_internal/markupsafe-3.0.3.dist-info/METADATA",
+        "size": 2764,
+        "sha256": "f0ae5dbb09d50fb5f7632c3d53f0220995ef76019e5892e0a545740136a4e3cb"
+      },
+      {
+        "path": "_internal/markupsafe-3.0.3.dist-info/RECORD",
+        "size": 1081,
+        "sha256": "61feb74ed01136955f5d69f34ab658b53e4a785a978f3d7f90d1d3d132381a5a"
+      },
+      {
+        "path": "_internal/markupsafe-3.0.3.dist-info/REQUESTED",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "_internal/markupsafe-3.0.3.dist-info/top_level.txt",
+        "size": 11,
+        "sha256": "ab2d0f9637b9209bafb020637a32728430a310075c0cb2bfd9a81571ec7c67a5"
+      },
+      {
+        "path": "_internal/markupsafe-3.0.3.dist-info/WHEEL",
+        "size": 101,
+        "sha256": "24b38cb0fec5e6ab6402420dc79527cdb160b9ff02a997ab695f28d386f423c2"
+      },
+      {
+        "path": "_internal/PIL/_avif.cp311-win_amd64.pyd",
+        "size": 7895040,
+        "sha256": "21e5118201e7d9a1d8e22f2dc62af5d550943d5cc020c077703c5c8385a9a059"
+      },
+      {
+        "path": "_internal/PIL/_imaging.cp311-win_amd64.pyd",
+        "size": 2588160,
+        "sha256": "e04dfdb2bdba09efc4bee07924e7be18b0b324a890eae81a12509d54370d4621"
+      },
+      {
+        "path": "_internal/PIL/_imagingcms.cp311-win_amd64.pyd",
+        "size": 271360,
+        "sha256": "2533e49538d43bf7655379234cfdccb364fa523f454b245bc7b4726ef9bd11ea"
+      },
+      {
+        "path": "_internal/PIL/_imagingft.cp311-win_amd64.pyd",
+        "size": 2166272,
+        "sha256": "36de3f5dcf98e5d0a04c391fd6cc7ccee5cb807f6a4881e894c973ba085f8547"
+      },
+      {
+        "path": "_internal/PIL/_imagingmath.cp311-win_amd64.pyd",
+        "size": 25088,
+        "sha256": "947d15f95576d6a156ece0111a408818cfe00413c64a34ae89f5800dcd3aa590"
+      },
+      {
+        "path": "_internal/PIL/_imagingtk.cp311-win_amd64.pyd",
+        "size": 14848,
+        "sha256": "f9e0365a71be22f27b2a2b31fac56240a2f87a2902f1477751f1456f5dda92c7"
+      },
+      {
+        "path": "_internal/PIL/_webp.cp311-win_amd64.pyd",
+        "size": 409600,
+        "sha256": "bcc87ca62bab7d494703413d513022653545f8f6ad5fc117dcb0086c17c5639f"
+      },
+      {
+        "path": "_internal/pydantic-2.12.5.dist-info/INSTALLER",
+        "size": 2,
+        "sha256": "e6184ce10e266134fdcfa401e8f1a95005bcd4f18d16b62b757323e2833fe9a9"
+      },
+      {
+        "path": "_internal/pydantic-2.12.5.dist-info/licenses/LICENSE",
+        "size": 1129,
+        "sha256": "a9e186f3ca16b5eef84318e7a701721351a00cb7b8ae3a4394b67b49e3529ef3"
+      },
+      {
+        "path": "_internal/pydantic-2.12.5.dist-info/METADATA",
+        "size": 90587,
+        "sha256": "a3ba23e895191fed69b8323cbcbcdc82984ca0b6a3cdc62c48a2341886a9c08d"
+      },
+      {
+        "path": "_internal/pydantic-2.12.5.dist-info/RECORD",
+        "size": 9516,
+        "sha256": "2ab80676388a6e636b16d377f7754d674e3418ce28dca0416ab80c34fa7d7ace"
+      },
+      {
+        "path": "_internal/pydantic-2.12.5.dist-info/REQUESTED",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "_internal/pydantic-2.12.5.dist-info/WHEEL",
+        "size": 87,
+        "sha256": "aad0b0a12256807936d52d4a6f88a1773236ae527564a688bab4e3fe780e8724"
+      },
+      {
+        "path": "_internal/pydantic_core/_pydantic_core.cp311-win_amd64.pyd",
+        "size": 5409792,
+        "sha256": "f61d0ee08f4f29fd1a85c88154a3bebb459bc1c5ea853b52aa0e2ba9eb3a2258"
+      },
+      {
+        "path": "_internal/pyexpat.pyd",
+        "size": 200704,
+        "sha256": "8df201a602af8fe51f88650229a0dd0167f9455b178d5431712957cd000348e5"
+      },
+      {
+        "path": "_internal/python3.dll",
+        "size": 55296,
+        "sha256": "a816b76c8365ed415d402f61e22a71d909c2daa236e5343cff542de551c8a118"
+      },
+      {
+        "path": "_internal/python311.dll",
+        "size": 5846016,
+        "sha256": "3fd440e580aba82a9866782ff3e3a2e972afaee7f2a4385d67f9047979651494"
+      },
+      {
+        "path": "_internal/pythonnet/runtime/Python.Runtime.dll",
+        "size": 450048,
+        "sha256": "d204ad74dc18cd07320c8e665bd32ec6549b555ce97e61e4d3cf88437a64988e"
+      },
+      {
+        "path": "_internal/pywin32_system32/pywintypes311.dll",
+        "size": 135168,
+        "sha256": "f33290cafcf91b6bd5b12b808198cbf816b68529e00e1b3563f63916529a0657"
+      },
+      {
+        "path": "_internal/select.pyd",
+        "size": 18944,
+        "sha256": "b668271da917bf78345557561d9816575f1d9d6b6f42e1e8b8c9e387ceb3b546"
+      },
+      {
+        "path": "_internal/sqlite3.dll",
+        "size": 1598976,
+        "sha256": "8f94e300cc68eb0740e07d5919b807333f72ccaefbd42ed6f95d8f5e2ec82362"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/clretwrc.dll",
+        "size": 317736,
+        "sha256": "e9f9ccaa20a91570e6e505fd85197b86e8e6582b67864a8630c1a82afb9866a7"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/clrgc.dll",
+        "size": 673064,
+        "sha256": "83a829823c333bfbcf0bd82bc015a61af10ce136d8eb7933b28d97c9193c578b"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/clrgcexp.dll",
+        "size": 710952,
+        "sha256": "d006be1e64e796161c8f3abb462c23753d86103a82282013b1c5309c76613f1f"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/clrjit.dll",
+        "size": 2092328,
+        "sha256": "e7bf743e7bf9a01c8c2bcdc0d828212fd8dfc285be9d4ec21962becf456df648"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/coreclr.dll",
+        "size": 4614440,
+        "sha256": "c98c3078a4f2495dd7d3ced967c7a6981545194ed163454703580b740f435521"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/createdump.exe",
+        "size": 71512,
+        "sha256": "d34b488bd20b87aaa8f1739aa834b877f76b22ff9ef1bdec7d0386a307f42a89"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/helper-build.json",
+        "size": 662,
+        "sha256": "b50c66ab82116a5a0cdee80433ac78d5edba116585b67624aa7ecf0c61a5e63e"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/helper-build.log",
+        "size": 973,
+        "sha256": "a2fb825fa5077184c2142de2b94f74de393b1d239072b6852845b8a15aaef99c"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/hostfxr.dll",
+        "size": 379728,
+        "sha256": "44f97e946b36415176dbc56a4426565a5e9b3e722c0ad579e20a749e3c0c7bcd"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/hostpolicy.dll",
+        "size": 378664,
+        "sha256": "ded1d42c38688a1cacd20026b1f981c22fd583f621b7123296ef0f2af9cd656d"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/LICENSE-dotnet.txt",
+        "size": 1139,
+        "sha256": "d7a68596ab69b06f51ca278a6545148e4269a9381c26d597c13df5d88e08cf5b"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/Microsoft.CSharp.dll",
+        "size": 980816,
+        "sha256": "2d073ff1f059dda2814c320ac5782536dc268b335e23e8e8b4d0d3b0833b617f"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/Microsoft.DiaSymReader.Native.amd64.dll",
+        "size": 2195504,
+        "sha256": "315a61c47c41b8d4c815f4274bb6584c1d24b4640c7eedc354ed5b03a9a1361e"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/Microsoft.VisualBasic.Core.dll",
+        "size": 1193808,
+        "sha256": "6c267acb79006291cda2484bd9d39f289419b7d3448e1a1f30ef7c2ad7dce82c"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/Microsoft.VisualBasic.dll",
+        "size": 17232,
+        "sha256": "6adcdd16418823c4d27bc65c9ef07df2eac26215fafc3d27eda58ae44a4787b3"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/Microsoft.Win32.Primitives.dll",
+        "size": 15656,
+        "sha256": "07ee7d2780a74c523af5ca4babdc63d006fa896b3a1463c2e638c5bb2843f9b9"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/Microsoft.Win32.Registry.dll",
+        "size": 116520,
+        "sha256": "5f7623b92c1ef07c98546f63c83613f5f5f7af6513dc52e2e9e11447b6c1c7f6"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/mscordaccore.dll",
+        "size": 1356632,
+        "sha256": "c1b92da5356bb36f4ab55aa54b2d25a8a27518cf7a456eb4957ddfe94e2d428c"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/mscordaccore_amd64_amd64_10.0.1126.37416.dll",
+        "size": 1356632,
+        "sha256": "c1b92da5356bb36f4ab55aa54b2d25a8a27518cf7a456eb4957ddfe94e2d428c"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/mscordbi.dll",
+        "size": 1237856,
+        "sha256": "f3553412af82ab90180a0d412dd87b7bfc087043484a572dc2dce07eca9906fa"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/mscorlib.dll",
+        "size": 59688,
+        "sha256": "a2c8875b7823b631ae669c6e78dc4b58bb577ce30206ccc03dbbc56981e1714e"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/mscorrc.dll",
+        "size": 133968,
+        "sha256": "0c5efacadabaf31e07e131fe7e9150454fb1dd148222a053a2f743551d42184c"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/msquic.dll",
+        "size": 536376,
+        "sha256": "24da0bf4d7b7e0adb598297d170fa547f94f398bd6f2b515ae87f0a207c999c7"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/netstandard.dll",
+        "size": 100648,
+        "sha256": "ce09cef0d758196f2467f320d840c03202453efe9fb1920dddd24ea8277bbbb3"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/PSModManager.Metadata.deps.json",
+        "size": 28132,
+        "sha256": "71bb4004623b3d694c8644058a042e9dffd810cd24843ea6d8ad6d7fa08518d1"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/PSModManager.Metadata.dll",
+        "size": 26112,
+        "sha256": "92bdb7b65e86b15e309e59eabed4c8ce8d52b9c39fce19f949585808afc85116"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/PSModManager.Metadata.exe",
+        "size": 162304,
+        "sha256": "3014c9b0b449220c9e427c24919545ba0ab28c786d74adf036523e6a0e0eed7e"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/PSModManager.Metadata.runtimeconfig.json",
+        "size": 374,
+        "sha256": "d44456e801512388fbfee409aeb60e9021a568881d941bdec4038ef9045e5bc1"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.AppContext.dll",
+        "size": 15184,
+        "sha256": "36447d0e4c9c86352905726eaf37292c55caed5b87c74c22836ae8b0334395c3"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Buffers.dll",
+        "size": 15144,
+        "sha256": "7efc8dfef9548771ec328610de7b8e5c4308a8ea6b1ca73021f336fc00653176"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Collections.Concurrent.dll",
+        "size": 231208,
+        "sha256": "569667e92dda0af323a9f289c6bbe7a046bab7354f9fa0d37fc97404a0499ed3"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Collections.dll",
+        "size": 296744,
+        "sha256": "5aea9c285f011d1e83f05834e12632ee5ebf65da1d546e696f525af47101a3b0"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Collections.Immutable.dll",
+        "size": 976680,
+        "sha256": "623ad5fa5ac38c460df0073f37fbb649e219ac486c926b822f77ebf02676d56c"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Collections.NonGeneric.dll",
+        "size": 104232,
+        "sha256": "8cf296b4868c0dea441c452c50ed5c322837bf736a7c173f46dda4ebdfeb4c0b"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Collections.Specialized.dll",
+        "size": 104232,
+        "sha256": "61702e1173c49f32e7b1804667a249f8709680f01859d46cf30e74197fedc1c5"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.ComponentModel.Annotations.dll",
+        "size": 198440,
+        "sha256": "be6047dc8b7d2545c2dd099c6868d3736ecd81ea053c6714e9a6f92ff547358e"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.ComponentModel.DataAnnotations.dll",
+        "size": 16720,
+        "sha256": "c4ad5b72e9461f82b6f5346af3b2f4f46d76763daaf51586943f99f1cc7d5afb"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.ComponentModel.dll",
+        "size": 30544,
+        "sha256": "615f1d4f821d25f46e61bc70dd879b4129daa754f42f427a23fa68c4dc74f09a"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.ComponentModel.EventBasedAsync.dll",
+        "size": 46928,
+        "sha256": "704d58b299577d640f365a4541089d99d8187b3071ff680599d3640251e470da"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.ComponentModel.Primitives.dll",
+        "size": 79696,
+        "sha256": "b671ae0e9463f65d2ad08366c890043fd570f7d3149bb57bc16b8d427d9684f5"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.ComponentModel.TypeConverter.dll",
+        "size": 767824,
+        "sha256": "d24ca7be9b39ff4117edb0d207ff5ab1a0e1587557a3daaa44391f0b04d93816"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Configuration.dll",
+        "size": 19240,
+        "sha256": "495b65cd3c8488fa39a4905f072d14b336a5851c87f1b70d3b57afc565025a9f"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Console.dll",
+        "size": 169768,
+        "sha256": "a50d6f54e509342c49b6b7c8d72684f68701fc97fade19956d4618a4a30e84fa"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Core.dll",
+        "size": 23336,
+        "sha256": "c4908dd3c89942880310cd1c19cc2dca2c8ce3d564be04be80897cb7f5b9d351"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Data.Common.dll",
+        "size": 2770728,
+        "sha256": "951bc9ff57eea7c382eb75cc595a9598afde341db853291b937be37da6ca3e81"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Data.DataSetExtensions.dll",
+        "size": 15656,
+        "sha256": "abd30bf053ce162967b8ee2b95e4a4a60ddf288bb959cd64dfc107bc6c7d762e"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Data.dll",
+        "size": 25384,
+        "sha256": "ef6e30cc3aa9c93ca43f58f3cdc763ed31614b35ce835be57cb7da57358d2734"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Diagnostics.Contracts.dll",
+        "size": 16168,
+        "sha256": "764267aee046b300a4598eea0fa328348ec496c01281b31d00573a25ad8bd58f"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Diagnostics.Debug.dll",
+        "size": 15656,
+        "sha256": "44b71cb2bc82e2e93c99c095a0e493f3c4afc0e50aafe8e91849629da295e6dc"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Diagnostics.DiagnosticSource.dll",
+        "size": 501544,
+        "sha256": "3e8ff9bb002715f5ab50263f6fe7c340355a5a963c03821c3a240ffa36b9f223"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Diagnostics.FileVersionInfo.dll",
+        "size": 46888,
+        "sha256": "cbf1da7048153697f1c47175b61579e5f8e79e178d62b04787d626055ed9792e"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Diagnostics.Process.dll",
+        "size": 329512,
+        "sha256": "2b4871e02b366113c6ccf3b1436fadde5e69fc0a3e3ac421e2fa0f7af8c2bc3b"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Diagnostics.StackTrace.dll",
+        "size": 46888,
+        "sha256": "6578cef25cba5dcd0f7c34f2bbe6fad5c2cb59b601ab708c5f3e8d1dbfc60a95"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Diagnostics.TextWriterTraceListener.dll",
+        "size": 67368,
+        "sha256": "65fbeb64bd73d658860c4a65799c1e57edc2d985e73fec1fe585b1dc660b1c91"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Diagnostics.Tools.dll",
+        "size": 15144,
+        "sha256": "4bfc11bebae21c6a604f090f8ec94ce2d76d57fcfeafd8ffc9beb139af2a086e"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Diagnostics.TraceSource.dll",
+        "size": 141136,
+        "sha256": "63e22e512f3db18ab51d57663364479ce56fcd924085fd0d6bd136f299106fa6"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Diagnostics.Tracing.dll",
+        "size": 16168,
+        "sha256": "3275b203f9ec3d62c6a6c57b0771513f99f5c3d81cb4505b77ee679165fed800"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.dll",
+        "size": 50512,
+        "sha256": "72f6fa05b4c1696d7d50f8a93086165980276ce6661f0f8a77fe426028309720"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Drawing.dll",
+        "size": 20264,
+        "sha256": "9f68761f68125e3596c7af69d56799cf3e08dc2947661069b433d3043feed7da"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Drawing.Primitives.dll",
+        "size": 132904,
+        "sha256": "e8c09040a03d506e08e8165cba4e80cd2d69fb26629d7df65b0d72c1a290c216"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Dynamic.Runtime.dll",
+        "size": 16168,
+        "sha256": "00b37b775253d8011e0220bacadda3566224272ea787cb0c4cc24fa6b70643ff"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Formats.Asn1.dll",
+        "size": 239440,
+        "sha256": "ae3627515191e83d6ea062d3566af536a587d8f04ca6cce8aa71599b092d4a25"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Formats.Tar.dll",
+        "size": 272208,
+        "sha256": "d630c4db760a4a793f7ff3df0a3f6edeec40bcb94307e92ac493ad2d3eda1eaa"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Globalization.Calendars.dll",
+        "size": 15656,
+        "sha256": "885967adb01ef10e764ef54a0f6d646fd41deab81bd80908407d0ba8f834dcac"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Globalization.dll",
+        "size": 15696,
+        "sha256": "28db274e2cbb417c61c346d437a0c8265fc0b3bb93cba7330e5ef75cb4d16226"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Globalization.Extensions.dll",
+        "size": 15184,
+        "sha256": "5dc6a7838a0b2f472fdc093fd1206c61df3494c66d1e5bfb1081ee00a372f50b"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.IO.Compression.Brotli.dll",
+        "size": 83752,
+        "sha256": "f6ac00e499ec8f6cd60e092c83391ea9bc176baabed66e9479ddcea796de3448"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.IO.Compression.dll",
+        "size": 419624,
+        "sha256": "99fc38bd6a7defd709b7459ff7e454543c15442d1c295238094504b6301a1050"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.IO.Compression.FileSystem.dll",
+        "size": 15184,
+        "sha256": "aa87020c837176940637a4c672b2f2b33fd2517506fa12cae1f655ff1e515cc6"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.IO.Compression.Native.dll",
+        "size": 937296,
+        "sha256": "5869c7b088d1886f19f91b8be0d4b6db89ddb07dcfb02fb7dd759c92ef722919"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.IO.Compression.ZipFile.dll",
+        "size": 100136,
+        "sha256": "88d270860e5c00343057793d6a9b63b7e4cfdf847e62d8161a6ac8d1aa4bffb8"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.IO.dll",
+        "size": 15656,
+        "sha256": "7a820716ee9ab010ea624b9448ea1acb4c78b0f79dfc9d98db01b7f99c610b6a"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.IO.FileSystem.AccessControl.dll",
+        "size": 104272,
+        "sha256": "1d5f0b64af1920709aa26d5b38991787b458eaa6da8bb8d86b4bb46ca0434026"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.IO.FileSystem.dll",
+        "size": 15656,
+        "sha256": "1d619955d7495e7e040c446fb1a24fa4ff4b9145f9a7d39dd90e92c59666930c"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.IO.FileSystem.DriveInfo.dll",
+        "size": 55120,
+        "sha256": "9a7268c66cc9a63128c2d23c4abb0eec155e59f352f5a6859eecff62912dafbf"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.IO.FileSystem.Primitives.dll",
+        "size": 15184,
+        "sha256": "6bf2b62e83f43b9e2a679abdcab875f37280a36e4c6e9feab99a410ab43f846c"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.IO.FileSystem.Watcher.dll",
+        "size": 87888,
+        "sha256": "a03f59c4562fe7c1e8f768765b1637239f145c37d4805c8c693ae48f426828eb"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.IO.IsolatedStorage.dll",
+        "size": 87848,
+        "sha256": "66e5ef5d0e23b4edd96f6d19b32d3e0a04ce57270d5ac55acced2bf177bbf68d"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.IO.MemoryMappedFiles.dll",
+        "size": 83792,
+        "sha256": "21b24bb967a254328e2644e2dbfe00e1205463663504819bbfcae6f6b43d426d"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.IO.Pipelines.dll",
+        "size": 190248,
+        "sha256": "93ce5ddafb25ba6aeae208ffc750da0f243f25e89fe7dbc5287e1d8b4f26a2e0"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.IO.Pipes.AccessControl.dll",
+        "size": 15696,
+        "sha256": "d7c4e7f1a4cbada634b82e5939de9d9b3c87cc44ba8d4c1319bae0a796083e3c"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.IO.Pipes.dll",
+        "size": 165712,
+        "sha256": "244167c32b3db092253e21a2301afa1e763fc861ca8a2304cb29feb773b85322"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.IO.UnmanagedMemoryStream.dll",
+        "size": 15656,
+        "sha256": "a988846408abf1513ac7ab81a9f72218ffcab410b2a06caf3844677604032075"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Linq.AsyncEnumerable.dll",
+        "size": 1292072,
+        "sha256": "0009a3da0de5b968f777f715103c873a5de5f1840b870c95f6b7c11ac05246c4"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Linq.dll",
+        "size": 698152,
+        "sha256": "139264775432faf15a813e607e1919ea869d3321079ba134ffa36b350577c271"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Linq.Expressions.dll",
+        "size": 3639080,
+        "sha256": "f5d05f16c2f31ae822bca8db63019067c8d83b09376b0a60c38b9c98fa0e088f"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Linq.Parallel.dll",
+        "size": 776016,
+        "sha256": "d8cdfa91b3cedc1d928848a2724f230b130ee549e8b9008ad38e3ed10e8e9af6"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Linq.Queryable.dll",
+        "size": 182056,
+        "sha256": "eddadcb60dd56a06eb83f6f1284f9ae42c181af3cde4b19350938b1930d6f531"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Memory.dll",
+        "size": 161576,
+        "sha256": "58a4dc8a9efac1fe0ee67138b0dda35b2b812addc14c5d8251cc222b278a5c2d"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.dll",
+        "size": 17232,
+        "sha256": "d7a4c693b1922e0e69aee3597ac72c25e0a5e1d3ac2d1072d7d8dc854d27e488"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.Http.dll",
+        "size": 1746728,
+        "sha256": "8ae9f649d43f1f3fb635170784bcb753d305bc36a42703b4b0bedb15a29729f0"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.Http.Json.dll",
+        "size": 128808,
+        "sha256": "552422be522e40937de77bdcaee0575282d2f2d449b19dd81f1a3ef23e85b73f"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.HttpListener.dll",
+        "size": 534312,
+        "sha256": "c3bbbb42561e9de67da6accd846fa710944d38b4bde88ee111943ea4afb5b82f"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.Mail.dll",
+        "size": 481064,
+        "sha256": "5e053f23212c0f0eb0ee1a17a94ced79afd7d8d2175b35f2750b85eb570b5db0"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.NameResolution.dll",
+        "size": 124752,
+        "sha256": "1003e24eaf96e8aa019b188fefabab4a6ca488d5c51e70600140bfa4dabe3bda"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.NetworkInformation.dll",
+        "size": 157480,
+        "sha256": "47b220c9a183125c8cf9e2a7b21b45947b3b1951412d719d7c5f047277c4927e"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.Ping.dll",
+        "size": 91944,
+        "sha256": "c337caf03b0d50c7cf4a4822872bd34603d11e7f689d211ecaea3ee74f65518a"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.Primitives.dll",
+        "size": 210728,
+        "sha256": "e678e0129a87751c624cbe2e3ab83d55055a091a5b77d8138f02255deda4b6c4"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.Quic.dll",
+        "size": 358184,
+        "sha256": "a02b202989ff28adee64fae1c9cc7290057ca2f234ed7a05c647617399e6d4c7"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.Requests.dll",
+        "size": 374568,
+        "sha256": "f2735dd7adbc04c505805e9f069f9d545f34f1ff689e2a9d6bcda1a2480d3da7"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.Security.dll",
+        "size": 665384,
+        "sha256": "1605bb05b7cd623dc79c8f4ec2e10ea5779b5bd343f909a9c0dece472ee2a8f2"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.ServerSentEvents.dll",
+        "size": 83752,
+        "sha256": "792c085fff01183ac597f69bf33db289d7301aabde1cc388904621a47efe719c"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.ServicePoint.dll",
+        "size": 15144,
+        "sha256": "9645242a547b02bc0cbfa78c365fe8cbf02869c182debe4ce37bac32be1ca42b"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.Sockets.dll",
+        "size": 530256,
+        "sha256": "b4bf19b0c8e412b9d0f479fc5268bf44e04ca656cd121044ca51f2652595af6c"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.WebClient.dll",
+        "size": 165712,
+        "sha256": "ab06cb5eaff5ca00045dd847e167f0107a53114aca47d26ed3500adf38bd142b"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.WebHeaderCollection.dll",
+        "size": 63272,
+        "sha256": "7abfc26269a95cec0d93ca2a6b8148aa45d504c8f50a62fbbbad72408966d45a"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.WebProxy.dll",
+        "size": 42832,
+        "sha256": "d6f5fbc775d7b1639c1740e3e10834f6fb729fc5fe7619b972df79d528abaf18"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.WebSockets.Client.dll",
+        "size": 104272,
+        "sha256": "ff5d42603b662a634857dcc6e1239547025d03794aea4f84d624579765c23ba9"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Net.WebSockets.dll",
+        "size": 243496,
+        "sha256": "36fefd219495298b0b28a6bbf1d99fb9b2471467f5a0d382af9730f0a32fc8f1"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Numerics.dll",
+        "size": 15144,
+        "sha256": "fd4f0bc0541231fc01c21cab517a948019d4c9adbf66f81b65b276298e6ab922"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Numerics.Vectors.dll",
+        "size": 15656,
+        "sha256": "6beaf983fa8c33d25160c7a77e185967e8f113a5c02e6dc27f05f26e1b34763c"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.ObjectModel.dll",
+        "size": 79656,
+        "sha256": "16d9a18630f1d33ec7a709ab2f31652c91ebdfbc7a5a481378aebe2e1102ffc2"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Private.CoreLib.dll",
+        "size": 16033616,
+        "sha256": "ed80a1a5dd066c0407ad59686f9af90a4f3e55dbf3e4c973b53cc8c9d0706f82"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Private.DataContractSerialization.dll",
+        "size": 2062120,
+        "sha256": "631a7719e6e67e4f86e553031c56038eafca2ab5fa161c8cff786a92838a0255"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Private.Uri.dll",
+        "size": 255824,
+        "sha256": "0546093ec627bf832c244be56d9acca471778385c534e0107f2a6dc6a78f93d2"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Private.Xml.dll",
+        "size": 7788328,
+        "sha256": "d570b8cb9507f2fcac88f80a2fe7597d3e2331a84f337820a7d794632a67ed5d"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Private.Xml.Linq.dll",
+        "size": 390992,
+        "sha256": "0f4d2be70f3715853dca3bd6c9b67de7738a5f4ec6e9959f526ef1dbf1f7fa8e"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Reflection.DispatchProxy.dll",
+        "size": 75560,
+        "sha256": "a08a235c45e6944b3a086f3df03e55b38a5958e7126948847eb33261fe1ca10b"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Reflection.dll",
+        "size": 16168,
+        "sha256": "80fb9e206044c6f1c02bcc6895e2ce432119c670ea12248a6cba112afa78a9b6"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Reflection.Emit.dll",
+        "size": 309072,
+        "sha256": "b4208981583d74994aa4d855e12788676fdebce63ba848be63a6e0a7fbe2cb3d"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Reflection.Emit.ILGeneration.dll",
+        "size": 15696,
+        "sha256": "5e38d9d71ce8fbab210a590f20543b19a2bf0cf1265f3ed78d63519e3b73b979"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Reflection.Emit.Lightweight.dll",
+        "size": 15656,
+        "sha256": "c15be07e2131fdc8806d47e222b58e545981c2a3e7dc9c069a6c6076271a291f"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Reflection.Extensions.dll",
+        "size": 15144,
+        "sha256": "4e6967d52cbc95ae9eda01b8d8705f59c2c56f8b69471efaa6eca8f0e22a9a6a"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Reflection.Metadata.dll",
+        "size": 1156904,
+        "sha256": "97152d5c07e1e5d7f080f871eff211ccdbecb2496e4eb1b086005cbd3656d431"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Reflection.Primitives.dll",
+        "size": 15696,
+        "sha256": "d1ba728fab43e22821a1b19c508667995c0df10ee98d1f19e63aac94098ca8f5"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Reflection.TypeExtensions.dll",
+        "size": 42792,
+        "sha256": "fbf5445d2a288ddce3bf163a6b692dbf97a10f6a17bb9de7c0d2d71387c6e440"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Resources.Reader.dll",
+        "size": 15184,
+        "sha256": "ae5e53448adf49f3bb0e6fcc4df836bcd413ce0eeeaad0b94f7363ad238d71dd"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Resources.ResourceManager.dll",
+        "size": 15656,
+        "sha256": "c3456835cfbd88d081a3ee4030ce533cb6fbb27ad0f60f954a5ae7d45b1422cd"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Resources.Writer.dll",
+        "size": 50984,
+        "sha256": "a478bbfeac355e728d914f6f5e1e893ab1454c6f92d28da84ff0a75f04476277"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Runtime.CompilerServices.Unsafe.dll",
+        "size": 15144,
+        "sha256": "6f396205abe594c9c72e618f4278657b4ff9da9cd2bc17d8083481b287838ecc"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Runtime.CompilerServices.VisualC.dll",
+        "size": 30504,
+        "sha256": "67483e224e8019d1d725876485a6fca81dd977d5254cf26d79a26f2a73207fa9"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Runtime.dll",
+        "size": 44840,
+        "sha256": "ef6d37d9334fcdf7c7e4b9590b730eb5ba623192d47f0cbe4ec478962625e586"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Runtime.Extensions.dll",
+        "size": 17744,
+        "sha256": "633f210388e326f0a2fba3148312fb2900a9e0ba32f08015bb606abc44a3d634"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Runtime.Handles.dll",
+        "size": 15656,
+        "sha256": "834ed37905ecafb69c3d33d1b659e5f8216cef9995cbfcc7b2cf858752add880"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Runtime.InteropServices.dll",
+        "size": 112424,
+        "sha256": "9d0621f1e573bd20525287533bea24ec7824813eada7820a0c82252ede072ab9"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Runtime.InteropServices.JavaScript.dll",
+        "size": 51024,
+        "sha256": "6fedecfa2fb691e50175dccf64860da8dd147b9d64d942997259a79a7edb77d5"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Runtime.InteropServices.RuntimeInformation.dll",
+        "size": 15656,
+        "sha256": "506dc257f2f039746172057cf574992d4db07e31f9338b0ab2d90e88d385c472"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Runtime.Intrinsics.dll",
+        "size": 17192,
+        "sha256": "c44fc7c6f2aff4a9c8b9a0b6abfd2c1b65a762b69fa982fcfca28c6001d022e3"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Runtime.Loader.dll",
+        "size": 15656,
+        "sha256": "c858230d105ec1225cd58ec22623bf59bddee9dfc7077d7f93957d3321ec55f7"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Runtime.Numerics.dll",
+        "size": 354128,
+        "sha256": "cadca5367aec4fb54df4a81cd033c62228f3e100736ef9701aafcd13123a5ef4"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Runtime.Serialization.dll",
+        "size": 17192,
+        "sha256": "2092ad8e233c2a01a8dcc640ab218c1eabc059f6bebaaa8f81d1ce8225a939a0"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Runtime.Serialization.Formatters.dll",
+        "size": 124752,
+        "sha256": "ae2d71a1c6231a7e4c9f0264666acf90f743460ae7983d5331e9ad0271e7ad88"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Runtime.Serialization.Json.dll",
+        "size": 15656,
+        "sha256": "7e44e9979e6c539e7ad22846ac9c6f250e888d28411ba88761122095dfed9727"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Runtime.Serialization.Primitives.dll",
+        "size": 38736,
+        "sha256": "e15940836e5b22e89a0b7febfa0de2f158855563d9cca0ac36a84e4be9e3e683"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Runtime.Serialization.Xml.dll",
+        "size": 16680,
+        "sha256": "286bbafd589189f1d684831c33dd81a4650e12b73db70920ba5d4e0a477fd33a"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Security.AccessControl.dll",
+        "size": 227152,
+        "sha256": "5fda871ac0ab09ba62884ba4160b5c84f8d9513d16c773b7d01e3b82dae905b4"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Security.Claims.dll",
+        "size": 100136,
+        "sha256": "ca5a036a17ed63c6f90d92570c657bcec451dc2c894b1ffff0688855b61e455c"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Security.Cryptography.Algorithms.dll",
+        "size": 17192,
+        "sha256": "35677214a8b8388d82ff5bf45789790fa048612f6aca8b8f71efb3aa93ef70b1"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Security.Cryptography.Cng.dll",
+        "size": 16168,
+        "sha256": "328a4ea1c05177e97f65a24d68268c96674bbfbcfb5bc3906229eea2c46ac6d2"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Security.Cryptography.Csp.dll",
+        "size": 16168,
+        "sha256": "0be1ded6ac6b8bdc53d0d49bb01292770f9a022fe7d2d2f1a480223eca5ca6ba"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Security.Cryptography.dll",
+        "size": 2549584,
+        "sha256": "bee61e6bdeff9fb0c4f3cbf9d48e9d1d97d12a8bb85d1eeab9178e818b582eee"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Security.Cryptography.Encoding.dll",
+        "size": 15696,
+        "sha256": "09fbbd2934040ba1260775f34a8b901f5f9edec9bd1a2203b3726686006b7829"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Security.Cryptography.OpenSsl.dll",
+        "size": 15656,
+        "sha256": "695ebdf0901afd27b7504dd4fdbc504a5aae8ea87d3b342da800789a6a94a732"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Security.Cryptography.Primitives.dll",
+        "size": 15656,
+        "sha256": "c4d76a73f7147df7999b371adbc091850984a40cd45f4d0464e85424de412e30"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Security.Cryptography.X509Certificates.dll",
+        "size": 16720,
+        "sha256": "bcbcd0c436bfd24052ae4f7a3785b434436cbc18e6465f0be19437a453872cf3"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Security.dll",
+        "size": 18256,
+        "sha256": "2a0ee1358a507f20bb9099afb2c79745212bca44c1102e580c20742ecca560d5"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Security.Principal.dll",
+        "size": 15144,
+        "sha256": "f4e101d9d1b328868cd91199ca441e4ee273047fe96dd6ec34a1e889e523da21"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Security.Principal.Windows.dll",
+        "size": 178000,
+        "sha256": "ed56739aabc1fb6f81e8f71db89531beea985550f654d4d0e6c9a64c67e4e349"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Security.SecureString.dll",
+        "size": 15656,
+        "sha256": "f371fb101973637a772e44f75b48d66540466a914f61e4b1f4ae7eb01dad1b62"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.ServiceModel.Web.dll",
+        "size": 16720,
+        "sha256": "948e182337526b0decaab7a9274c1bde5be3e419b076cfe0161a335e22643ac3"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.ServiceProcess.dll",
+        "size": 15656,
+        "sha256": "04e5ca5a4df4d31e8e6b527ce5a16b6f150a256384b2cbdabeeba1f6974cfa99"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Text.Encoding.CodePages.dll",
+        "size": 862032,
+        "sha256": "56582910b3c0d17f10dc2eafc8e5746c6f23b57af56d7f0d4cd208f06ece1e28"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Text.Encoding.dll",
+        "size": 15696,
+        "sha256": "4c140de2fdd2c673ece196892e28786b85200b8f315fc9bb2de7aeb862372d9d"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Text.Encoding.Extensions.dll",
+        "size": 15656,
+        "sha256": "2b63801416706c7817193a742fc8648c4afd6697ca342d4a2deb30450b99218d"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Text.Encodings.Web.dll",
+        "size": 124712,
+        "sha256": "2c459f175331339b8580dec1842879b3f0532100fa426b97a1b74e1b5dee95d7"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Text.Json.dll",
+        "size": 1890088,
+        "sha256": "ed5f0f3773c89948471e3691f31963ea00d3577e17296ac4dfb97772e78b6fa3"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Text.RegularExpressions.dll",
+        "size": 1034064,
+        "sha256": "b8494ba41da52018409cccd851753717c6bd035fccdf5e4d5ac83e420d4678f4"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Threading.AccessControl.dll",
+        "size": 75560,
+        "sha256": "eec9d6f83ec123602039ec449b402c1bcb74ff00518eb87f8d007558e48c2b89"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Threading.Channels.dll",
+        "size": 157480,
+        "sha256": "ff8dcb281d2d35f01dbdf72e766e431c397f9db063f22f61a9a85f7bd173f5e8"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Threading.dll",
+        "size": 83752,
+        "sha256": "cadf13029ac996abaceccfd7c242e55888b669246163342a3b335eee9851b531"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Threading.Overlapped.dll",
+        "size": 15696,
+        "sha256": "a0ef0237e67a16a347a8ed9b9286e3acef358aeb4a23463323c2efdf646fc0f5"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Threading.Tasks.Dataflow.dll",
+        "size": 472912,
+        "sha256": "83a9b71c298ba233393eb1cdbda26380cb2d50cefd2fd645b0ba1c34c7aeca9f"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Threading.Tasks.dll",
+        "size": 16680,
+        "sha256": "d95cee14d0dbb97d8f8a8f4dcc5eefa35f394f9d94b0fa0bf29068786aee6a06"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Threading.Tasks.Extensions.dll",
+        "size": 15656,
+        "sha256": "6ec70446f8faefaa167a0e3360468203cb03ffab90369644e92c22dc650a9cd5"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Threading.Tasks.Parallel.dll",
+        "size": 132904,
+        "sha256": "ff17dd0ddd3f2debdaced18f39b9f8a205630baeb3de20bbf0630935a8605aa6"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Threading.Thread.dll",
+        "size": 15696,
+        "sha256": "7b451de5e88adfdb49765bc0745a12e377318534d02e6bf81660c285a7aa6664"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Threading.ThreadPool.dll",
+        "size": 15656,
+        "sha256": "9e3bf9838ff48525e4f2fd1c7646956ba00183977c7e4762d999670aa901e101"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Threading.Timer.dll",
+        "size": 15144,
+        "sha256": "5b21f38133328e8017bb7a4651007738ce76fcfa673af267b4c8b5e857d572d7"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Transactions.dll",
+        "size": 16680,
+        "sha256": "9ba6785faf04de3b018a7e6bdb349c538ca861add4a3558c693fe4c9ef905335"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Transactions.Local.dll",
+        "size": 640808,
+        "sha256": "cb3d436592fe994ba8f570cc7cb021ef347730e96e52e3b8695b7c7bd79a3967"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.ValueTuple.dll",
+        "size": 15656,
+        "sha256": "63e0eac320a2eac02f418e186232405427e036d9ce9dd80951923280308cfe59"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Web.dll",
+        "size": 15184,
+        "sha256": "45b1d8e331aeb3d4006afe64cde59eddac958968d6c432df3f869982d94996f0"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Web.HttpUtility.dll",
+        "size": 63272,
+        "sha256": "03841ee0b42c5ed0d4b58c185e9cfa57a939c479256943644062b918cf595a08"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Windows.dll",
+        "size": 15696,
+        "sha256": "5898d03d2707c44b55883bc475f8c3aa779738a439db6ec2abbf9e0fac82e6d5"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Xml.dll",
+        "size": 23376,
+        "sha256": "3bf8cf7c17a8ec51ef64a48707dbcbb0359e466a7903bb564a4c74228d895e32"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Xml.Linq.dll",
+        "size": 15656,
+        "sha256": "06be8d12ab41b70960703ec77899da99e0a93a6d125e77e7f8154ab071220d54"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Xml.ReaderWriter.dll",
+        "size": 21800,
+        "sha256": "9ed86fcb4a068f56c61ce4d595d91b57df12999820bb11659e9a4b45103305ed"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Xml.Serialization.dll",
+        "size": 16168,
+        "sha256": "868e566390c0a0800253511b757644433c512989a213f32153464a4611667d8b"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Xml.XDocument.dll",
+        "size": 15656,
+        "sha256": "58cf36935545fdf661b64dc2f8c57b7066d2a380252d194edb6708895a50e6a7"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Xml.XmlDocument.dll",
+        "size": 15656,
+        "sha256": "e6d348ce2e40d5f8e767f3863f3217f6075f3e4e331270be1d13e45430f87811"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Xml.XmlSerializer.dll",
+        "size": 17744,
+        "sha256": "96d2ef2d9503bcb06d4aa9f8e15efdf3ae94c30b9db4211da75020d0690238d2"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Xml.XPath.dll",
+        "size": 15656,
+        "sha256": "8e21c30f514e711d8446c4eec9fe92cb8156efeaa476e67a26f17ba0a21e593f"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/System.Xml.XPath.XDocument.dll",
+        "size": 30504,
+        "sha256": "75b319f01c19a9c1c8b08b6a26bb44e3329da177d974ba90d1a4a40bba3e7d3b"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/THIRD-PARTY-NOTICES-dotnet.txt",
+        "size": 78041,
+        "sha256": "6d15e10a101c6bfff2ab4429ed061bf76c456fc4b23ad6b03e0d0f8377148a21"
+      },
+      {
+        "path": "_internal/tools/PSModManager.Metadata/bin/WindowsBase.dll",
+        "size": 16208,
+        "sha256": "2586159b2c347d39a93bebcbd8811a6dc05d0252202b24cebf2e28188f8ce7ab"
+      },
+      {
+        "path": "_internal/ucrtbase.dll",
+        "size": 1362264,
+        "sha256": "3239227d27667ba20d10a880751924e5719de0078f9fce232d149d383f7681f6"
+      },
+      {
+        "path": "_internal/unicodedata.pyd",
+        "size": 1128960,
+        "sha256": "6c7c647c3b1b537b563aeafdffa02dcb91125c3d282389531ffd981a7e98d0ff"
+      },
+      {
+        "path": "_internal/VCRUNTIME140.dll",
+        "size": 124544,
+        "sha256": "d5e4d9a3e835fa679450145d6a7d94e36573a509317111904d9b3712c30d9066"
+      },
+      {
+        "path": "_internal/VCRUNTIME140_1.dll",
+        "size": 49792,
+        "sha256": "1f2d41c4aa5db0bc33ebf7b66d72943a817d7ce6cbe880502a9403823633093f"
+      },
+      {
+        "path": "_internal/webview/js/api.js",
+        "size": 8612,
+        "sha256": "cb68b8bed427fa356aea26376e497552f55d91329c093c026a65230d074e2b27"
+      },
+      {
+        "path": "_internal/webview/js/customize.js",
+        "size": 4443,
+        "sha256": "ed14d0b594266dfe3834cc8565b44a8157420432aeef4f733ab505bd6ed89b8a"
+      },
+      {
+        "path": "_internal/webview/js/finish.js",
+        "size": 357,
+        "sha256": "751443083dd1d2b2ef4142692f25bc4f6e04f8de4d82c455c73473700f00c8cb"
+      },
+      {
+        "path": "_internal/webview/js/lib/dom_json.js",
+        "size": 26097,
+        "sha256": "70fae2a8a8ebc790dc616aa7976074cedd802275c173c90ad4bf3bd14163f9c4"
+      },
+      {
+        "path": "_internal/webview/js/lib/polyfill.js",
+        "size": 27434,
+        "sha256": "481a08f5337a770acf49b38c2f58dd0c95f92bf9dbd92bf82b596836ea343ab5"
+      },
+      {
+        "path": "_internal/webview/js/state.js",
+        "size": 1828,
+        "sha256": "68ee87ec01563cbcab77a57704a32f19b47436c9d5e254bfba9675a51c132075"
+      },
+      {
+        "path": "_internal/webview/lib/Microsoft.Web.WebView2.Core.dll",
+        "size": 649800,
+        "sha256": "8219a3135436c147f8eb02fb831e99596103eebc18b6d7b794ca93f4c67018a2"
+      },
+      {
+        "path": "_internal/webview/lib/Microsoft.Web.WebView2.WinForms.dll",
+        "size": 39016,
+        "sha256": "c48f8d729dc531288d2c53a6241effe7922ed1b947850b2442008a945c098c48"
+      },
+      {
+        "path": "_internal/webview/lib/pywebview-android.jar",
+        "size": 14309,
+        "sha256": "3f9d3eeeda09ce58badbd742a981a463c067c339c8b4e70b404c00ebb4ec73a3"
+      },
+      {
+        "path": "_internal/webview/lib/runtimes/win-arm64/native/WebView2Loader.dll",
+        "size": 147016,
+        "sha256": "0937030efc718f3da77c5e0978fb5046e381d0bb7b01acaad31a535a1b588a33"
+      },
+      {
+        "path": "_internal/webview/lib/runtimes/win-x64/native/WebView2Loader.dll",
+        "size": 161864,
+        "sha256": "eb5335edeaa6f2122c044e82aab2351dc8c9b4e0fe5e578c71922fb61be285e7"
+      },
+      {
+        "path": "_internal/webview/lib/runtimes/win-x86/native/WebView2Loader.dll",
+        "size": 121928,
+        "sha256": "04814b2c59314c6452d61b821a4a3a5c5f8e8577b55b985f6a7a4b59f8907ec5"
+      },
+      {
+        "path": "_internal/webview/lib/WebBrowserInterop.x64.dll",
+        "size": 7168,
+        "sha256": "f6a646470f0e1058224a52e8e2e217501dca46939b30bfc9a5dd4dcdd43f088d"
+      },
+      {
+        "path": "_internal/webview/lib/WebBrowserInterop.x86.dll",
+        "size": 7168,
+        "sha256": "4e527297fbea7c5a0419f3a6af307c2681787beb0bf0ef3fea849a7fd85a08dc"
+      },
+      {
+        "path": "_internal/win32/_win32sysloader.pyd",
+        "size": 14848,
+        "sha256": "b034fa86fda7ec312142756f5013bf5cdb0ad2dcf8549820259cd3691074d699"
+      },
+      {
+        "path": "_internal/win32/win32api.pyd",
+        "size": 134144,
+        "sha256": "cd52611ae8331959797d4a6e1087bdb4816a3ffabf97bfd135568786339a9ed4"
+      },
+      {
+        "path": "_internal/win32/win32cred.pyd",
+        "size": 38912,
+        "sha256": "7e2364983f7e7ecec49cd7ba32c68645a69cbe8e39177d0a80f317e2655c02b8"
+      },
+      {
+        "path": "_internal/win32/win32event.pyd",
+        "size": 29184,
+        "sha256": "2163fb040302482993f9513116c53b9088a16e96d1d478d766d36609ae1fc0f6"
+      },
+      {
+        "path": "_internal/win32/win32evtlog.pyd",
+        "size": 74752,
+        "sha256": "35f2d6ff44866f80c7e51e91080b426e3d067c1359b4c6c7c17e3f2f59225cc9"
+      },
+      {
+        "path": "_internal/win32/win32file.pyd",
+        "size": 143872,
+        "sha256": "cac9f2e4a65cc6a69ae477c4162433c7f0cb678b1de2cf341ecc7a890537f7c8"
+      },
+      {
+        "path": "_internal/win32/win32job.pyd",
+        "size": 28672,
+        "sha256": "523223717f27f96bcd0254928af41ad06c7cd5b44b86ec90a7716445f2495e2d"
+      },
+      {
+        "path": "_internal/win32/win32process.pyd",
+        "size": 53248,
+        "sha256": "5e7d23dd019c0c39e53bb9b9674122627dd51fcdea34413b63620bfb8e771c14"
+      },
+      {
+        "path": "_internal/win32/win32security.pyd",
+        "size": 135680,
+        "sha256": "351632cb9bc00d96da46c975d3c396e4851488c814b4660ba35e9c6787528469"
+      },
+      {
+        "path": "_internal/zstandard/_cffi.cp311-win_amd64.pyd",
+        "size": 667136,
+        "sha256": "f6b7450a953cc6f0facd89992d1d15b22b94f78342a4cf59f15142f71f8dbe46"
+      },
+      {
+        "path": "_internal/zstandard/backend_c.cp311-win_amd64.pyd",
+        "size": 524800,
+        "sha256": "35f7bfe8d1965fc33c090febd216a4ef5c3a8b22ce02a689226a3776cc295317"
+      },
+      {
+        "path": "licenses/annotated-types/LICENSE",
+        "size": 1083,
+        "sha256": "fe1049884b1a0d9342901e88e07f32925d24b3121d9972b6a6805fb9824b095d"
+      },
+      {
+        "path": "licenses/anyio/LICENSE",
+        "size": 1081,
+        "sha256": "5361ac9dc58f2ef5fd2e9b09c68297c17f04950909bbc8023bdb82eacf22c2b0"
+      },
+      {
+        "path": "licenses/attrs/LICENSE",
+        "size": 1109,
+        "sha256": "882115c95dfc2af1eeb6714f8ec6d5cbcabf667caff8729f42420da63f714e9f"
+      },
+      {
+        "path": "licenses/backports.tarfile/LICENSE",
+        "size": 1023,
+        "sha256": "86da0f01aeae46348a3c3d465195dc1ceccde79f79e87769a64b8da04b2a4741"
+      },
+      {
+        "path": "licenses/bottle/LICENSE",
+        "size": 1066,
+        "sha256": "af150257b1f7cce92b6207854f2e8f90ea9ae52d7cac758d13a47bd12e2a2443"
+      },
+      {
+        "path": "licenses/certifi/LICENSE",
+        "size": 989,
+        "sha256": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7"
+      },
+      {
+        "path": "licenses/cffi/LICENSE",
+        "size": 1123,
+        "sha256": "5ba24ddc57067f9249add644c3afc41a5d6dc37e23433ef759d95df370b0af63"
+      },
+      {
+        "path": "licenses/click/LICENSE.txt",
+        "size": 1475,
+        "sha256": "9a8ad106a394e853bfe21f42f4e72d592819a22805d991b5f3275029292b658d"
+      },
+      {
+        "path": "licenses/colorama/LICENSE.txt",
+        "size": 1491,
+        "sha256": "cac35c02686e5d04a5a7140bfb3b36e73aed496656e891102e428886d7930318"
+      },
+      {
+        "path": "licenses/CPython/LICENSE.txt",
+        "size": 25066,
+        "sha256": "886a0ead2d89030ee62dbff52b04e47ab91998341295bb9c56fb952b4e081c7a"
+      },
+      {
+        "path": "licenses/h11/LICENSE.txt",
+        "size": 1124,
+        "sha256": "37db5bb85926db28a427a25867f10b1232003aea1be69ccb851138adb8e6f361"
+      },
+      {
+        "path": "licenses/httpcore/LICENSE.md",
+        "size": 1518,
+        "sha256": "fdcb59154c74cbaba16a11242f7740bea9f23d6feb5547917d8c5f94a80392a5"
+      },
+      {
+        "path": "licenses/httpx/LICENSE.md",
+        "size": 1508,
+        "sha256": "4ec59d544f12b5f539a3a716fd321ac58ccd8030b465221f2c880200cdf28d8d"
+      },
+      {
+        "path": "licenses/idna/LICENSE.md",
+        "size": 1541,
+        "sha256": "b7a336abf3b04e180ec065cdd16e705d079e1cc7a14f910aa6e9187f36b9cd87"
+      },
+      {
+        "path": "licenses/importlib_metadata/LICENSE",
+        "size": 10278,
+        "sha256": "458502e12d97bbf64438606a20044aa85eb05fb0a8a807bb35dbec253fd1fc04"
+      },
+      {
+        "path": "licenses/jaraco.classes/LICENSE",
+        "size": 1023,
+        "sha256": "86da0f01aeae46348a3c3d465195dc1ceccde79f79e87769a64b8da04b2a4741"
+      },
+      {
+        "path": "licenses/jaraco.context/LICENSE",
+        "size": 1076,
+        "sha256": "9755a18519666e5f0f4cae3daad3d7012bcae48a600b31237d75e9fe134e6683"
+      },
+      {
+        "path": "licenses/jaraco.functools/LICENSE",
+        "size": 1076,
+        "sha256": "9755a18519666e5f0f4cae3daad3d7012bcae48a600b31237d75e9fe134e6683"
+      },
+      {
+        "path": "licenses/Jinja2/LICENSE.txt",
+        "size": 1475,
+        "sha256": "3b49dcee4105eb37bac10faf1be260408fe85d252b8e9df2e0979fc1e094437b"
+      },
+      {
+        "path": "licenses/keyring/LICENSE",
+        "size": 1076,
+        "sha256": "5a57cb4db85e2a2dd88c290628908add57e3451449e0a9a71fdfb38776fd759d"
+      },
+      {
+        "path": "licenses/markdown-it-py/LICENSE",
+        "size": 1078,
+        "sha256": "4a2260d6e2cd0f5a151a1e86dbfe7d3ed552b1e2beabf9941c1ba5c49cbce484"
+      },
+      {
+        "path": "licenses/markdown-it-py/LICENSE.markdown-it",
+        "size": 1073,
+        "sha256": "792c48c5a849a15fdf9e37e8bcf9e6d1dd13b32b46c642a748a0a46a9919d473"
+      },
+      {
+        "path": "licenses/MarkupSafe/LICENSE.txt",
+        "size": 1503,
+        "sha256": "4631ec0db5fd90a547e336817264c6798214338146f8ac94b4a57f96ee8c9ec4"
+      },
+      {
+        "path": "licenses/mdurl/LICENSE",
+        "size": 2338,
+        "sha256": "7c605df6e28667a9603118e98274f64a49ce3eed0d26fccce9534a345e0ef955"
+      },
+      {
+        "path": "licenses/more-itertools/LICENSE",
+        "size": 1053,
+        "sha256": "09f1c8c9e941af3e584d59641ea9b87d83c0cb0fd007eb5ef391a7e2643c1a46"
+      },
+      {
+        "path": "licenses/packaging/LICENSE",
+        "size": 197,
+        "sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48"
+      },
+      {
+        "path": "licenses/packaging/LICENSE.APACHE",
+        "size": 10174,
+        "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+      },
+      {
+        "path": "licenses/packaging/LICENSE.BSD",
+        "size": 1344,
+        "sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5"
+      },
+      {
+        "path": "licenses/pillow/LICENSE",
+        "size": 78014,
+        "sha256": "75bb81b58f9b39786eeb2e56a1eb829aae501042d49e1dc766ca187b6ce9656f"
+      },
+      {
+        "path": "licenses/pycparser/LICENSE",
+        "size": 1543,
+        "sha256": "0c846399369ea76ddd7b5c44fe6d16497415fcf015f5cbb508c24bf98b81c5b1"
+      },
+      {
+        "path": "licenses/pydantic/LICENSE",
+        "size": 1129,
+        "sha256": "a9e186f3ca16b5eef84318e7a701721351a00cb7b8ae3a4394b67b49e3529ef3"
+      },
+      {
+        "path": "licenses/pydantic_core/LICENSE",
+        "size": 1101,
+        "sha256": "fbe7f615f18d135c07000e5a86325db27f42c7729699ef166ac1f7a3f4586bf4"
+      },
+      {
+        "path": "licenses/Pygments/LICENSE",
+        "size": 1331,
+        "sha256": "a9d66f1d526df02e29dce73436d34e56e8632f46c275bbdffc70569e882f9f17"
+      },
+      {
+        "path": "licenses/pyinstaller/COPYING.txt",
+        "size": 32138,
+        "sha256": "dcf75fdb959db1e3b41c0f8505069d2ece781b5ec6b3d0a4d30975cfc6580245"
+      },
+      {
+        "path": "licenses/pyinstaller-hooks-contrib/LICENSE",
+        "size": 27666,
+        "sha256": "91d0baaff00773038e72c0a1fc9d5d2d38706b7a2b9c04f34296608f931b9cd0"
+      },
+      {
+        "path": "licenses/pytest/LICENSE",
+        "size": 1091,
+        "sha256": "ca836a5f9ecca3b2f350230faa20a48fb8b145653b5568d784862df864706b9b"
+      },
+      {
+        "path": "licenses/python-dotenv/LICENSE",
+        "size": 1556,
+        "sha256": "80619b7049f08c81683ad0e01f08f257a840652dd71ee83146d36658c7d2c2b9"
+      },
+      {
+        "path": "licenses/pywebview/LICENSE",
+        "size": 1518,
+        "sha256": "4a988dd3598832cd3653de20dc33cb677d0fb53ab5551c879ca31280ae653675"
+      },
+      {
+        "path": "licenses/pywin32/license.txt",
+        "size": 1569,
+        "sha256": "c3bdfa1152a9b9d404ddc90b817e1b6945803879ac53a14d2dde30d677f883bd"
+      },
+      {
+        "path": "licenses/pywin32-ctypes/LICENSE.txt",
+        "size": 1644,
+        "sha256": "dfa83b3e2709adfcdb838d9ad55823ca674abb780e60563d9dd9544ccbf785e9"
+      },
+      {
+        "path": "licenses/rich/LICENSE",
+        "size": 1056,
+        "sha256": "deed7c17a4318158190a3ea239cc879a5a50271cebb98ae7025f48fbe58dca15"
+      },
+      {
+        "path": "licenses/setuptools/LICENSE",
+        "size": 1023,
+        "sha256": "86da0f01aeae46348a3c3d465195dc1ceccde79f79e87769a64b8da04b2a4741"
+      },
+      {
+        "path": "licenses/sniffio/LICENSE",
+        "size": 185,
+        "sha256": "652c878488d1456361e08c3f8607fd7ba59892a14103d15cce4ff93c85b5cc8b"
+      },
+      {
+        "path": "licenses/sniffio/LICENSE.APACHE2",
+        "size": 11358,
+        "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+      },
+      {
+        "path": "licenses/sniffio/LICENSE.MIT",
+        "size": 1046,
+        "sha256": "3e6dae555eb92787fc82d1d48355677f454c7f65aeb38d3f9e72bf9a3daf034b"
+      },
+      {
+        "path": "licenses/typing-inspection/LICENSE",
+        "size": 1090,
+        "sha256": "804b59b25f2c31bd278f9202a19ae49a3945aa2664387e2d0a128c7cacc61ec3"
+      },
+      {
+        "path": "licenses/typing_extensions/LICENSE",
+        "size": 13936,
+        "sha256": "3b2f81fe21d181c499c59a256c8e1968455d6689d269aa85373bfb6af41da3bf"
+      },
+      {
+        "path": "licenses/zipp/LICENSE",
+        "size": 1076,
+        "sha256": "5a57cb4db85e2a2dd88c290628908add57e3451449e0a9a71fdfb38776fd759d"
+      },
+      {
+        "path": "licenses/zstandard/LICENSE",
+        "size": 1511,
+        "sha256": "c15b28f8866500bd3d607c739e87710aa5c47627aa30a0573948414564ff1da2"
+      },
+      {
+        "path": "PSModManager.exe",
+        "size": 11992929,
+        "sha256": "2a8aebb41bfdd7a0083aee63dd1029f313388227367bcb461a1f70d03066dcfb"
+      },
+      {
+        "path": "PSModManager.WorkerHost.exe",
+        "size": 2669340,
+        "sha256": "5476a1b8437fadb4b7bb41d9b6163d4ab50acaea1be127ccb620d7d44d7e6aa7"
+      },
+      {
+        "path": "README-PORTABLE.txt",
+        "size": 725,
+        "sha256": "93895aad61ab0dc5715b93253f8a0c9e8ed7d523c6c53a12e66bc30524bfe796"
+      }
+    ]
+  },
+  "repeat_check": "evidence/PS-05-02/20261014T035108Z-portable-x64/repeat-06-07.json",
+  "clean_machine": "NOT_RUN",
+  "current_environment": "Development host with developer PATH/Python/dotnet hidden; actual frozen EXEs and bundled parser verified separately",
+  "next_task": "PS-05-03 not started"
+}

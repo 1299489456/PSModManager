@@ -1,0 +1,270 @@
+import { checkResult, normalizeText, toast, toUserMessage } from '../../../shared/lib/common'
+import { t } from '../../../shared/i18n.js'
+
+const PENDING_REASONING_CAPABILITIES = {
+  supports_reasoning: false,
+  supports_reasoning_effort: false,
+  reasoning_mode_kind: 'pending',
+  reasoning_options: [
+    { value: 'off', label: t('ai.reasoning.off', '关闭') },
+    { value: 'auto', label: t('ai.reasoning.auto', '自动') },
+  ],
+  default_session_reasoning_mode: 'auto',
+}
+
+const UNSUPPORTED_REASONING_CAPABILITIES = {
+  supports_reasoning: false,
+  supports_reasoning_effort: false,
+  reasoning_mode_kind: 'unsupported',
+  reasoning_options: [
+    { value: 'off', label: t('ai.reasoning.off', '关闭') },
+  ],
+  default_session_reasoning_mode: 'off',
+}
+
+const DEFAULT_AI_BASE_URLS = {
+  openai_compatible: 'https://api.openai.com/v1',
+  anthropic: 'https://api.anthropic.com',
+  gemini: 'https://generativelanguage.googleapis.com',
+  ollama: 'http://127.0.0.1:11434',
+}
+
+const waitForPywebviewApi = (timeoutMs = 5000) => new Promise((resolve) => {
+  if (typeof window === 'undefined') {
+    resolve(null)
+    return
+  }
+  if (window.pywebview?.api) {
+    resolve(window.pywebview.api)
+    return
+  }
+
+  let timeoutId = null
+  const handleReady = () => {
+    if (timeoutId) window.clearTimeout(timeoutId)
+    window.removeEventListener('pywebviewready', handleReady)
+    resolve(window.pywebview?.api || null)
+  }
+
+  // 等后端桥接注入完成，避免首次打开时把“还没准备好”误判成“空配置”。
+  window.addEventListener('pywebviewready', handleReady, { once: true })
+  timeoutId = window.setTimeout(handleReady, timeoutMs)
+})
+
+const resolveAiProviderBaseUrl = (provider = '', baseUrl = '') => {
+  const normalizedProvider = normalizeText(provider, 'openai_compatible').toLowerCase()
+  const explicitBaseUrl = normalizeText(baseUrl).replace(/\/+$/, '')
+  return explicitBaseUrl || DEFAULT_AI_BASE_URLS[normalizedProvider] || ''
+}
+
+const fingerprintText = (value = '') => {
+  const text = normalizeText(value)
+  if (!text) return ''
+  let hash = 2166136261
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0).toString(36)
+}
+
+const normalizeReasoningCapabilityResult = (payload = {}, fallback = UNSUPPORTED_REASONING_CAPABILITIES) => ({
+  supports_reasoning: !!payload?.supports_reasoning,
+  supports_reasoning_effort: !!payload?.supports_reasoning_effort,
+  reasoning_mode_kind: normalizeText(payload?.reasoning_mode_kind, fallback.reasoning_mode_kind || 'unsupported'),
+  reasoning_options: Array.isArray(payload?.reasoning_options) && payload.reasoning_options.length > 0
+    ? payload.reasoning_options.map(item => ({
+      value: normalizeText(item?.value),
+      label: t(`ai.reasoning.${normalizeText(item?.value)}`, normalizeText(item?.label, normalizeText(item?.value))),
+    })).filter(item => item.value)
+    : [...(fallback.reasoning_options || [{ value: 'off', label: t('ai.reasoning.off', '关闭') }])],
+  default_session_reasoning_mode: normalizeText(
+    payload?.default_session_reasoning_mode,
+    fallback.default_session_reasoning_mode || 'off',
+  ).toLowerCase(),
+})
+
+export const useModelConfigActions = ({
+  isLoading,
+  runtimeAiConfig,
+  modelListCache,
+  providerDefinitions,
+  capabilityMeta,
+} = {}) => {
+  const buildAiModelCacheKey = (tempConfig = {}) => JSON.stringify({
+    provider: normalizeText(tempConfig?.provider),
+    base_url: resolveAiProviderBaseUrl(tempConfig?.provider, tempConfig?.base_url),
+    api_key_fingerprint: normalizeText(tempConfig?.api_key_fingerprint) || fingerprintText(tempConfig?.api_key),
+  })
+
+  const getAiConfig = async ({ silent = false } = {}) => {
+    const api = await waitForPywebviewApi()
+    if (!api?.ai_get_config) return null
+    const res = await api.ai_get_config()
+    if (checkResult(res, t('ai.config.fetch_action', '获取AI配置'), false, { silent })) {
+      runtimeAiConfig.value = res.data || null
+      return res.data
+    }
+    return null
+  }
+
+  const saveAIConfig = async (configData) => {
+    if (!window.pywebview) return
+    const res = await window.pywebview.api.ai_save_config(configData)
+    if (checkResult(res, t('ai.config.save_action', '保存AI配置'), true)) {
+      return true
+    }
+  }
+
+  const listAiProviders = () => (providerDefinitions.value || []).map(item => ({
+    ...item,
+    label: t(item?.label_key || '', item?.default_label || item?.label || item?.value || ''),
+  }))
+
+  const getCachedAiModels = (tempConfig = {}) => {
+    const cacheKey = buildAiModelCacheKey(tempConfig)
+    const models = modelListCache[cacheKey]
+    return Array.isArray(models) ? [...models] : []
+  }
+
+  const getCachedAiModelOptions = (tempConfig = {}) => (
+    getCachedAiModels(tempConfig).map(model => ({ value: model, label: model }))
+  )
+
+  const getAiModels = async (tempConfig, { forceRefresh = false, warnOnEmpty = false, silent = false } = {}) => {
+    if (!window.pywebview) return []
+    if (!tempConfig || !tempConfig.provider) {
+      return []
+    }
+    const cacheKey = buildAiModelCacheKey(tempConfig)
+    if (!forceRefresh) {
+      const cachedModels = getCachedAiModels(tempConfig)
+      if (cachedModels.length > 0) {
+        return cachedModels
+      }
+    }
+    isLoading.value = true
+    try {
+      const res = await window.pywebview.api.ai_get_models(tempConfig)
+      if (checkResult(res, t('ai.config.fetch_models_action', '获取AI模型'), false, { silent })) {
+        const models = Array.isArray(res.data) ? res.data.map(item => normalizeText(item)).filter(Boolean) : []
+        modelListCache[cacheKey] = [...new Set(models)].sort((a, b) => a.localeCompare(b))
+        if (warnOnEmpty && modelListCache[cacheKey].length === 0) {
+          const provider = normalizeText(tempConfig?.provider, 'unknown')
+          const baseUrl = resolveAiProviderBaseUrl(tempConfig?.provider, tempConfig?.base_url)
+          toast.warning(t('ai.config.empty_model_list_warning', '未获取到 AI 模型列表。请确认 {provider} 服务已启动、Base URL 可访问、API Key 有效，并检查代理设置：{baseUrl}', { provider, baseUrl }), { timeout: 8000 })
+        }
+        return getCachedAiModels(tempConfig)
+      }
+    } finally {
+      isLoading.value = false
+    }
+    return getCachedAiModels(tempConfig)
+  }
+
+  const resolveAiModelCapabilities = (tempConfig = {}) => {
+    const provider = normalizeText(tempConfig?.provider)
+    const model = normalizeText(tempConfig?.model)
+    const baseUrl = normalizeText(tempConfig?.base_url)
+    if (!provider || !model) {
+      return {
+        provider,
+        model,
+        base_url: baseUrl,
+        policy_name: '',
+        ...PENDING_REASONING_CAPABILITIES,
+      }
+    }
+    const meta = capabilityMeta.value || {}
+    const providerScope = normalizeText(meta?.provider_scope, 'openai_compatible')
+    const unsupported = normalizeReasoningCapabilityResult(meta?.unsupported, UNSUPPORTED_REASONING_CAPABILITIES)
+    if (provider !== providerScope) {
+      return {
+        provider,
+        model,
+        base_url: baseUrl,
+        policy_name: '',
+        ...unsupported,
+      }
+    }
+    const policies = Array.isArray(meta?.policies) ? meta.policies : []
+    const matchedPolicy = policies.find((policy) => {
+      const patterns = Array.isArray(policy?.matches) ? policy.matches : []
+      return patterns.some((pattern) => {
+        try {
+          return new RegExp(String(pattern || ''), 'i').test(model)
+        } catch {
+          return false
+        }
+      })
+    }) || null
+    const resolved = matchedPolicy
+      ? normalizeReasoningCapabilityResult(matchedPolicy, unsupported)
+      : unsupported
+    return {
+      provider,
+      model,
+      base_url: baseUrl,
+      policy_name: normalizeText(matchedPolicy?.name),
+      requires_reasoning_replay: !!matchedPolicy?.requires_reasoning_replay,
+      prefer_responses: !!matchedPolicy?.prefer_responses,
+      ...resolved,
+    }
+  }
+
+  const getAiModelCapabilities = async (tempConfig = {}) => resolveAiModelCapabilities(tempConfig)
+
+  const chatWithAI = async (prompt, tempConfig) => {
+    if (!window.pywebview) {
+      const userMessage = t('ai.config.ui_not_ready', '界面尚未完成初始化')
+      return { ok: false, text: '', error: userMessage, user_message: userMessage, isEmpty: false }
+    }
+    isLoading.value = true
+    try {
+      const res = await window.pywebview.api.ai_chat(prompt, tempConfig)
+      if (checkResult(res, t('ai.config.test_reply_action', '测试 AI 回复'), false, { silent: true })) {
+        const payload = res.data
+        const text = typeof payload === 'string'
+          ? payload
+          : String(payload?.text ?? payload ?? '')
+        return {
+          ok: text.trim().length > 0,
+          text,
+          error: text.trim().length > 0 ? '' : t('ai.config.empty_reply', '模型已返回，但内容为空'),
+          isEmpty: text.trim().length === 0,
+          raw: payload,
+        }
+      }
+      const userMessage = toUserMessage(res, t('ai.config.test_failed', 'AI 测试请求失败。请检查模型名称、Base URL、API Key、代理设置和服务状态。'))
+      return {
+        ...(res && typeof res === 'object' ? res : {}),
+        ok: false,
+        text: '',
+        error: userMessage,
+        user_message: res?.user_message || userMessage,
+        isEmpty: false,
+      }
+    } catch (error) {
+      console.error('AI 聊天请求异常:', error)
+      const userMessage = toUserMessage(error, t('ai.config.test_exception', 'AI 测试请求异常。可能是软件后端暂时不可用、网络连接失败或模型服务无响应，请稍后重试。'))
+      return {
+        ok: false,
+        text: '',
+        error: userMessage,
+        user_message: userMessage,
+        isEmpty: false,
+      }
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  return {
+    // 配置
+    getAiConfig, saveAIConfig, listAiProviders,
+    // 模型列表
+    getAiModels, getCachedAiModels, getCachedAiModelOptions,
+    // 能力与测试
+    resolveAiModelCapabilities, getAiModelCapabilities, chatWithAI,
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "documents": 35,
+  "cards": 32,
+  "prompts": 37,
+  "historical_gate_indexes": 6,
+  "local_links": 261,
+  "errors": [],
+  "product_tests": "NOT_RUN - documentation-only change"
+}

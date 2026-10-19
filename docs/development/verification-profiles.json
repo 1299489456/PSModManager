@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "profiles": ["synthetic", "desktop-local", "real-readonly", "real-game", "ai-live", "release"],
+  "routes": {
+    "PS-03-04": {"synthetic": {"case":"CASE-034", "case_tests":{"CASE-022":["case022"],"CASE-034":["case034","test_deployment_history","rollback_history"]}, "node_case_tests":{"CASE-034":["case034"]}, "tests":["tests/desktop/test_rollback_history.py", "tests/integration/test_rollback_drift.py", "tests/integration/test_deployment_history.py", "tests/integration/test_transaction_recovery.py", "tests/integration/test_executor_consistency.py", "tests/integration/test_deployment_journal.py", "tests/integration/test_deployment_rename.py", "tests/unit/test_action_plans.py", "tests/integration/test_storage_migrations.py", "tests/integration/test_storage_repositories.py", "tests/unit/test_api_policy.py", "tests/unit/test_app_identity.py", "tests/unit/test_verification_runner.py"], "node_tests":["frontend/tests/deploymentHistory.test.mjs", "frontend/tests/deploymentExecution.test.mjs", "frontend/tests/planPreview.test.mjs", "frontend/src/app/bridge/client.test.js"], "timeout":3000}},
+    "PS-03-03": {"synthetic": {"case":"CASE-030", "case_tests":{"CASE-029":["case029","test_header_rechecks","test_changed_stage_identity"],"CASE-030":["case030","deployment_execution","test_changed_published","test_foreign_data_root"],"CASE-031":["case031","deployment_execution"],"CASE-032":["case032","deployment_execution"],"CASE-033":["case033","test_startup_restores_committed","test_committed_current_metadata"]}, "node_case_tests":{"CASE-029":["case029"],"CASE-030":["case030"],"CASE-032":["case032"]}, "tests":["tests/integration/test_transaction_recovery.py", "tests/integration/test_executor_consistency.py", "tests/integration/test_deployment_journal.py", "tests/integration/test_deployment_rename.py", "tests/desktop/test_deployment_execution.py", "tests/unit/test_action_plans.py", "tests/integration/test_storage_migrations.py", "tests/integration/test_storage_repositories.py", "tests/unit/test_api_policy.py", "tests/unit/test_app_identity.py", "tests/unit/test_verification_runner.py"], "node_tests":["frontend/tests/deploymentExecution.test.mjs", "frontend/tests/planPreview.test.mjs", "frontend/src/app/bridge/client.test.js"], "timeout":1500}},
+    "PS-03-02": {"synthetic": {"case":"CASE-029", "case_tests":{"CASE-029":["test_action_plans", "test_action_plan_preview", "case029"]}, "tests":["tests/unit/test_action_plans.py", "tests/desktop/test_action_plan_preview.py", "tests/unit/test_compatibility_graph.py", "tests/integration/test_compatibility_service.py", "tests/integration/test_storage_repositories.py", "tests/unit/test_profiles.py", "tests/integration/test_profile_api.py", "tests/unit/test_api_policy.py", "tests/unit/test_app_identity.py", "tests/unit/test_verification_runner.py"], "node_tests":["frontend/tests/planPreview.test.mjs", "frontend/src/app/bridge/client.test.js", "frontend/tests/profileStore.test.mjs", "frontend/tests/profileSelection.test.mjs"], "timeout":480}},
+    "PS-03-01": {"synthetic": {"case":"CASE-028", "case_tests":{"CASE-028":["test_deployment_guards"]}, "tests":["tests/integration/test_deployment_guards.py", "tests/unit/test_api_policy.py", "tests/unit/test_app_identity.py", "tests/unit/test_verification_runner.py", "tests/integration/test_storage_repositories.py"], "timeout":420}},
+    "PS-02-05": {
+      "synthetic": {"case":"CASE-027", "case_tests":{"CASE-027":["case027", "profileSelection", "profileStore", "adoptionStore"]}, "tests":["tests/integration/test_package_details.py", "tests/integration/test_profile_api.py", "tests/integration/test_import_safety.py", "tests/integration/test_compatibility_service.py", "tests/unit/test_profiles.py", "tests/unit/test_theme_preferences.py", "tests/unit/test_api_policy.py", "tests/unit/test_verification_runner.py"], "node_tests":["frontend/tests/profileStore.test.mjs", "frontend/tests/profileSelection.test.mjs", "frontend/tests/compatibilityStore.test.mjs", "frontend/src/features/catalog/adoptionStore.test.mjs", "frontend/src/features/catalog/adoptionPanel.test.mjs", "frontend/src/features/catalog/themePreferences.test.mjs", "frontend/src/features/imports/controller.test.mjs", "frontend/src/app/bridge/client.test.js"], "timeout":480},
+      "desktop-local": {"case":"CASE-027", "tests":["tests/desktop/test_profile_workbench.py"], "timeout":600}
+    },
+    "PS-02-04": {"synthetic": {"case":"CASE-015", "case_tests":{"CASE-015":["case015", "test_content_relations"], "CASE-026":["case026", "compatibility bridge"]}, "tests":["tests/unit/test_compatibility_graph.py", "tests/integration/test_compatibility_service.py", "tests/desktop/test_compatibility_check.py", "tests/unit/test_content_relations.py", "tests/unit/test_diagnostic_rules.py", "tests/integration/test_storage_repositories.py", "tests/unit/test_api_policy.py", "tests/unit/test_verification_runner.py"], "node_tests":["frontend/tests/compatibilityStore.test.mjs", "frontend/src/app/bridge/client.test.js"], "timeout":420}},
+    "PS-02-03": {"synthetic": {"case":"CASE-025", "case_tests":{"CASE-025":["test_profiles", "test_profile_api", "test_profile_editor", "profile "]}, "tests":["tests/unit/test_profiles.py", "tests/integration/test_profile_api.py", "tests/desktop/test_profile_editor.py", "tests/unit/test_verification_processes.py", "tests/integration/test_storage_migrations.py", "tests/integration/test_storage_repositories.py", "tests/unit/test_api_policy.py", "tests/unit/test_verification_runner.py"], "node_tests":["frontend/tests/profileStore.test.mjs", "frontend/src/app/bridge/client.test.js"], "timeout":420}},
+    "PS-02-02": {"synthetic": {"case":"CASE-023", "case_tests":{"CASE-023":["case023", "test_preview_", "test_source_changed", "native selection", "preview uses native", "pagination bounded", "real bridge accepts import"], "CASE-024":["case024", "test_import_three", "cannot commit rejected", "task errors retain", "progress connection failure"]}, "tests":["tests/integration/test_import_safety.py", "tests/desktop/test_import_preview.py", "tests/unit/test_api_policy.py", "tests/unit/test_verification_runner.py"], "node_tests":["frontend/src/features/imports/controller.test.mjs", "frontend/src/app/bridge/client.test.js"], "timeout":360}},
+    "PS-02-01": {"synthetic": {"case":"CASE-022", "case_tests":{"CASE-022":["test_package_adoption"]}, "tests":["tests/integration/test_package_adoption.py", "tests/integration/test_storage_repositories.py", "tests/integration/test_storage_migrations.py", "tests/unit/test_api_policy.py", "tests/unit/test_verification_runner.py"], "timeout":240}},
+    "PS-01-07": {
+      "synthetic": {"case":"CASE-021", "tests":["tests/integration/test_readonly_baseline.py", "tests/integration/test_log_historical_reference.py"], "node_tests":["frontend/src/app/bridge/client.test.js", "frontend/src/features/catalog/controller.test.mjs", "frontend/src/features/catalog/themeMenu.test.mjs", "frontend/src/features/diagnostics/presentation.test.mjs", "frontend/src/features/installations/controller.test.js"], "timeout":180},
+      "desktop-local": {"case":"CASE-021", "tests":["tests/desktop/test_readonly_workbench.py", "tests/desktop/test_live_readonly_harness.py"], "timeout":600},
+      "real-readonly": {"case":"CASE-021", "tests":["tests/acceptance/test_live_inventory.py"], "timeout":300}
+    },
+    "PS-01-06": {"synthetic": {"case":"CASE-010", "case_tests": {
+      "CASE-010":["exact_alias", "ambiguous_display", "version", "case010_019"],
+      "CASE-011":["45_44_43", "content_requires", "unknown_loader"],
+      "CASE-018":["domain", "recovery", "recover", "hostfxr", "continuation"],
+      "CASE-019":["self_disable", "selfdisabled", "version", "registration", "case010_019"],
+      "CASE-020":["delegation", "potential", "persistent", "initialization", "tutorial", "incomplete_evidence", "bounds", "definitions", "test_diagnostic_queries", "offline_explain"]
+    }, "tests":["tests/unit/test_diagnostic_rules.py", "tests/integration/test_diagnostic_explain.py", "tests/integration/test_diagnostic_queries.py"], "timeout":300}},
+    "PS-01-05": {"synthetic": {"case":"CASE-016", "case_tests": {
+      "CASE-016":["test_log_tailer", "late_file", "rotation_and_truncation", "multiple_consumers", "stop_restart", "exclusive_file_lock", "large_log", "unapproved_user_log"],
+      "CASE-017":["test_log_session_rules", "test_log_evidence", "archive_full_copy", "user_selected", "log_declared_pid", "multiline_exception", "rotation_and_truncation"]
+    }, "tests":["tests/unit/test_log_tailer.py", "tests/unit/test_log_session_rules.py", "tests/integration/test_log_evidence.py", "tests/integration/test_log_sessions.py"], "timeout":300}},
+    "PS-01-04": {"synthetic": {"case":"CASE-011", "case_tests": {
+      "CASE-011":["case011_real_45_files_44_melon_43_candidates", "historical_21"],
+      "CASE-012":["test_content_manifests", "test_content_catalog", "test_catalog_queries", "historical_21"],
+      "CASE-013":["highest_version", "equal_versions", "same_names", "unreadable_version", "unparsed_file", "shadow_relation", "shadow_provenance"],
+      "CASE-014":["roots_are", "exclusions", "similar_names", "subfolder", "manifest", "options", "unknown_loader", "nested_stage", "invalid_and_non_dll_paths"],
+      "CASE-015":["test_content_relations", "test_content_catalog", "test_catalog_queries"]
+    }, "tests":["tests/unit/test_content_manifests.py", "tests/unit/test_content_relations.py", "tests/unit/test_loader_inventory_policy.py", "tests/integration/test_content_catalog.py", "tests/integration/test_catalog_queries.py"], "timeout":300}},
+    "PS-01-03": {"synthetic": {"case":"CASE-008", "case_tests": {
+      "CASE-008":["real_api_readonly", "cache_", "same_size", "rename_", "drift_", "concurrent_", "restart_pagination", "requested_barrier"],
+      "CASE-009":["partial_", "cancel", "locked", "incomplete_never", "missing_only", "requested_barrier", "summary_and_unknown"],
+      "CASE-014":["physical_discovery", "assembly_version", "test_loader_inventory_policy"]
+    }, "tests":["tests/integration/test_inventory_scan.py", "tests/integration/test_inventory_repository.py", "tests/unit/test_loader_inventory_policy.py"], "timeout":300}},
+    "PS-00-01": {"synthetic": {"case": "CASE-001", "tests": ["tests/unit/test_reference_baseline.py"], "timeout": 120}},
+    "PS-00-02": {
+      "synthetic": {"case": "CASE-002", "tests": ["tests/unit/test_app_identity.py"], "timeout": 180},
+      "desktop-local": {"case": "CASE-002", "tests": ["tests/desktop/test_identity.py"], "timeout": 240}
+    },
+    "PS-00-03": {"synthetic": {"case": "CASE-003", "tests": ["tests/unit/test_contracts.py", "tests/integration/test_storage_migrations.py", "tests/integration/test_storage_repositories.py"], "timeout": 240}},
+    "PS-00-04": {
+      "synthetic": {"case": "CASE-004", "tests": ["tests/unit/test_api_policy.py", "tests/unit/test_jobs.py", "tests/unit/test_webview_lifecycle.py"], "node_tests": ["frontend/src/app/bridge/client.test.js"], "timeout": 180},
+      "desktop-local": {"case": "CASE-004", "tests": ["tests/desktop/test_bridge.py"], "timeout": 240}
+    },
+    "PS-00-05": {"synthetic": {"case": "CASE-005", "fixtures": true, "tests": ["tests/unit/test_verification_runner.py", "tests/unit/test_verification_processes.py", "tests/unit/test_synthetic_fixtures.py"], "timeout": 300}},
+    "PS-01-02": {
+      "synthetic": {"case":"CASE-007", "case_tests": {
+        "CASE-007":["test_static_parser", "test_metadata_worker", "test_metadata_sandbox", "test_metadata_resource_coverage"],
+        "CASE-010":["identity_resources", "preserves_identity"],
+        "CASE-024":["limit", "oversized", "overflow", "malformed", "corrupt", "resource", "memory", "flood", "size"]
+      }, "tests":["tests/metadata/test_static_parser.py", "tests/integration/test_metadata_worker.py", "tests/integration/test_metadata_sandbox.py", "tests/integration/test_metadata_resource_coverage.py"], "timeout":240}
+    },
+    "PS-01-01": {
+      "synthetic": {"case": "CASE-006", "tests": ["tests/unit/test_installation_discovery.py", "tests/unit/test_installation_layout.py", "tests/unit/test_installation_concurrency.py"], "node_tests": ["frontend/src/features/installations/controller.test.js"], "timeout": 240},
+      "desktop-local": {"case": "CASE-006", "tests": ["tests/desktop/test_installation.py"], "timeout": 180}
+    }
+  }
+}

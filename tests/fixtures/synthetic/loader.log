@@ -1,0 +1,8 @@
+[SYNTHETIC] PSModManager fixture log; not evidence from a real game.
+[00:00:00.000] [MelonLoader] Synthetic loader version 0.7.3
+[00:00:00.001] Loading assembly: SyntheticMod.dll
+[00:00:00.002] Synthetic Sample v1.0.0 by PSModManager fixtures
+[00:00:00.003] Loading assembly: ItemForge.dll
+[00:00:00.004] Synthetic ItemForge: registered 1 item, 1 recipe
+[00:00:00.005] [WARNING] Synthetic compatibility warning
+[00:00:00.006] [ERROR] Synthetic negative log sample; not a runtime failure

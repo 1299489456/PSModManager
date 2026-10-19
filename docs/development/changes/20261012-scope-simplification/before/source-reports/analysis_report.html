@@ -1,0 +1,2686 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Probably Stolen × RimCrow｜模组管理器改造分析</title><style>
+:root{--ink:#182a3a;--muted:#576777;--line:#d9e1e8;--accent:#147e89;--bg:#f2f5f7;--paper:#fff}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.85 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+.layout{max-width:1420px;margin:auto;display:grid;grid-template-columns:245px minmax(0,1fr);gap:30px;padding:32px 28px 80px}.sidebar{position:sticky;top:24px;align-self:start;max-height:90vh;overflow:auto;font-size:13px}.sidebar a{display:block;padding:6px 10px;color:var(--muted);text-decoration:none;border-left:2px solid transparent}.sidebar a:hover{border-color:var(--accent);color:var(--accent)}.eyebrow{font-size:12px;font-weight:750;color:var(--accent);letter-spacing:1px}.sidebar h2{font-size:18px;margin:12px 10px}.paper{background:var(--paper);min-width:0;padding:48px 52px;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 35px #16232d08}h1{font-size:32px;line-height:1.4;letter-spacing:-.5px;margin:12px 0 22px}h2{font-size:24px;line-height:1.55;margin-top:48px;padding-top:12px;border-top:2px solid var(--line);scroll-margin-top:24px}h3{font-size:19px;line-height:1.5;margin-top:30px}p{margin:12px 0}a{color:var(--accent)}strong{font-weight:720}code{font:13px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;background:#edf2f5;padding:2px 5px;border-radius:4px;overflow-wrap:anywhere}pre{background:#edf2f5;border:1px solid var(--line);padding:18px;border-radius:8px;overflow:auto;max-height:680px}pre code{padding:0;white-space:pre-wrap;word-break:break-word;background:none}table{border-collapse:collapse;width:100%;font-size:13px;line-height:1.6;margin:20px 0}th{text-align:left;background:#e8f0f3;font-weight:700}td,th{border:1px solid var(--line);padding:10px 12px;vertical-align:top;overflow-wrap:anywhere}tr:nth-child(even) td{background:#f8fafb}blockquote{border-left:4px solid var(--accent);margin:20px 0;padding:8px 18px;background:#eff8f7}hr{border:0;border-top:1px solid var(--line);margin:32px 0}details{border:1px solid var(--line);border-radius:8px;margin-top:28px;padding:18px}summary{cursor:pointer;font-size:18px;font-weight:700;color:var(--accent)}.appendix h1{font-size:24px}.appendix h2{font-size:19px}.appendix pre{font-size:12px}.table-scroll{overflow-x:auto}.table-scroll table{min-width:1000px}.tag{display:inline-block;font-size:12px;border:1px solid #c3dbdc;border-radius:99px;padding:3px 10px;margin:0 6px 10px 0;color:#176773}.footer{font-size:12px;color:var(--muted);margin-top:28px}
+@media(max-width:1050px){.layout{display:block;padding:16px}.sidebar{position:relative;max-height:240px;margin-bottom:20px}.paper{padding:30px 24px}h1{font-size:27px}}
+@media print{body{background:white;font-size:10pt;line-height:1.65}.layout{display:block;padding:0}.sidebar{display:none}.paper{border:0;box-shadow:none;padding:0}h1{font-size:22pt}h2{font-size:17pt;page-break-after:avoid}h3{font-size:13pt;page-break-after:avoid}table{font-size:8pt}tr{break-inside:avoid}pre{max-height:none;overflow:visible}a{color:inherit}details{break-before:page}.footer{display:none}}
+</style></head><body><div class="layout"><nav class="sidebar"><div class="eyebrow">ENGINEERING REVIEW</div><h2>报告目录</h2><a href="#section-0">0. 结论与阅读说明</a><a href="#section-1">1. 上传快照的真实基线</a><a href="#section-2">2. 现有游戏包已经暴露出的关键设计要求</a><a href="#section-3">3. RimCrow 值得保留什么，不能原样保留什么</a><a href="#section-4">4. RimCrow 的 AI Agent 到底做了什么</a><a href="#section-5">5. 推荐的目标架构</a><a href="#section-6">6. 包模型与部署模型</a><a href="#section-7">7. 部署、回滚和 Profile：稳定性的核心</a><a href="#section-8">8. AI 和自动化的稳定性、安全性</a><a href="#section-9">9. 具体改造落点</a><a href="#section-10">10. 功能优先级与实施阶段</a><a href="#section-11">11. 建议验收矩阵</a><a href="#section-12">12. 实际执行的检查结果</a><a href="#section-13">13. 开源与分发边界</a><a href="#section-14">14. 最终建议</a><a href="#section-15">公开参考资料（核验于 2026-09-24）</a><a href="#audit-evidence">源码与日志证据</a><a href="#dll-inventory">45 项 DLL 清单</a></nav><main class="paper"><div class="eyebrow">技术审阅 · 2026-09-24 · 上传快照</div><div><span class="tag">Probably Stolen 0.46D</span><span class="tag">MelonLoader 0.7.3</span><span class="tag">RimCrow 0.24.7</span><span class="tag">静态审查 / 非实机验证</span></div><h1>Probably Stolen Demo 模组管理器改造分析报告</h1>
+<p><strong>基于上传的 Probably Stolen Demo.7z 与 RimCrow.7z</strong><br />
+分析日期：2026-09-24<br />
+建议路线：<strong>以 RimCrow 为基础建立独立分支，保留交互与通用基础设施，替换游戏领域核心。</strong></p>
+<h2 id="section-0">0. 结论与阅读说明</h2>
+<p>可以改，而且值得利用 RimCrow 已有的 UI、交互、任务反馈、日志工作台和 AI 会话框架。但不能把它当成“换游戏名称、把扫描路径改成 Mods”这样的小改造。RimCrow 的核心管理对象是 RimWorld 模组目录与 XML 载入列表；本游戏的实际对象是 Melon 模组、二级运行时内容包、共享配置、资源文件及运行期兼容状态。</p>
+<p>推荐的产品定位是：<strong>面向 Probably Stolen 的可恢复部署管理器，并附带有证据、受控执行的 AI 诊断助手。</strong> 先把包识别、部署、备份、回滚和状态核验做可靠，再让 AI 调用这些能力。不要让 AI 替代底层规则、文件事务或兼容性事实。</p>
+<p>本报告区分三种内容：已在上传文件中观察到的事实、由事实推导的风险、建议实现的目标设计。后两者不是现有软件已经具备的功能。</p>
+<h3>检查范围与限制</h3>
+<p>已解包两个归档；检查游戏目录、两个 MelonLoader 日志文件及代表性模组日志；对 Mods 根目录全部 45 个 DLL 进行只读 PE/CLI 元数据、程序集引用、相关属性和嵌入 JSON 检查；审阅 RimCrow 关键后端、前端、AI、配置、包安装和浏览器桥接源码。未对全仓每一行代码逐行审计。</p>
+<p>未在 Windows 上启动游戏、执行模组 DLL、运行桌面 GUI、完成项目完整构建，或实测存档隔离。不能据此声称所有模组兼容、AI 能成功修复、或改造后的程序已经可用。本文交付的是分析和实施方案，不是已改造的可执行程序。</p>
+<p>本地来源采用证据编号：G1–G8 为游戏文件，R1–R18 为 RimCrow 源码，T1 为实际检查。具体相对路径、原始行号、SHA-256 和摘录见 <code>evidence_appendix.md</code>。全部 DLL 元数据见 <code>mod_inventory.json</code>。公开技术与许可来源见文末 O1–O5。</p>
+<hr />
+<h2 id="section-1">1. 上传快照的真实基线</h2>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>检查结果</th>
+<th>证据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>游戏</td>
+<td>Probably Stolen；开发者标识 Questing Goose Studio</td>
+<td>G1、G2</td>
+</tr>
+<tr>
+<td>游戏版本</td>
+<td>本次日志记录 0.46D</td>
+<td>G2，日志 L129</td>
+</tr>
+<tr>
+<td>引擎</td>
+<td>Unity 2021.3.45f2；IL2CPP；x64</td>
+<td>G2，L115–128</td>
+</tr>
+<tr>
+<td>加载器</td>
+<td>MelonLoader 0.7.3 Open-Beta</td>
+<td>G2，L111</td>
+</tr>
+<tr>
+<td>游戏内托管运行环境</td>
+<td>net6</td>
+<td>G2，L124</td>
+</tr>
+<tr>
+<td>Mods 根目录 DLL</td>
+<td>45 个</td>
+<td>G5、audit_summary.json</td>
+</tr>
+<tr>
+<td>带 MelonInfo 属性的 DLL</td>
+<td>44 个</td>
+<td>G5</td>
+</tr>
+<tr>
+<td>本次日志的 Melon Mods loaded</td>
+<td>43</td>
+<td>G2，L709</td>
+</tr>
+<tr>
+<td>DLL 哈希与日志交叉核验</td>
+<td>45 个文件中 43 个 SHA-256 出现在该日志中</td>
+<td>G5</td>
+</tr>
+<tr>
+<td>Plugins / UserLibs</td>
+<td>本快照目录中均无文件</td>
+<td>G8</td>
+</tr>
+<tr>
+<td>主日志</td>
+<td>MelonLoader/Logs/26-9-24_14-15-5.log，1,049 行</td>
+<td>G2、G3</td>
+</tr>
+<tr>
+<td>另一个日志</td>
+<td>26-9-24_14-13-23.log 为 0 字节</td>
+<td>归档目录检查</td>
+</tr>
+<tr>
+<td>RimCrow 代码版本</td>
+<td>backend/_version.py：0.24.7</td>
+<td>R1</td>
+</tr>
+<tr>
+<td>RimCrow Git HEAD</td>
+<td>a7e875112a175a914bb4706a82589d96d62adc70</td>
+<td>audit_summary.json</td>
+</tr>
+</tbody>
+</table>
+<p>忽略行尾空白差异后，工作目录相对该提交未检出实质性 diff。报告分析的是这份快照，不声称它是上游当前最新版本。仓库中的主界面示意图标注 v0.23.4，不能把那张图说成已经运行了 v0.24.7 的截图。</p>
+<p><strong>最重要的数量关系：磁盘 DLL 数量、Melon 模组注册数量、二级内容包数量、实际功能生效数量并不相等。</strong> 管理器首页应分别展示这些维度，不能把所有差异归类为“加载失败”。</p>
+<hr />
+<h2 id="section-2">2. 现有游戏包已经暴露出的关键设计要求</h2>
+<h3>2.1 合法内容包不一定是一个 Melon 模组</h3>
+<p><code>PSItemPack_SanmuShiwushechipinPack1.dll</code> 没有 MelonInfo 属性，但包含 <code>ItemForge.items.json</code> 与图标等 22 个嵌入资源。JSON 声明 BundleId 为 <code>sanmu_shiwushechipin_pack1</code>、名称为“食物奢侈品拓展包”、RequiredRuntimeApi 为 5，并含 21 个物品。主日志 L555 明确记录 ItemForgeRuntime 读入了它的 21 个配置。[G2、G5]</p>
+<p>因此，以下实现会误伤正常模组：只显示带 MelonInfo 的 DLL；把无 MelonInfo 的 DLL 一律挪到 UserLibs；按 43 个 loader 注册项推断剩余文件无效；只移动主 DLL 而忽略所属内容组件。</p>
+<p>扫描层至少应识别 MelonMod、MelonPlugin、ItemForge 内容组件、CharacterForge 内容组件、依赖库、资源文件和暂无法分类文件。一个发行包可以包含多种组件；一个 DLL 也可能同时具有 Melon 入口与嵌入式内容清单，不能把这些类型设计为绝对互斥。</p>
+<h3>2.2 依赖版本不只有“Mod 版本号”</h3>
+<p>实际嵌入清单中，gofishing 要求 ItemForge Runtime API 19；MoreFood 要求 API 12；三木内容包要求 API 5；钓鱼商人要求 CharacterForge Runtime API 1。本次运行日志报告 ItemForgeRuntime 为 API 19、CharacterForgeRuntime 为 API 1。[G2、G5]</p>
+<p>需要分别存储：显示版本、程序集版本、生成器版本、运行时 API 要求、游戏适用版本、加载器约束。不能拿 <code>ItemForgeRuntime 1.2.3</code> 与 <code>RequiredRuntimeApi 19</code> 做版本字符串比较。</p>
+<p>当前快照还包含钓鱼料理扩展的调试物品嵌入清单。<strong>能静态提取清单不等于这些内容在本次游戏中都注册生效</strong>。实际加载情况必须由对应运行时日志或探针确认。</p>
+<p>仅靠 AssemblyRef 也不够。当前多个模组的前置检查和协作出现在日志里，但不表现为直接跨模组程序集引用；反射和字符串标识会使纯引用图漏掉依赖。依赖证据应有来源和可信度，不明关系保留为“待确认”。</p>
+<h3>2.3 旧版组件共存导致明确自停用，但修复还涉及存档</h3>
+<p>主日志 L1016 明确表示“本次运行已停用本 MOD”，原因是检测到旧版两个 DLL，并要求退出、移走旧版、使用新存档，其他作者模组保持原样。目录中同时存在 <code>JCuratedVisitors.dll</code>、<code>PSItemPack_CuratedVisitors.dll</code>、<code>PSCharacterPack_CuratedVisitors.dll</code>；后两者元数据均显示 0.3.3。[G3、G4、G5]</p>
+<p>这是 AI 可以给出高价值建议的真实案例。但报告不能仅凭名字相似就授权删除两个文件。应先确定用户想保留的内容版本，关联对应哈希、清单和作者迁移说明，然后生成只影响该组合的停用计划。</p>
+<p>还有版本来源不一致：JCuratedVisitors 的 MelonInfo/程序集版本指向 1.0.9，而诊断文字称 0.5.0。两者都应原样记录并标注来源，不能由 AI 把文本中的数字当成唯一真实版本。</p>
+<p>“使用新存档”不能被包装成无风险自动修复。管理器应展示存档影响，禁止自动覆盖旧存档。文件恢复成功不等于旧存档恢复兼容。</p>
+<h3>2.4 主动兼容停用不应被判为损坏</h3>
+<p><code>XIAOWO-PrecisionBayExpansion</code> 在检测到 XIAOWO-TradePerks 后记录 INACTIVE，并说明功能交由主模组控制。之后还有相应主菜单标题显示日志。[G3]</p>
+<p>合理显示是“兼容模式：由主模组接管”，而不是“加载失败，建议重装”。运行状态应包含：尚未验证、已注册、已初始化、主动兼容停用、前置不满足自停用、初始化异常等。无法观察到初始化结果时保持未知，而非把 loader 注册成功等同全部功能正常。</p>
+<h3>2.5 潜在 Harmony 冲突不是 21 个已确认冲突</h3>
+<p>本次 XIAOWO-TradePerks 自报：共享方法 46、潜在冲突 21、确认冲突 0、停用模块 0，并称已去重 62 个补丁。[G3，L1026–1027]</p>
+<p>这些是某模组针对该次运行的诊断指标，不是管理器已经独立证明的全局结论。管理器可以展示来源和方法关联，不应自动禁用全部相关模组，也不应自行再运行一次全局补丁去重。</p>
+<p>多个补丁作用于同一方法、Prefix 可能跳过原方法、Postfix 修改返回值，都只能构成进一步调查线索。优先级和 before/after 约束也会影响 Harmony 执行顺序，最后加载的模组并不必然最后执行补丁。[O2]</p>
+<h3>2.6 存在“文件名不同，但程序集身份接近”的候选冲突</h3>
+<table>
+<thead>
+<tr>
+<th>文件</th>
+<th>程序集简单名</th>
+<th>程序集版本</th>
+<th>Melon 显示名</th>
+<th>入口类型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RatColonyOptimizer.dll</td>
+<td>RatGeneticRenamer</td>
+<td>1.0.0.0</td>
+<td>Rat Colony Optimizer</td>
+<td>RatGeneticRenamer.Core</td>
+</tr>
+<tr>
+<td>RatGeneticRenamer.dll</td>
+<td>RatGeneticRenamer</td>
+<td>2.6.3.0</td>
+<td>Rat Genetic Renamer</td>
+<td>RatGeneticRenamer.Core</td>
+</tr>
+</tbody>
+</table>
+<p>两者哈希不同。日志记录了后者，但没有前者的文件哈希。可提示“程序集简单名和入口类型重复，需确认能否共存”，不能据此断言缺失日志一定由身份冲突引起，也不能将它们简单合并成同一文件。[G5]</p>
+<p>管理器的主键不能只用文件名、显示名、程序集简单名或内容 BundleId。需要“本地管理 ID + 版本内容哈希 + 组件身份 + 来源”。多个组件组成同一发行包，还需要独立的 package/component 关系。</p>
+<h3>2.7 日志开始有 ERROR，不代表本次启动失败</h3>
+<p>日志开头确实出现 .NET 域初始化失败，随后下载并运行 .NET 6 安装程序，再继续启动 MelonLoader、加载模组，最后到达主菜单相关步骤。[G2、G3]</p>
+<p>诊断输出应是“本次启动早期运行库问题，随后恢复”，而不是“游戏无法启动，请重装”。类似地，生成阶段的部分恢复失败、远程 API 未找到游戏、界面对象暂时为空，也不能在缺少后续证据时被自动认定为致命错误。</p>
+<p>应建立启动阶段和会话模型：运行库引导 → IL2CPP 互操作准备 → 模组发现 → 内容注册 → 初始化 → 主菜单/游戏内。后续成功证据可以降低早期告警等级，但不能抹去原始记录。</p>
+<h3>2.8 CFG 扩展名不代表统一语法</h3>
+<p>本次对 UserData 下五个 CFG 做了只读标准 TOML 解析探测：Loader.cfg、PSMarketRequests.cfg、PSProcurement.cfg 通过；MelonPreferences.cfg 在 L28 中文裸表名处被 Python tomllib 拒绝；PSWallpaper.cfg 在 L4 值处被拒绝。[G6、G7、T1]</p>
+<p>这不证明游戏配置损坏，只证明不能套一个标准解析器处理所有 CFG。首版应以保真文本编辑、备份和明确的字段适配器为基础；结构化表单按具体格式逐个开放。不能失败后“自动纠正”整个文件，更不能把多个模组共用的 MelonPreferences.cfg 当成某个模组私有配置覆盖。</p>
+<hr />
+<h2 id="section-3">3. RimCrow 值得保留什么，不能原样保留什么</h2>
+<h3>3.1 实际技术栈</h3>
+<p>上传源码是 Python 后端 + pywebview 桌面宿主 + Vue 3 / JavaScript 前端，不是 Electron 或 C# WPF。前端包含 Pinia、Vite、Tailwind、虚拟列表、代码编辑器、国际化和 Markdown 渲染；后端包含 Peewee/SQLite、Pydantic、LiteLLM、keyring、文件/任务基础设施。清单声明 Python &gt;=3.11；这些是依赖范围，不是本环境已经安装完成的版本。[R1–R3]</p>
+<p>首版沿用这个栈更有利于保留用户重视的交互与 Agent。可选增加独立 C# 元数据辅助程序，但不建议同时把整个前端、桌面宿主和后端都改写。新平台迁移会把“游戏适配”变成“两个系统一起重建”。</p>
+<h3>3.2 UI 和交互复用</h3>
+<p>值得保留多栏工作台、搜索筛选、分组标签、多选批处理、详情面板、虚拟列表、任务进度、日志联动、历史撤销和 AI 操作卡片。优先复用组件与设计规范，而不是原封不动保留所有业务字段。</p>
+<p>建议把旧的“未启用/已启用”工作台调整为“模组库/当前配置”，并在列表上区分计划状态、已部署状态和最近一次运行状态。右侧上下文工作台在详情、依赖、诊断、AI 之间切换。底部主按钮采用“检查方案 → 预览更改 → 应用 → 启动”，让用户明确何时修改磁盘。</p>
+<p>列表拖动用于分组和展示顺序可以保留，但不能默认宣称改变 Melon 初始化顺序，更不能表示控制 Harmony 的补丁顺序。旧“自动排序”应改成“检查兼容性 / 补齐已确认依赖 / 生成修复方案”。</p>
+<h3>3.3 游戏核心耦合并不薄</h3>
+<p><code>mod_scanner.py</code> 依赖 About.xml 或 DLC 判断；<code>parser_xml.py</code> 解析 RimWorld 元数据与前后顺序；<code>analyzer.py</code> 的严格禁用以 About.xml.disabled 为基础；<code>mgr_profile.py</code> 通过 RimWorld 路径模型和 <code>-savedatafolder</code> 管理环境；载入列表则围绕 ModsConfig.xml。[R4–R7]</p>
+<p>这些路径与协议不能直接用于 Probably Stolen。没有证据表明该游戏支持 RimWorld 的存档参数。原有 Steam 工坊应用标识、RimWorld 纹理/翻译/多人兼容规则，也不能顺手保留并启用。</p>
+<h3>3.4 复用决策表</h3>
+<table>
+<thead>
+<tr>
+<th>领域</th>
+<th>建议</th>
+<th>主要原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>主题、窗口外壳、基础组件、虚拟列表</td>
+<td>保留并重命名</td>
+<td>与游戏协议关系较弱</td>
+</tr>
+<tr>
+<td>搜索、标签、分组、撤销、任务反馈</td>
+<td>保留交互，调整数据契约</td>
+<td>新身份模型和多组件包会影响 Store</td>
+</tr>
+<tr>
+<td>日志窗口、错误定位、会话轨迹 UI</td>
+<td>保留</td>
+<td>可接入新的日志事件模型</td>
+</tr>
+<tr>
+<td>AI gateway、流式输出、会话预算、工具追踪</td>
+<td>保留并补安全边界</td>
+<td>已有可复用执行框架</td>
+</tr>
+<tr>
+<td>AI 提示词、工具实现、动作类型</td>
+<td>大幅改造</td>
+<td>现有内容面向 RimWorld</td>
+</tr>
+<tr>
+<td>模组扫描、版本身份、依赖图</td>
+<td>重写</td>
+<td>DLL/嵌入内容不是 About.xml</td>
+</tr>
+<tr>
+<td>启停与部署</td>
+<td>重写核心，借鉴工具层</td>
+<td>多文件跨目录，需要所有权与事务</td>
+</tr>
+<tr>
+<td>Profile 界面和快照体验</td>
+<td>保留概念，重写目录语义</td>
+<td>无证据支持原存档隔离方式</td>
+</tr>
+<tr>
+<td>JSON 原子写入、错误封装、keyring</td>
+<td>保留并测试</td>
+<td>通用能力已有实现</td>
+</tr>
+<tr>
+<td>包导入的暂存、冲突预览</td>
+<td>选择性复用</td>
+<td>不能把目录级替换当跨目录事务</td>
+</tr>
+<tr>
+<td>工坊、纹理压缩、RimWorld XML 翻译、多人规则</td>
+<td>首版关闭</td>
+<td>本游戏未验证，不应拖累启动和依赖</td>
+</tr>
+<tr>
+<td>浏览器模式</td>
+<td>首版关闭或先做安全整改</td>
+<td>静态发现桥接暴露面过宽</td>
+</tr>
+</tbody>
+</table>
+<p>不适合给“直接复用 80%”这种未经估算的比例。UI 组件复用和领域逻辑复用不是同一个口径。工作量集中在核心数据模型、部署引擎和诊断语义上。</p>
+<hr />
+<h2 id="section-4">4. RimCrow 的 AI Agent 到底做了什么</h2>
+<h3>4.1 它确实不是普通的单轮聊天框</h3>
+<p><code>ai_tools.py</code> 定义七个读取工具：get_log_context、search_mods、get_active_mod_list、get_mod_info、get_mod_rules、get_mod_user_data、get_group_mods。工具有参数模型、结果摘要与结构化错误处理。[R8]</p>
+<p><code>assistant_runtime.py</code> 提供多轮模型/工具循环、流式事件、取消检查、用量处理、轨迹记录和上限；当前常量 ASSISTANT_MAX_LOOPS 为 10。重复调用检测采用函数名与原始参数字符串签名，因此是一定程度的重复阻断，不应理解为已经消除所有语义等价循环。[R9]</p>
+<p>内置游戏日志助手已经要求基于日志证据分析、确认准确模组标识、必要时再获取上下文，并约束操作建议。这些设计很值得保留。[R10]</p>
+<h3>4.2 “读取用户数据”并不是任意读取 UserData 目录</h3>
+<p>这里的 get_mod_user_data 指管理器中的别名、标签、备注、颜色和分组等用户态信息，不是一个通用的游戏配置/存档文件读取工具。改造时需要新增明确的配置访问能力，不能只改工具说明就当底层已经支持。[R8]</p>
+<h3>4.3 动作卡片不等于游戏已经修好</h3>
+<p>游戏助手主要输出 MOD_STATE 和 MOD_RULE。前端 MOD_STATE 分支调用 <code>modStore.changeModsActive</code>；该函数修改列表并进入列表历史事务。MOD_RULE 有确认和规则写入，并可继续触发排序。[R11、R12]</p>
+<p>所以准确描述是：<strong>读取事实 → 生成解释和结构化建议 → 用户触发管理器已有动作。</strong> 在所检查链路中，没有“任意修复 C# 源码、编译并替换 DLL、自动证明游戏已恢复”的万能执行器。列表操作成功也不能代替 Probably Stolen 的文件部署成功和重启后生效验证。</p>
+<h3>4.4 建议新增的 Agent 闭环</h3>
+<p>将写操作统一收口为后端 OperationPlan，而不是由模型返回自由路径或让前端直接搬文件：</p>
+<pre><code class="language-text">采集当前环境与本次会话
+  → 本地规则提取证据
+  → AI 按需调用只读工具
+  → 输出诊断与候选计划
+  → 后端计算影响范围、校验前置条件
+  → 用户批准指定计划
+  → 事务部署与结果核验
+  → 经授权启动游戏或等待用户下一次启动
+  → 对比新日志并给出“已验证 / 部分验证 / 未验证 / 失败”
+</code></pre>
+<p>读取工具建议包括 environment_snapshot、inspect_package、list_deployed_components、read_log_window、get_runtime_status、get_config_view、get_patch_owners、diff_profile。get_patch_owners 可由后期可选探针提供；没有探针时必须说明信息来源和覆盖范围。</p>
+<p>计划动作限制为已定义操作，例如停用指定包版本、恢复已知备份、安装库内已核验依赖、修改适配器认可的某个配置键。自动安装系统运行库、替换加载器、删除存档、执行 shell、安装未知 DLL、结束游戏进程不得作为默认隐式动作。</p>
+<p>计划必须绑定 plan_id、installation_id、profile_id、base_state_hash、目标文件哈希、证据位置、备份策略、批准范围和过期条件。执行前再核对状态；文件已经被用户或游戏改动时，重新生成计划，不能悄悄覆盖。</p>
+<h3>4.5 可以做到什么程度的“即刻解决”</h3>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>适合的自动化边界</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>模组文件缺失、库内依赖未部署、已确认旧组件冲突</td>
+<td>生成可撤销计划，经批准部署，重启验证</td>
+</tr>
+<tr>
+<td>支持适配的配置项错误</td>
+<td>显示键级差异、备份并修改，验证相关症状</td>
+</tr>
+<tr>
+<td>人工误覆盖后的版本回退</td>
+<td>从内容库与部署快照恢复</td>
+</tr>
+<tr>
+<td>加载器或 .NET 环境问题</td>
+<td>识别实际阶段和恢复情况；需要安装时另行授权</td>
+</tr>
+<tr>
+<td>多个 Harmony 补丁关联同一方法</td>
+<td>收集证据、解释风险、提供隔离实验，不直接断言必然冲突</td>
+</tr>
+<tr>
+<td>模组内部逻辑 bug、IL2CPP 原生崩溃</td>
+<td>提供复现上下文与开发者诊断材料，不能许诺修改配置就治好</td>
+</tr>
+<tr>
+<td>旧存档引用被删内容</td>
+<td>先保护存档、说明不可逆风险，不能无提示强行“修复”</td>
+</tr>
+</tbody>
+</table>
+<p>日志、模组说明和嵌入清单均应视为不可信文本。它们可以成为证据，不能成为授予 Agent 文件权限或执行命令的指令。</p>
+<hr />
+<h2 id="section-5">5. 推荐的目标架构</h2>
+<pre><code class="language-text">Vue 工作台 / 日志窗口 / AI 面板
+                  │ 类型化应用接口
+                  ▼
+Python 应用服务
+  ├─ 安装发现与环境指纹
+  ├─ 包目录、组件、版本与来源管理
+  ├─ Profile、配置和部署差异
+  ├─ DeploymentPlanner / TransactionExecutor
+  ├─ 日志会话、诊断规则、运行核验
+  └─ AI Runtime / Tool Registry / Action Approval
+                  │
+      ┌───────────┴───────────────┐
+      ▼                           ▼
+受限元数据扫描工作进程        可选游戏内只读探针
+不执行模组代码              按游戏兼容运行时单独构建
+                  │
+SQLite 索引 + 包内容库 + 部署清单 + 回滚日志
+</code></pre>
+<p>建议首版只承诺 Windows x64 与本次游戏/加载器组合。Demo 与正式版作为不同安装实例发现；Steam appmanifest 缺失时允许手选并校验实际目录。不要从正式版商店标识猜 Demo AppID，也不要把旧的 RimWorld Steam 标识沿用。</p>
+<h3>5.1 环境指纹</h3>
+<p>至少记录：真实 exe 路径与文件标识、app.info、游戏显示版本、Unity 版本、GameAssembly.dll 哈希、global-metadata.dat 哈希、MelonLoader 版本/关键文件哈希、实际运行时信息和最近成功会话。</p>
+<p>游戏更新后不能仅根据“版本字符串没变”继续使用旧兼容结论。文件指纹变化应使缓存失效，提示重新验证。互操作生成文件属于可再生运行时产物，不应作为某个普通模组包的固定资产去覆盖。</p>
+<h3>5.2 元数据读取与进程边界</h3>
+<p>适合用 C# 元数据工具读取程序集属性和嵌入资源，而不是在管理器进程中 Assembly.Load 模组 DLL。System.Reflection.Metadata 提供 ECMA-335 元数据读取能力，但官方明确警告相关读取类型并非针对不可信输入设计，恶意或损坏 PE 可能导致崩溃、越界或挂起。[O4]</p>
+<p>因此应设置文件大小、资源解压大小、内存、运行时限和输出限制，并为不可信输入设计真正的权限隔离与沙箱边界。单独开子进程不等于安全沙箱。可信度未知时允许只登记哈希和文件，不强行深度解析；生产解析器需要畸形输入和模糊测试。本次使用的审计解析逻辑不是生产级扫描器。</p>
+<h3>5.3 不把游戏的 net6 依赖扩散到整个管理器</h3>
+<p>当前游戏样本使用 net6；.NET 6 已于 2024-11-12 结束支持，而核验时 .NET 10 处于 LTS 支持期。[O3]</p>
+<p>新写的独立辅助工具可以选择受支持的运行时；游戏内探针仍须服从已验证的 MelonLoader 兼容组合。不要为了统一版本就自动升级用户的加载器，也不要把程序集引用版本误当成最小兼容版本：本快照 JCuratedVisitors 的 MelonLoader 引用版本为 0.8.0.2580，但它在 0.7.3 日志中实际进入了自己的初始化流程，后续自停用理由是旧组件检查。[G3、G5]</p>
+<h3>5.4 后期可选只读探针</h3>
+<p>一个体量小、可单独停用的 Melon 模组可输出规范化会话 JSON：已注册模组、初始化事件、运行时 API、Harmony owner/目标方法、主菜单可达和有限心跳。严禁把它变成默认远程命令执行器。</p>
+<p>探针失败不能让游戏或管理器无法工作；没有探针仍可用日志和静态元数据。它也不能证明所有玩法都正常，更不能保证捕获先于初始化发生的原生崩溃。</p>
+<hr />
+<h2 id="section-6">6. 包模型与部署模型</h2>
+<h3>6.1 需要的核心对象</h3>
+<p>Installation 表示一个真实游戏安装；Package 表示一个发行包；PackageVersion 表示不可变内容版本；Component 表示 DLL 或内容运行时组件；FileEntry 表示部署路径与生命周期；Profile 表示期望组合；Deployment 表示实际提交；GameSession 表示一次运行；Diagnostic 和 ActionPlan 表示证据与计划。</p>
+<p>身份字段至少保留 manager_id、来源、SHA-256、文件名、程序集简单名/版本、入口类型、Melon 显示名/版本、内容 BundleId、运行时 API、用户别名。模组显示名称不能做唯一键；未知版本要保存原始字符串，不能把 localfix 等后缀强行截掉或按字典序判“最新版”。</p>
+<p>可增设“组件组”将钓鱼物品包、钓鱼人物包、料理扩展呈现为有关联的组合，但关系应注明来自作者清单、明确用户分组还是系统推测。启用依赖闭包时必须把拟变动展示出来；禁用依赖也不能无提示连带删除一串内容。</p>
+<h3>6.2 三类关系图分离</h3>
+<p>第一类是包依赖和能力要求，例如 ItemForge API &gt;=19。第二类是文件所有权和覆盖冲突，例如两个版本部署到同一路径。第三类是运行期代码交互，例如相同 Harmony 目标方法或角色商品引用了另一个内容包的 ItemId。</p>
+<p>三类图可以在一个界面联动，但不能合成“给模组排个序就都解决”的万能图。规则来源应包含作者清单、嵌入 JSON、已验证兼容库、用户指定或启发式推断，并显示置信度及适用指纹。</p>
+<h3>6.3 文件必须区分生命周期</h3>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>示例</th>
+<th>默认策略</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>不可变代码与资源</td>
+<td>主 DLL、纹理、内容清单</td>
+<td>哈希校验、按所有权部署和撤回</td>
+</tr>
+<tr>
+<td>共享配置</td>
+<td>MelonPreferences.cfg</td>
+<td>按适配器和键归属合并，不整文件归属于某个模组</td>
+</tr>
+<tr>
+<td>私有配置</td>
+<td>某模组独立 CFG/JSON</td>
+<td>首装默认不覆盖已有用户值；更新做差异与备份</td>
+</tr>
+<tr>
+<td>可变业务数据</td>
+<td>Mods/BrewingExpansion 下某些文本、UserData 中数据</td>
+<td>未证实前按可变数据保护，不随禁用删除</td>
+</tr>
+<tr>
+<td>日志与诊断产物</td>
+<td>PSPDA.log、MoreUpdateDiagnostics 等</td>
+<td>会话归档、限额保留，不当作安装包内容</td>
+</tr>
+<tr>
+<td>加载器与引导文件</td>
+<td>version.dll、MelonLoader 相关文件</td>
+<td>专门的高权限操作类型，普通包禁止触及</td>
+</tr>
+<tr>
+<td>未归属文件</td>
+<td>首次扫描无法识别的资源</td>
+<td>保持原状、提示确认，不自动清理</td>
+</tr>
+</tbody>
+</table>
+<h3>6.4 管理器私有目录建议</h3>
+<p>以下为拟议设计，不是现有游戏支持的格式：</p>
+<pre><code class="language-text">%LOCALAPPDATA%/&lt;独立产品名&gt;/
+  catalog.sqlite
+  packages/&lt;内容哈希&gt;/...
+  profiles/&lt;profile-id&gt;/profile.json
+  installations/&lt;install-id&gt;/deployment.json
+  transactions/&lt;transaction-id&gt;/journal.json
+  backups/&lt;transaction-id&gt;/...
+  diagnostics/&lt;session-id&gt;/...
+  cache/...
+</code></pre>
+<p>暂存到目标目录所在卷，再执行文件替换；不要依赖跨卷移动具有原子性。首版优先复制部署，不默认采用硬链接或目录联接：游戏写入、包库污染、移动路径和权限问题会使其生命周期更难控制。把恢复安全作为第一阶段目标，再用实测决定优化方式。</p>
+<p>包库保持不可变；游戏运行写入的配置和数据不能反向静默污染包库。导出共享方案默认导出版本、哈希和来源清单；包含第三方二进制时须另外核对授权。</p>
+<h3>6.5 清单示例</h3>
+<p>以下是管理器自行生成的草案格式，并非作者已经提供或 MelonLoader 原生支持。哈希由导入时实际计算；依赖来源引用真实嵌入字段。</p>
+<pre><code class="language-json">{
+  &quot;schemaVersion&quot;: 1,
+  &quot;managerId&quot;: &quot;本机生成的稳定包ID&quot;,
+  &quot;displayName&quot;: &quot;gofishing&quot;,
+  &quot;displayVersion&quot;: &quot;1.3.10&quot;,
+  &quot;components&quot;: [
+    {
+      &quot;path&quot;: &quot;PSItemPack_Gofishing.dll&quot;,
+      &quot;roles&quot;: [&quot;melon-mod&quot;, &quot;itemforge-content&quot;],
+      &quot;sha256&quot;: &quot;导入时计算&quot;,
+      &quot;entryPointSource&quot;: &quot;MelonInfoAttribute&quot;,
+      &quot;manifestSource&quot;: &quot;embedded:ItemForge.items.json&quot;
+    }
+  ],
+  &quot;requires&quot;: [
+    {
+      &quot;capability&quot;: &quot;itemforge.runtime-api&quot;,
+      &quot;minimum&quot;: 19,
+      &quot;source&quot;: &quot;embedded:ItemForge.items.json/RequiredRuntimeApi&quot;
+    }
+  ],
+  &quot;files&quot;: [
+    {
+      &quot;source&quot;: &quot;PSItemPack_Gofishing.dll&quot;,
+      &quot;destination&quot;: &quot;Mods/PSItemPack_Gofishing.dll&quot;,
+      &quot;role&quot;: &quot;immutable&quot;,
+      &quot;onDisable&quot;: &quot;remove-owned-file-only&quot;
+    }
+  ]
+}
+</code></pre>
+<hr />
+<h2 id="section-7">7. 部署、回滚和 Profile：稳定性的核心</h2>
+<h3>7.1 首次接管不要破坏手动安装现状</h3>
+<p>首次选择游戏目录后先扫描、识别、展示不确定项，然后建立当前快照。确认前不移动任何文件。现有文件可以登记为 external / adopted，待用户确认资源归属后再进入包管理，不为了“整理”强行改成每个模组一个子目录。某些二级加载器的搜索方式尚未验证，贸然移动位置可能使内容消失。</p>
+<h3>7.2 事务状态机</h3>
+<pre><code class="language-text">planned → approved → staged → applying → committed
+                              └→ rolling_back → rolled_back
+                                               └→ recovery_required
+</code></pre>
+<p>执行流程包含：解析并锁定真实安装；检查游戏进程与运行中的加载器；核验部署基线；检查冲突、权限、磁盘空间；生成差异；批准；备份和写持久 journal；逐项替换；校验哈希；提交数据库与部署清单；释放锁。失败后按 journal 恢复，若文件占用或磁盘故障使恢复不完整，明确进入 recovery_required，不显示“操作成功”。</p>
+<p>单文件 os.replace 或单目录交换不等于多个 Mods/UserData/UserLibs 路径的一次整体原子事务。文件系统与 SQLite 也不会天然一起提交；需要明确的事务协调、恢复标记和幂等重放。</p>
+<p>RimCrow 已有同目录临时文件、fsync、os.replace 的 JSON 写入工具，以及包安装暂存/替换逻辑，这是值得保留的基础，不应说它没有原子写入保护。但它不能直接替代这里的多路径部署协调器。[R13、R14]</p>
+<h3>7.3 并发、外部修改与运行中操作</h3>
+<p>每个安装实例只能有一个部署事务。多开管理器、游戏直接从 Steam 启动、用户手动替换 DLL，都必须被考虑。不能只禁用前端按钮：后端应重新检查进程、文件身份和基线哈希。将“游戏运行中排队等待”与“经用户同意关闭游戏”分开，不能为了部署默认强杀。</p>
+<p>检测到外部更改时，提供导入更改、保留外部版本或恢复管理版本的差异视图。未知文件一律保留。不能用“清理残留”把不认识的用户数据删掉。</p>
+<p>路径校验需要覆盖相对路径逃逸、大小写折叠冲突、Windows 保留名、重解析点/联接、NTFS 备用数据流和超大压缩包。一个安全解析路径检查不能只做字符串前缀判断。普通模组包的目的路径严格限定在其类型允许的目录。</p>
+<h3>7.4 配置与存档隔离要实事求是</h3>
+<p>首版 Profile 承诺的是模组版本组合与已支持配置的可重复切换。游戏真实存档路径、配置何时落盘、是否读取启动参数、云存档影响，均需 Windows 实测后再承诺存档隔离。RimCrow 的 <code>-savedatafolder</code> 不能照搬。[R7]</p>
+<p>依 app.info 可列出待验证的 Unity 日志候选目录 <code>%USERPROFILE%\AppData\LocalLow\Questing Goose Studio\Probably Stolen\</code>，但压缩包未提供实际 LocalLow 内容，不能把这个推测进一步当成已确认的存档结构。</p>
+<p>一个物理游戏根目录只有一套当前部署。两个 Profile 不能通过同一 Mods 目录同时承诺不同组合；没有经过验证的重定向能力时要加互斥约束。不要默认复制整套游戏来伪造隔离，也不要自动关闭 Steam 云同步。</p>
+<hr />
+<h2 id="section-8">8. AI 和自动化的稳定性、安全性</h2>
+<h3>8.1 自动化等级建议</h3>
+<p>自动完成读取、增量扫描、已知规则诊断、变化提醒和无破坏性健康检查。对于经用户设置允许的、可回滚且不触及存档的操作，可在明确策略下自动执行。升级加载器、变更模组集合、修改业务配置和关闭游戏，应按风险请求确认；不以用户开启“AI 模式”视为永久授权所有操作。</p>
+<p>每次会话按错误指纹聚合，不因同一堆栈重复数千行而数千次请求模型。网络超时、429、提供商不可用时，有限次数重试并说明降级；诊断规则、包管理和启动功能仍可离线工作。预算不足时保留已取得的证据，不伪造已完成全部分析。</p>
+<h3>8.2 证据数据契约</h3>
+<p>诊断至少包含 session_id、log_file_id、行号或字节范围、发生阶段、原始片段哈希、相关组件、规则来源、结论强度、后续恢复证据和可能操作。日志轮转/截断后不要让同一个行号指向不同内容。</p>
+<p>归因分“已观察”“合理推测”“需要复现”。举例：旧组件自停用是明确日志事实；哪个旧 DLL 应移除需要身份映射；是否会破坏既有存档需要迁移证据。AI 不得把这三步压成一个没有依据的“已修复”。</p>
+<h3>8.3 凭据、隐私与提示注入</h3>
+<p>保留 keyring 和脱敏设计，禁止把模型 API Key 写入导出配置、日志或诊断包。RimCrow 已有 keyring 写入失败时拒绝继续的分支，不能为了“兜底”改成静默明文保存。[R15]</p>
+<p>默认只发送任务需要的日志窗口和结构化元数据。完整存档、全目录、私人绝对路径和聊天/令牌信息不自动上传。显示发送范围与提供商。规则库和第三方文档同样是数据，不得提升模型权限。</p>
+<p>工具权限要在后端执行时校验，而不只是从模型看到的工具列表里隐藏。批准的是一个具体、有版本与前置条件的计划，而不是一句模糊的“允许 AI 帮我修复”。</p>
+<h3>8.4 RimCrow 浏览器模式应先整改</h3>
+<p>静态检查发现 BrowserAppServer 监听 127.0.0.1；get_available_methods 枚举大部分公开可调用方法；<code>/api/call/</code> 分支在所检查代码中直接分派调用，未校验会话或 Origin；公共响应头设置 Access-Control-Allow-Origin: *。静态目录边界还使用字符串 startswith 检查。[R16]</p>
+<p>这些组合构成需要优先审查的本地桥接暴露风险，不能把“只监听 localhost”当充分防护。本次没有做浏览器攻击复现，也不把它宣称为经过利用验证的漏洞。</p>
+<p>建议首版关闭浏览器模式，仅提供受控桌面入口；要开放时再加入显式接口白名单、强随机会话凭证、Host/Origin 校验、请求大小上限、路径/操作权限和正常化路径边界验证。外部网页内容与管理器权限桥接分离；桌面 WebView 也不是因此免于安全检查。</p>
+<hr />
+<h2 id="section-9">9. 具体改造落点</h2>
+<p>下表左侧是当前仓库实际文件，右侧为建议的新职责或目标文件；新名称不是已存在实现。</p>
+<table>
+<thead>
+<tr>
+<th>当前位置</th>
+<th>改造落点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>backend/paths/rimworld_layout.py</td>
+<td>games/probably_stolen/layout.py，返回经过验证的安装路径与能力</td>
+</tr>
+<tr>
+<td>backend/scanner/mod_scanner.py、parser_xml.py</td>
+<td>scanning/package_scanner.py、metadata_worker_client.py、content_manifests.py</td>
+</tr>
+<tr>
+<td>backend/managers/mgr_load_order.py</td>
+<td>deployments/planner.py、executor.py、recovery.py</td>
+</tr>
+<tr>
+<td>backend/managers/mgr_profile.py</td>
+<td>profiles/service.py，拆开模组配置与尚未验证的存档隔离</td>
+</tr>
+<tr>
+<td>backend/managers/mgr_game_logs.py</td>
+<td>diagnostics/melon_parser.py、session_index.py、rules/</td>
+</tr>
+<tr>
+<td>backend/ai/ai_tools.py</td>
+<td>替换为安装/部署/组件/配置/日志工具，并保留参数验证模式</td>
+</tr>
+<tr>
+<td>backend/ai/def_entries.py</td>
+<td>Probably Stolen 提示词、诊断阶段与权限作用域</td>
+</tr>
+<tr>
+<td>backend/ai/def_actions.py</td>
+<td>引入 PLAN_DEPLOYMENT、PLAN_CONFIG_EDIT、RESTORE_SNAPSHOT 等受控动作</td>
+</tr>
+<tr>
+<td>frontend 的 aiActionRuntime.js</td>
+<td>从直接修改业务状态转为提交/批准/显示 OperationPlan</td>
+</tr>
+<tr>
+<td>frontend 的 modStore.js</td>
+<td>拆分 catalog、profile-draft、deployment、runtime-session 状态</td>
+</tr>
+<tr>
+<td>backend/api.py</td>
+<td>不继续扩大总入口，逐步变成应用服务的薄适配器</td>
+</tr>
+<tr>
+<td>backend/settings.py 及更新模块</td>
+<td>新 AppData、数据库、keyring 服务名、更新源和产品标识</td>
+</tr>
+</tbody>
+</table>
+<p>重命名时必须切断旧产品的数据迁移和更新通道。不能让新软件自动导入 RimCrow 数据库或被旧更新器覆盖回 RimCrow。原项目中的第三方子模块、构建依赖和锁文件需要在可联网的干净构建环境完成复现；首版不使用的 Steam 工坊能力应真正从启动依赖中隔离，而不是只隐藏按钮。</p>
+<p>建议保留一个窄的 GameAdapter 接口，以便分离路径、扫描和会话解释；不要第一版就做一个复杂的“任意 Unity 游戏万能管理框架”。先让 Probably Stolen 的真实样本闭环跑通。</p>
+<hr />
+<h2 id="section-10">10. 功能优先级与实施阶段</h2>
+<h3>阶段 A：验证原型</h3>
+<p>目标是把 45 个 DLL 全部登记，识别无 MelonInfo 的内容包，展示真实日志状态，并在临时测试目录验证部署恢复。同步完成旧代码依赖与窗口启动复现，以及实际 Windows 的路径/配置/文件占用验证。此阶段不接自动写入 AI，也不以替换 logo 作为主要成果。</p>
+<p>验收门槛：不会误清理文件、不会误报 45/43 数量差异、不依赖游戏目录可写才能浏览、不把标准 TOML 拒绝等同配置损坏。</p>
+<h3>阶段 B：可靠 MVP</h3>
+<p>包括导入 DLL/目录/归档、发行包与组件归属、当前组合、启停、差异预览、复制部署、回滚、共享配置保护、游戏进程检测、增量日志与离线规则诊断。配置隔离先覆盖明确支持的文件/字段。</p>
+<p>验收门槛：故障注入恢复、多实例锁、外部变更、中文路径与归档安全测试通过；Windows 实机至少完成当前基线组合的启动与恢复验证。</p>
+<h3>阶段 C：AI 增强</h3>
+<p>接入已保留的模型会话和工具框架，新增 Probably Stolen 证据工具、分阶段诊断、计划卡片、风险解释、批准和验证状态。先做到“高质量解释 + 可撤销操作”，不追求无人监督全自动乱试。</p>
+<p>验收门槛：对本文真实案例给出正确分级；模型离线、超时、重复调用、恶意日志指令均不影响基础管理；未批准计划不能改变磁盘。</p>
+<h3>阶段 D：生态与高级诊断</h3>
+<p>可选运行探针、内容引用图、支持作者提供清单、来源/更新检查、已验证兼容知识库、受控隔离试验、分享方案。安装更新必须展示来源、版本和哈希差异，不默认构建并执行任意 Git 仓库代码。</p>
+<p>工程规模判断：这是中等偏大的领域迁移，不是几处 UI 改名。作为立项参考，在已有熟悉 Python/Vue 的开发者、适量 C# 能力和 Windows 测试资源的条件下，A–C 可先按约 <strong>10–16 人周</strong>粗估；高级探针、联网生态与完整存档隔离另计。这个数字不是工期承诺，需阶段 A 后依据接口耦合和实际测试成本重估。不要把人周直接当作两名开发者可以机械折半的日历周期。</p>
+<hr />
+<h2 id="section-11">11. 建议验收矩阵</h2>
+<table>
+<thead>
+<tr>
+<th>编号</th>
+<th>验收场景</th>
+<th>正确结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A01</td>
+<td>本样本 45 DLL、44 MelonInfo、43 loader 注册</td>
+<td>分维度显示，不判两个剩余文件必然损坏</td>
+</tr>
+<tr>
+<td>A02</td>
+<td>无 MelonInfo 的三木内容包</td>
+<td>识别 ItemForge 清单及 API 5，关联日志 21 配置</td>
+</tr>
+<tr>
+<td>A03</td>
+<td>静态存在的调试物品清单</td>
+<td>未观察到注册时显示未验证，不统计为已生效</td>
+</tr>
+<tr>
+<td>A04</td>
+<td>同程序集简单名的鼠群模组</td>
+<td>提示身份候选冲突，保留两份身份与哈希</td>
+</tr>
+<tr>
+<td>A05</td>
+<td>MelonPriority 为 int.MinValue</td>
+<td>元数据不丢失，不通过重命名 DLL 伪造排序</td>
+</tr>
+<tr>
+<td>A06</td>
+<td>对 API 19 内容包模拟 API 18 环境</td>
+<td>阻止或明确警告不满足能力要求，不比较显示版号代替</td>
+</tr>
+<tr>
+<td>A07</td>
+<td>.NET 初始化失败后恢复</td>
+<td>标记早期错误已恢复，不继续输出无法启动结论</td>
+</tr>
+<tr>
+<td>A08</td>
+<td>21 潜在、0 确认 Harmony 冲突</td>
+<td>保留来源与等级，不自动停用所有相关模组</td>
+</tr>
+<tr>
+<td>A09</td>
+<td>兼容接管型 INACTIVE</td>
+<td>显示兼容状态，而不是重装建议</td>
+</tr>
+<tr>
+<td>A10</td>
+<td>旧组件检查要求新存档</td>
+<td>展示存档影响，不能自动删档或改写旧存档</td>
+</tr>
+<tr>
+<td>A11</td>
+<td>MelonPreferences.cfg 中文裸表名</td>
+<td>不因通用解析失败重写文件，保留原文与共享字段</td>
+</tr>
+<tr>
+<td>A12</td>
+<td>同扩展名不同格式的 PSWallpaper.cfg</td>
+<td>使用专门适配或文本模式，不误纠错</td>
+</tr>
+<tr>
+<td>A13</td>
+<td>部署写入中断、进程崩溃、磁盘满</td>
+<td>journal 支持恢复；恢复未完成时不报告成功</td>
+</tr>
+<tr>
+<td>A14</td>
+<td>游戏运行、Steam 外部启动、多管理器并发</td>
+<td>后端阻止不安全部署，单安装互斥</td>
+</tr>
+<tr>
+<td>A15</td>
+<td>外部手动改 DLL 或配置</td>
+<td>检出基线变化，计划作废或重新预览，不静默覆盖</td>
+</tr>
+<tr>
+<td>A16</td>
+<td>不归属文件、共享资源和可变业务数据</td>
+<td>禁用/卸载不删除它们</td>
+</tr>
+<tr>
+<td>A17</td>
+<td>../../、绝对路径、链接、大小写重复、解压炸弹</td>
+<td>拒绝危险条目，限制资源消耗</td>
+</tr>
+<tr>
+<td>A18</td>
+<td>日志空文件、轮转、截断、乱码与重复刷屏</td>
+<td>不崩溃，定位不漂移，AI 请求受限</td>
+</tr>
+<tr>
+<td>A19</td>
+<td>网络断开、模型错误、密钥缺失</td>
+<td>本地管理仍可用，明确 AI 未完成</td>
+</tr>
+<tr>
+<td>A20</td>
+<td>日志中伪造系统指令或恶意路径</td>
+<td>仅作为文本，不能越权调用工具</td>
+</tr>
+<tr>
+<td>A21</td>
+<td>批准后源状态发生变化</td>
+<td>拒绝执行过期计划，不沿用旧批准</td>
+</tr>
+<tr>
+<td>A22</td>
+<td>新软件更新/迁移</td>
+<td>不读取或覆盖原 RimCrow 用户数据、凭据与更新通道</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="section-12">12. 实际执行的检查结果</h2>
+<table>
+<thead>
+<tr>
+<th>检查</th>
+<th>结果</th>
+<th>可以说明什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Python compileall backend main.py</td>
+<td>通过</td>
+<td>检查到的 Python 文件能完成语法编译，不证明依赖或业务行为正常</td>
+</tr>
+<tr>
+<td>node frontend/tests/modIdentity.test.mjs</td>
+<td>通过</td>
+<td>该独立前端断言脚本通过，不代表全前端测试通过</td>
+</tr>
+<tr>
+<td>pytest tests/test_ai_assistant_runtime.py</td>
+<td>收集失败，缺少 vdf</td>
+<td>环境依赖未满足，没有执行到业务断言；不是已证实的 Agent 逻辑失败</td>
+</tr>
+<tr>
+<td>五个 CFG 标准 TOML 读取</td>
+<td>三个通过、两个拒绝</td>
+<td>证明需要按实际格式适配，不能用扩展名推断语法</td>
+</tr>
+<tr>
+<td>Windows GUI、游戏启动、完整安装包构建</td>
+<td>未执行</td>
+<td>仍是交付前必须完成的验证项</td>
+</tr>
+</tbody>
+</table>
+<p>原始输出和命令边界见 <code>test_results/</code> 与 T1。源码中存在测试、错误处理和恢复设计是积极信号，但不能凭这些信号直接把“非常成熟”当成已经完成跨游戏可靠性验证的事实。</p>
+<hr />
+<h2 id="section-13">13. 开源与分发边界</h2>
+<p>上传提交采用 MIT License，明确允许使用、修改、合并、发布、分发、再许可与销售，要求保留版权和许可声明。因此从项目自身许可证看，建立独立改造分支是可行路线。[R18、O1]</p>
+<p>发布前仍需分别核对依赖、图标素材、字体、Steam 相关组件、游戏本体和第三方模组的授权。RimCrow 的 MIT 并不能替第三方资产授予权利。新产品应更换名称、应用标识和更新通道，并说明基于 RimCrow，不制造官方关联印象。管理器安装包不要夹带游戏本体或无授权的模组合集。本报告附件也不包含游戏或模组 DLL、字体及游戏资源。</p>
+<h2 id="section-14">14. 最终建议</h2>
+<p><strong>选择“独立分支 + 选择性复用 + 游戏核心替换”。</strong></p>
+<p>第一优先级不是 AI 模型更聪明，而是事实识别准确：能区分代码模组与内容包，知道哪些文件属于谁，知道日志属于哪次运行，知道修改能不能撤回。第二优先级是把这些能力组织成可重复的部署与诊断闭环。第三优先级才是让 AI 更主动地运用这些确定性能力。</p>
+<p>采用这条路线，既能保留你喜欢的 RimCrow 使用体验，也不会继承与 Probably Stolen 不相符的 XML 排序、存档重定向和目录禁用假设。最终应交付的是一个可解释、可恢复、离线也可靠的管理器，而不是只能演示对话和移动 DLL 的界面。</p>
+<hr />
+<h2 id="section-15">公开参考资料（核验于 2026-09-24）</h2>
+<ul>
+<li>O1：RimCrow，上传快照对应提交的 MIT LICENSE。<code>https://github.com/Inky-Feather/RimCrow/blob/a7e875112a175a914bb4706a82589d96d62adc70/LICENSE</code></li>
+<li>O2：Harmony 官方 Priorities。<code>https://harmony.pardeike.net/v2/articles/priorities.html</code></li>
+<li>O3：Microsoft .NET Support Policy，页面更新日期 2026-09-08；.NET 6 结束支持 2024-11-12。<code>https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core</code></li>
+<li>O4：Microsoft System.Reflection.Metadata，包含不可信 PE/元数据读取警告。<code>https://learn.microsoft.com/en-us/dotnet/api/system.reflection.metadata?view=net-10.0</code></li>
+<li>O5：MelonLoader 0.7.3 的 MelonPriorityAttribute 官方源码；优先级字段及默认 0。<code>https://raw.githubusercontent.com/LavaGang/MelonLoader/v0.7.3/MelonLoader/Attributes/MelonPriorityAttribute.cs</code></li>
+</ul>
+<details id="audit-evidence" class="appendix"><summary>展开：源码、日志与测试证据附录</summary><h1>Probably Stolen / RimCrow 本地证据附录</h1>
+<p>日期：2026-09-24。只对应本次上传快照。编号 G 为游戏文件，R 为 RimCrow 源码，T 为实际执行的检查。
+原始 .7z 未被文件检索服务解析；本附录来自已挂载文件的本地解包和只读分析。行号从文件第一行算起。<code>&lt;GAME_ROOT&gt;</code> 替代原日志中的私人安装路径。DLL 仅解析 PE/CLI 元数据和嵌入 JSON，不加载或执行。</p>
+<h2>输入与核验摘要</h2>
+<pre><code class="language-json">{
+  &quot;analysis_date&quot;: &quot;2026-09-24&quot;,
+  &quot;scope&quot;: &quot;上传压缩包静态审阅；没有运行 Windows 游戏、DLL 或桌面 GUI；没有完整构建验证。&quot;,
+  &quot;archives&quot;: {
+    &quot;RimCrow.7z&quot;: {
+      &quot;size&quot;: 28875138,
+      &quot;sha256&quot;: &quot;2234c490cb07c62043796a309ee64e891601dae5f094822fb1a8e8584f00c67d&quot;
+    },
+    &quot;Probably Stolen Demo.7z&quot;: {
+      &quot;size&quot;: 321244241,
+      &quot;sha256&quot;: &quot;dc4c2c446b25fe2503e75327289e0feab44c6bfa9f53f620dde12d993e947e75&quot;
+    }
+  },
+  &quot;rimcrow_commit&quot;: &quot;a7e875112a175a914bb4706a82589d96d62adc70&quot;,
+  &quot;rimcrow_substantive_diff_ignoring_eol&quot;: &quot;&quot;,
+  &quot;root_dll_count&quot;: 45,
+  &quot;meloninfo_count&quot;: 44,
+  &quot;dll_hashes_present_in_log&quot;: 43,
+  &quot;loader_log_relative_path&quot;: &quot;MelonLoader/Logs/26-9-24_14-15-5.log&quot;,
+  &quot;loader_log_lines&quot;: 1049,
+  &quot;loader_log_sha256&quot;: &quot;1eb5a7730f09c33342d18521dd7c50b09ca80c56fe3cd50e4a36cb7d3ec53f1a&quot;,
+  &quot;tests&quot;: {
+    &quot;python_compileall&quot;: &quot;passed syntax compilation only&quot;,
+    &quot;frontend_modIdentity_node&quot;: &quot;passed this one assertion script&quot;,
+    &quot;ai_assistant_pytest&quot;: &quot;collection failed: missing vdf; no business assertions executed&quot;,
+    &quot;windows_gui_game_full_build&quot;: &quot;not executed&quot;
+  },
+  &quot;standard_config_parse_probe&quot;: [
+    {
+      &quot;file&quot;: &quot;Loader.cfg&quot;,
+      &quot;standard_tomllib&quot;: &quot;pass&quot;,
+      &quot;top_level_keys&quot;: 5
+    },
+    {
+      &quot;file&quot;: &quot;MelonPreferences.cfg&quot;,
+      &quot;standard_tomllib&quot;: &quot;reject&quot;,
+      &quot;error&quot;: &quot;Invalid initial character for a key part (at line 28, column 2)&quot;
+    },
+    {
+      &quot;file&quot;: &quot;PSMarketRequests.cfg&quot;,
+      &quot;standard_tomllib&quot;: &quot;pass&quot;,
+      &quot;top_level_keys&quot;: 26
+    },
+    {
+      &quot;file&quot;: &quot;PSProcurement.cfg&quot;,
+      &quot;standard_tomllib&quot;: &quot;pass&quot;,
+      &quot;top_level_keys&quot;: 34
+    },
+    {
+      &quot;file&quot;: &quot;PSWallpaper.cfg&quot;,
+      &quot;standard_tomllib&quot;: &quot;reject&quot;,
+      &quot;error&quot;: &quot;Invalid value (at line 4, column 15)&quot;
+    }
+  ]
+}
+</code></pre>
+<h2>G1｜游戏身份与实际加载环境</h2>
+<p>来源：<code>Probably Stolen_Data/app.info</code>；SHA-256：<code>21dca9b2e18762bacd225e45eaad29e8031ddfadbaa29954c00095a71516f8c3</code>。</p>
+<h3>L1–L2</h3>
+<pre><code class="language-text">L1: Questing Goose Studio
+L2: Probably Stolen
+</code></pre>
+<h2>G2｜加载环境、运行库恢复、内容包与注册数量</h2>
+<p>来源：<code>MelonLoader/Logs/26-9-24_14-15-5.log</code>；SHA-256：<code>1eb5a7730f09c33342d18521dd7c50b09ca80c56fe3cd50e4a36cb7d3ec53f1a</code>。</p>
+<h3>L1–L4</h3>
+<pre><code class="language-text">L1: [14:15:09.533] [MelonLoader.Bootstrap] Using HostFXR Path: C:\Program Files\dotnet\host\fxr\10.0.11\hostfxr.dll
+L2: [14:15:09.535] [MelonLoader.Bootstrap] Using .NET runtime: 'C:\Program Files\dotnet\host\fxr\10.0.11\hostfxr.dll'
+L3: [14:15:09.544] [ERROR] [MelonLoader.Bootstrap] Failed to initialize a .NET domain
+L4: [14:15:09.544] [MelonLoader.Bootstrap] Downloading the .NET Runtime Installer from: https://aka.ms/dotnet/6.0/dotnet-runtime-win-x64.exe
+</code></pre>
+<h3>L105–L138</h3>
+<pre><code class="language-text">L105: [14:15:11.789] [MelonLoader.Bootstrap] 100%
+L106: [14:15:11.789] [MelonLoader.Bootstrap] Running the .NET Runtime Installer...
+L107: [14:15:26.226] [MelonLoader.Bootstrap] Using HostFXR Path: C:\Program Files\dotnet\host\fxr\10.0.11\hostfxr.dll
+L108: [14:15:26.226] [MelonLoader.Bootstrap] Using .NET runtime: 'C:\Program Files\dotnet\host\fxr\10.0.11\hostfxr.dll'
+L109: 
+L110: [14:15:27.052] ------------------------------
+L111: [14:15:27.053] MelonLoader v0.7.3 Open-Beta
+L112: [14:15:27.054] OS: Windows 11
+L113: [14:15:27.055] Hash Code: BDD43DC0F3893C208C95389B863AB61C967AE14204DA0DD8051647E754C8709B
+L114: [14:15:27.055] ------------------------------
+L115: [14:15:27.055] Game Type: Il2cpp
+L116: [14:15:27.055] Game Arch: x64
+L117: [14:15:27.055] ------------------------------
+L118: [14:15:27.055] Command-Line: 
+L119: [14:15:27.055] ------------------------------
+L120: [14:15:27.055] Core::BasePath = &lt;GAME_ROOT&gt;
+L121: [14:15:27.056] Game::BasePath = &lt;GAME_ROOT&gt;
+L122: [14:15:27.056] Game::DataPath = &lt;GAME_ROOT&gt;\Probably Stolen_Data
+L123: [14:15:27.056] Game::ApplicationPath = &lt;GAME_ROOT&gt;\Probably Stolen.exe
+L124: [14:15:27.056] Runtime Type: net6
+L125: [14:15:27.609] ------------------------------
+L126: [14:15:27.609] Game Name: Probably Stolen
+L127: [14:15:27.610] Game Developer: Questing Goose Studio
+L128: [14:15:27.611] Unity Version: 2021.3.45f2
+L129: [14:15:27.612] Game Version: 0.46D
+L130: [14:15:27.612] ------------------------------
+L131: 
+L132: [14:15:28.470] Preferences Loaded!
+L133: 
+L134: [14:15:28.492] Loading UserLibs...
+L135: [14:15:28.494] 0 UserLibs loaded.
+L136: 
+L137: [14:15:28.494] Loading Plugins...
+L138: [14:15:28.498] 0 Plugins loaded.
+</code></pre>
+<h3>L552–L555</h3>
+<pre><code class="language-text">L552: [14:16:09.786] [物品工坊] 已读取物品包：第七席与绯色来客 by 私人创作（12 个配置）
+L553: [14:16:09.798] [物品工坊] 已读取物品包：gofishing by ALR（45 个配置）
+L554: [14:16:09.799] [物品工坊] 已读取物品包：E1z的更多食物 by E1z（22 个配置）
+L555: [14:16:09.900] [物品工坊] 已读取物品包：食物奢侈品拓展包 by 三木（21 个配置）
+</code></pre>
+<h3>L705–L710</h3>
+<pre><code class="language-text">L705: [14:16:10.375] by ModDesign
+L706: [14:16:10.375] Assembly: WineAppraisalMaster.dll
+L707: [14:16:10.375] ------------------------------
+L708: [14:16:10.375] ------------------------------
+L709: [14:16:10.376] 43 Mods loaded.
+L710: 
+</code></pre>
+<h3>L739–L744</h3>
+<pre><code class="language-text">L739: [14:16:28.991] [Brewing_Expansion] Brewing Expansion Mod loaded!
+L740: [14:16:29.121] [Brewing Expansion] [BE] 已加载 117 张 PNG（外部 0 + DLL 110）
+L741: [14:16:29.600] [CharacterForge Runtime] [人物工坊] 已读取人物包：第七席与绯色来客 by 私人创作（3 人）
+L742: [14:16:29.601] [CharacterForge Runtime] [人物工坊] 已读取人物包：钓鱼商人 by ALR（2 人）
+L743: [14:16:29.687] [人物工坊] Runtime API 1 已加载 5 个人物。
+L744: [14:16:29.702] [CustomerCreditBoost] 已加载。展示柜加成(基础价值)：对应物品基础价值每 100 信用点 +5%，仅对被吸引顾客生效
+</code></pre>
+<h3>L782–L787</h3>
+<pre><code class="language-text">L782: [14:16:30.456] [ItemForge Runtime] [物品工坊] 注册目录：ContainerItemDirectory
+L783: [14:16:30.471] [ItemForge Runtime] [物品工坊] 注册目录：WineDirectory
+L784: [14:16:30.484] [ItemForge Runtime] [物品工坊] 注册目录：FoodItemDirectory
+L785: [14:16:30.498] [ItemForge Runtime] [物品工坊] 注册目录：MaterialDirectory
+L786: [14:16:31.072] [物品工坊] Runtime API 19 已加载 100 个物品；全局补丁仅安装一次。
+L787: [14:16:31.650] [More Device Upgrades] [More Update 修正] 已启用定向类型查找；诊断文件：&lt;GAME_ROOT&gt;\UserData\MoreUpdateDiagnostics\MoreUpdate-20260924-141631-073-29160-e56b3ede024f4104ad13f6bc8f7717bd.log
+</code></pre>
+<h2>G3｜当前真实诊断案例</h2>
+<p>来源：<code>MelonLoader/Logs/26-9-24_14-15-5.log</code>；SHA-256：<code>1eb5a7730f09c33342d18521dd7c50b09ca80c56fe3cd50e4a36cb7d3ec53f1a</code>。</p>
+<h3>L954–L958</h3>
+<pre><code class="language-text">L954: [14:16:39.356] [XIAOWO-UnlimitedBayExpansion] Unlimited bay expansions and weekly Wednesday Jackson visits enabled.
+L955: [14:16:39.426] [XIAOWO-WRDUnlock] Demo network selection and missing purchase actions patched.
+L956: [14:16:39.479] [XIAOWO-WeeklyVisitors] Weekly retired chemist, retired gunsmith, and retired junker visits enabled.
+L957: [14:16:39.479] [烛印会与失灯区] 烛印会与失灯区 1.0.9：支持1.0存档继续游玩；首次从旧开发版升级请新建存档。F7 打开冒险日志。
+L958: [14:16:39.653] [科学养鼠] SciRat patched PlayerStore.EndNight
+</code></pre>
+<h3>L975–L980</h3>
+<pre><code class="language-text">L975: [14:16:40.036] [第七席与绯色来客] 版本 0.3.3：机器人新来访资金保底 2000，保留启动兼容修正与诊断。
+L976: [14:16:40.037] [第七席与绯色来客] 启动诊断文件：&lt;GAME_ROOT&gt;\UserData\CuratedVisitors.StartupTrace-20260924-141639-933-29160-ee61a20e09a6451ea7db5976249b5456.log
+L977: [14:16:40.038] [第七席与绯色来客·人物资源] 人物资源已启用：赫礼、送货犬、绯罗；由人物工坊读取配置与贴图。
+L978: [14:16:40.490] [钓鱼料理扩展] [钓鱼料理] 前置齐备，料理功能已启用。
+L979: [14:16:40.491] [钓鱼料理] v1.0.0 已加载；等待物品工坊和去钓鱼！物品包。
+L980: [14:16:41.538] [鼠布林&amp;假酒供应商mod] 鼠布林&amp;假酒供应商mod v2.0.0 已加载。
+</code></pre>
+<h3>L1013–L1019</h3>
+<pre><code class="language-text">L1013: [14:16:46.277] [WaterScanTooltip] patches: 5
+L1014: [14:16:46.279] [XIAOWO-PrecisionBayExpansion] INACTIVE: XIAOWO-TradePerks detected; expansion remains entirely controlled by the main mod.
+L1015: [14:16:46.822] [烛印会与失灯区] [烛印会] 来访参数=正式；战利品概率独立保留，无比例兑换。
+L1016: [14:16:46.824] [ERROR] [烛印会与失灯区] [第七席] 本次运行已停用本 MOD，未安装游戏补丁。检测到本MOD旧版两个DLL。请退出后移走旧版，再用新存档启动0.5.0；其他作者MOD保持原样。
+L1017: [14:16:54.099] [第七席与绯色来客] 前置与内容包检查通过，游戏补丁已启用。启动诊断已完成。
+L1018: [14:16:54.269] [XIAOWO-TradePerks] Community panel attached to the main menu UI layer.
+L1019: [14:16:54.270] [XIAOWO-TradePerks] Original main-menu modding button enabled for MelonLoader mod management.
+</code></pre>
+<h3>L1025–L1031</h3>
+<pre><code class="language-text">L1025: [14:16:54.418] [XIAOWO-PrecisionBayExpansion] Main-menu expansion title visible; shared promotion=True
+L1026: [14:16:57.179] [XIAOWO-TradePerks] MOD 兼容总线已自动去重 62 个完全相同的 Harmony 补丁，来源：CharacterForgeRuntime, DialogueSpeed, ItemForgeRuntime, NetworkUnlockEffective, PSWarehouse, WaterTower。
+L1027: [14:16:59.451] [XIAOWO-TradePerks] MOD 兼容性检测：共享方法=46，潜在冲突=21，确认冲突=0，停用模块=0；brokerAliases=0, itemConflicts=0, unresolvedItems=0, deduplicatedPatches=62, dedupeFailures=0, loadedMods=43。
+L1028: [14:16:59.452] [WARNING] [XIAOWO-TradePerks] 可能存在 MOD 冲突：目标方法 DirectoryMaster.Item 可能被 MOD JacksonPerks, XIAOWOKitchenBusiness 的前置补丁跳过原方法
+L1029: [14:16:59.539] [WARNING] [XIAOWO-TradePerks] 可能存在 MOD 冲突：目标方法 GameItem.CanTarget 可能被 MOD ItemForgeRuntime, JacksonPerks, PSItemPack_CuratedVisitors, WineAppraisalMaster 的前置补丁跳过原方法
+L1030: [14:16:59.539] [WARNING] [XIAOWO-TradePerks] 可能存在 MOD 冲突：目标方法 GameItem.CanTarget 的返回值也会被 MOD ItemForgeRuntime, JacksonPerks, PSItemPack_CuratedVisitors, WineAppraisalMaster 修改
+L1031: [14:16:59.539] [WARNING] [XIAOWO-TradePerks] 可能存在 MOD 冲突：目标方法 GameItem.GetNegociatedValue 的返回值也会被 MOD JacksonPerks, PSItemPack_CuratedVisitors, XIAOWOKitchenBusiness 修改
+</code></pre>
+<h3>L1049–L1049</h3>
+<pre><code class="language-text">L1049: [14:19:44.360] [WARNING] [ClickToAdvance] DialogUIManager.Instance 为 null
+</code></pre>
+<h2>G4｜同次启动的组件身份、版本文字与自停用</h2>
+<p>来源：<code>UserData/CuratedVisitors.StartupTrace-20260924-141646-280-29160-ded15b696bf34d53bd43b2c02d80c9d6.log</code>；SHA-256：<code>2c862f0ee85f33f353666d232425e1a9fea3b5f94b25d7543fc77a0c1c6afc42</code>。</p>
+<h3>L1–L2</h3>
+<pre><code class="language-text">L1: 00001 2026-09-24T14:16:46.3466123+08:00 SESSION START 0.5.0; fresh save; independent ledger, equipment, bosses and story; no workshop dependency
+L2: 00002 2026-09-24T14:16:46.3589579+08:00 ENV .NET 6.0.36; Microsoft Windows 10.0.26200; X64
+</code></pre>
+<h3>L73–L86</h3>
+<pre><code class="language-text">L73: 00073 2026-09-24T14:16:46.5090386+08:00 ASSEMBLY PSItemPack_Gofishing, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null; MVID=d54b5838-bac2-4dde-b7bd-b2497085dd4f
+L74: 00074 2026-09-24T14:16:46.5094854+08:00 SHA256 PSItemPack_Gofishing CCF46FE925F070A1ADC24C85018B1C9049C710FB6CD56DEABBCB9CBA011EE152
+L75: 00075 2026-09-24T14:16:46.5095915+08:00 ASSEMBLY JCuratedVisitors, Version=1.0.9.0, Culture=neutral, PublicKeyToken=null; MVID=90b1e0bd-6618-433e-a636-0a6e5c3deac5
+L76: 00076 2026-09-24T14:16:46.5493989+08:00 SHA256 JCuratedVisitors 585D9F84649A85DB5AB1214029811251563F392EBEC5BF63F7A7FD3305D8CDD0
+L77: 00077 2026-09-24T14:16:46.6241640+08:00 ASSEMBLY SciRat, Version=1.1.0.0, Culture=neutral, PublicKeyToken=null; MVID=00730740-6c71-4261-9c89-b81f22493f4f
+L78: 00078 2026-09-24T14:16:46.6254988+08:00 SHA256 SciRat 0DE62C4D0DBD734AE2FAE5AACC0D9B293C11A8FBA1D1B4A33D7E517DDA4DEE1A
+L79: 00079 2026-09-24T14:16:46.6256437+08:00 ASSEMBLY PSItemPack_CuratedVisitors, Version=0.3.3.0, Culture=neutral, PublicKeyToken=null; MVID=fe712005-e214-4bd0-aab8-f300cb5c4efb
+L80: 00080 2026-09-24T14:16:46.6262657+08:00 SHA256 PSItemPack_CuratedVisitors 75FCB11415A0C939DA0C47BE1B123937299F7C8D50BF33840F08E0D94D04E126
+L81: 00081 2026-09-24T14:16:46.6263753+08:00 ASSEMBLY PSCharacterPack_CuratedVisitors, Version=0.3.3.0, Culture=neutral, PublicKeyToken=null; MVID=9f1ea69e-bd1e-403f-8aea-43d9415f0609
+L82: 00082 2026-09-24T14:16:46.6267079+08:00 SHA256 PSCharacterPack_CuratedVisitors 6209B8F7C2AA761CF5CD3E86629ABB83F38DFA5FE73D594137A8E987823C18E3
+L83: 00083 2026-09-24T14:16:46.6268133+08:00 ASSEMBLY PSCharacterPack_Fishingfriends, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null; MVID=eda4d1ff-8d1f-4f05-bb33-5a2b8d683bc8
+L84: 00084 2026-09-24T14:16:46.6270794+08:00 SHA256 PSCharacterPack_Fishingfriends 903902F8A9CED57FADC9EA6A6BEB1B52ACC54083169EB16191AFFDB0D9FEA043
+L85: 00085 2026-09-24T14:16:46.6271900+08:00 ASSEMBLY PSFishingCuisineExpansion, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null; MVID=e88459f9-67d0-4ef3-b798-f942bfe01d5f
+L86: 00086 2026-09-24T14:16:46.6275150+08:00 SHA256 PSFishingCuisineExpansion 6F4DAF8DC153827DE84CB91E9C197442E009E2EEB51F061D57B468A619078A34
+</code></pre>
+<h3>L108–L108</h3>
+<pre><code class="language-text">L108: 00108 2026-09-24T14:16:46.8247813+08:00 STARTUP DISABLED
+</code></pre>
+<h2>G5｜DLL 静态元数据与嵌入清单</h2>
+<p>完整 45 项见 <code>mod_inventory.json</code>；资源清单摘要见 <code>embedded_manifest_summary.json</code>。下面列出影响设计的条目。</p>
+<pre><code class="language-json">{
+  &quot;file&quot;: &quot;JCuratedVisitors.dll&quot;,
+  &quot;sha256&quot;: &quot;585d9f84649a85db5ab1214029811251563f392ebec5bf63f7a7fd3305d8cdd0&quot;,
+  &quot;assembly&quot;: &quot;JCuratedVisitors&quot;,
+  &quot;assembly_version&quot;: &quot;1.0.9.0&quot;,
+  &quot;attributes&quot;: [
+    {
+      &quot;type&quot;: &quot;MelonLoader.MelonInfoAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;CuratedVisitors.Core&quot;,
+        &quot;烛印会与失灯区&quot;,
+        &quot;1.0.9&quot;,
+        &quot;私人创作&quot;,
+        null
+      ]
+    },
+    {
+      &quot;type&quot;: &quot;MelonLoader.MelonGameAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;Questing Goose Studio&quot;,
+        &quot;Probably Stolen&quot;
+      ]
+    },
+    {
+      &quot;type&quot;: &quot;System.Runtime.Versioning.TargetFrameworkAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;.NETCoreApp,Version=v6.0&quot;
+      ]
+    }
+  ],
+  &quot;embedded_resource_count&quot;: 394,
+  &quot;embedded_manifest_resources&quot;: [],
+  &quot;hash_mentioned_in_bundled_loader_log&quot;: true,
+  &quot;loader_assembly_refs&quot;: [
+    {
+      &quot;name&quot;: &quot;MelonLoader&quot;,
+      &quot;version&quot;: &quot;0.8.0.2580&quot;
+    }
+  ]
+}
+</code></pre>
+<pre><code class="language-json">{
+  &quot;file&quot;: &quot;KitchenCrashTrace.dll&quot;,
+  &quot;sha256&quot;: &quot;72f48dc697591d4c0241ca69efb4a9da32050dab2ea4fd3daed2300b7ff2d09f&quot;,
+  &quot;assembly&quot;: &quot;KitchenCrashTrace&quot;,
+  &quot;assembly_version&quot;: &quot;0.3.2.0&quot;,
+  &quot;attributes&quot;: [
+    {
+      &quot;type&quot;: &quot;MelonLoader.MelonInfoAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;KitchenCrashTrace.Core&quot;,
+        &quot;Kitchen Crash Trace&quot;,
+        &quot;0.3.2&quot;,
+        &quot;Local diagnostics&quot;,
+        null
+      ]
+    },
+    {
+      &quot;type&quot;: &quot;MelonLoader.MelonGameAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;Questing Goose Studio&quot;,
+        &quot;Probably Stolen&quot;
+      ]
+    },
+    {
+      &quot;type&quot;: &quot;MelonLoader.MelonPriorityAttribute&quot;,
+      &quot;value&quot;: -2147483648
+    },
+    {
+      &quot;type&quot;: &quot;System.Runtime.Versioning.TargetFrameworkAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;.NETCoreApp,Version=v6.0&quot;
+      ]
+    }
+  ],
+  &quot;embedded_resource_count&quot;: 0,
+  &quot;embedded_manifest_resources&quot;: [],
+  &quot;hash_mentioned_in_bundled_loader_log&quot;: true,
+  &quot;loader_assembly_refs&quot;: [
+    {
+      &quot;name&quot;: &quot;MelonLoader&quot;,
+      &quot;version&quot;: &quot;0.7.3.0&quot;
+    }
+  ]
+}
+</code></pre>
+<pre><code class="language-json">{
+  &quot;file&quot;: &quot;PSCharacterPack_Fishingfriends.dll&quot;,
+  &quot;sha256&quot;: &quot;903902f8a9ced57fadc9ea6a6beb1b52acc54083169eb16191affdb0d9fea043&quot;,
+  &quot;assembly&quot;: &quot;PSCharacterPack_Fishingfriends&quot;,
+  &quot;assembly_version&quot;: &quot;1.0.0.0&quot;,
+  &quot;attributes&quot;: [
+    {
+      &quot;type&quot;: &quot;MelonLoader.MelonInfoAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;CharacterForge.ContentPack.ContentPackMod&quot;,
+        &quot;钓鱼商人&quot;,
+        &quot;1.3.10&quot;,
+        &quot;ALR&quot;,
+        null
+      ]
+    },
+    {
+      &quot;type&quot;: &quot;MelonLoader.MelonGameAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;Questing Goose Studio&quot;,
+        &quot;Probably Stolen&quot;
+      ]
+    },
+    {
+      &quot;type&quot;: &quot;System.Runtime.Versioning.TargetFrameworkAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;.NETCoreApp,Version=v6.0&quot;
+      ]
+    }
+  ],
+  &quot;embedded_resource_count&quot;: 2,
+  &quot;embedded_manifest_resources&quot;: [
+    {
+      &quot;file&quot;: &quot;PSCharacterPack_Fishingfriends.dll&quot;,
+      &quot;resource&quot;: &quot;CharacterForge.characters.json&quot;,
+      &quot;resource_sha256&quot;: &quot;62574dbc5cd3f523e5ff3d54ac94b97aa160563951bc6812f72b5df59b405e95&quot;,
+      &quot;metadata&quot;: {
+        &quot;RequiredRuntimeApi&quot;: 1,
+        &quot;GeneratorVersion&quot;: &quot;1.1.1&quot;,
+        &quot;BundleId&quot;: &quot;fishingfriends&quot;,
+        &quot;BundleName&quot;: &quot;钓鱼商人&quot;,
+        &quot;Author&quot;: &quot;ALR&quot;,
+        &quot;BundleVersion&quot;: &quot;1.3.10&quot;,
+        &quot;item_count&quot;: 0,
+        &quot;character_count&quot;: 2
+      }
+    }
+  ],
+  &quot;hash_mentioned_in_bundled_loader_log&quot;: true,
+  &quot;loader_assembly_refs&quot;: [
+    {
+      &quot;name&quot;: &quot;MelonLoader&quot;,
+      &quot;version&quot;: &quot;0.7.3.0&quot;
+    }
+  ]
+}
+</code></pre>
+<pre><code class="language-json">{
+  &quot;file&quot;: &quot;PSItemPack_Gofishing.dll&quot;,
+  &quot;sha256&quot;: &quot;ccf46fe925f070a1adc24c85018b1c9049c710fb6cd56deabbcb9cba011ee152&quot;,
+  &quot;assembly&quot;: &quot;PSItemPack_Gofishing&quot;,
+  &quot;assembly_version&quot;: &quot;1.0.0.0&quot;,
+  &quot;attributes&quot;: [
+    {
+      &quot;type&quot;: &quot;MelonLoader.MelonInfoAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;ItemForge.ContentPack.ContentPackMod&quot;,
+        &quot;gofishing&quot;,
+        &quot;1.3.10&quot;,
+        &quot;ALR&quot;,
+        null
+      ]
+    },
+    {
+      &quot;type&quot;: &quot;MelonLoader.MelonGameAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;Questing Goose Studio&quot;,
+        &quot;Probably Stolen&quot;
+      ]
+    },
+    {
+      &quot;type&quot;: &quot;System.Runtime.Versioning.TargetFrameworkAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;.NETCoreApp,Version=v6.0&quot;
+      ]
+    }
+  ],
+  &quot;embedded_resource_count&quot;: 47,
+  &quot;embedded_manifest_resources&quot;: [
+    {
+      &quot;file&quot;: &quot;PSItemPack_Gofishing.dll&quot;,
+      &quot;resource&quot;: &quot;ItemForge.items.json&quot;,
+      &quot;resource_sha256&quot;: &quot;14905b235f3a7898d818052d11ef5b4cc2f21aeb76ea6d10c9d113dcbe12ebdf&quot;,
+      &quot;metadata&quot;: {
+        &quot;RequiredRuntimeApi&quot;: 19,
+        &quot;GeneratorVersion&quot;: &quot;1.2.3&quot;,
+        &quot;BundleId&quot;: &quot;gofishing&quot;,
+        &quot;BundleName&quot;: &quot;gofishing&quot;,
+        &quot;Author&quot;: &quot;ALR&quot;,
+        &quot;BundleVersion&quot;: &quot;1.3.10&quot;,
+        &quot;item_count&quot;: 45,
+        &quot;character_count&quot;: 0
+      }
+    }
+  ],
+  &quot;hash_mentioned_in_bundled_loader_log&quot;: true,
+  &quot;loader_assembly_refs&quot;: [
+    {
+      &quot;name&quot;: &quot;MelonLoader&quot;,
+      &quot;version&quot;: &quot;0.7.3.0&quot;
+    }
+  ]
+}
+</code></pre>
+<pre><code class="language-json">{
+  &quot;file&quot;: &quot;PSItemPack_SanmuShiwushechipinPack1.dll&quot;,
+  &quot;sha256&quot;: &quot;5b9990f1b78ffb3d913977efc33920eb3778dfdd07cf9668263be822ed982370&quot;,
+  &quot;assembly&quot;: &quot;PSItemPack_SanmuShiwushechipinPack1&quot;,
+  &quot;assembly_version&quot;: &quot;1.0.0.0&quot;,
+  &quot;attributes&quot;: [
+    {
+      &quot;type&quot;: &quot;System.Runtime.Versioning.TargetFrameworkAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;.NETCoreApp,Version=v6.0&quot;
+      ]
+    }
+  ],
+  &quot;embedded_resource_count&quot;: 22,
+  &quot;embedded_manifest_resources&quot;: [
+    {
+      &quot;file&quot;: &quot;PSItemPack_SanmuShiwushechipinPack1.dll&quot;,
+      &quot;resource&quot;: &quot;ItemForge.items.json&quot;,
+      &quot;resource_sha256&quot;: &quot;231cf28dd525bc1866c5fef9988955f7dc31b869ce51da0d352278c5153216c0&quot;,
+      &quot;metadata&quot;: {
+        &quot;RequiredRuntimeApi&quot;: 5,
+        &quot;GeneratorVersion&quot;: &quot;1.1.1&quot;,
+        &quot;BundleId&quot;: &quot;sanmu_shiwushechipin_pack1&quot;,
+        &quot;BundleName&quot;: &quot;食物奢侈品拓展包&quot;,
+        &quot;Author&quot;: &quot;三木&quot;,
+        &quot;item_count&quot;: 21,
+        &quot;character_count&quot;: 0
+      }
+    }
+  ],
+  &quot;hash_mentioned_in_bundled_loader_log&quot;: false,
+  &quot;loader_assembly_refs&quot;: []
+}
+</code></pre>
+<pre><code class="language-json">{
+  &quot;file&quot;: &quot;RatColonyOptimizer.dll&quot;,
+  &quot;sha256&quot;: &quot;d48dd8c870c296321ae1665c020ae0ab70de756e2d31d749cb138cf75346b008&quot;,
+  &quot;assembly&quot;: &quot;RatGeneticRenamer&quot;,
+  &quot;assembly_version&quot;: &quot;1.0.0.0&quot;,
+  &quot;attributes&quot;: [
+    {
+      &quot;type&quot;: &quot;MelonLoader.MelonInfoAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;RatGeneticRenamer.Core&quot;,
+        &quot;Rat Colony Optimizer&quot;,
+        &quot;1.0.0&quot;,
+        &quot;Bloom&quot;,
+        null
+      ]
+    },
+    {
+      &quot;type&quot;: &quot;MelonLoader.MelonGameAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;Questing Goose Studio&quot;,
+        &quot;Probably Stolen&quot;
+      ]
+    },
+    {
+      &quot;type&quot;: &quot;System.Runtime.Versioning.TargetFrameworkAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;.NETCoreApp,Version=v6.0&quot;
+      ]
+    }
+  ],
+  &quot;embedded_resource_count&quot;: 0,
+  &quot;embedded_manifest_resources&quot;: [],
+  &quot;hash_mentioned_in_bundled_loader_log&quot;: false,
+  &quot;loader_assembly_refs&quot;: [
+    {
+      &quot;name&quot;: &quot;MelonLoader&quot;,
+      &quot;version&quot;: &quot;0.7.3.0&quot;
+    }
+  ]
+}
+</code></pre>
+<pre><code class="language-json">{
+  &quot;file&quot;: &quot;RatGeneticRenamer.dll&quot;,
+  &quot;sha256&quot;: &quot;c0a8c71050368d47cc3c02304bed7163bc27c89415dfe2b3c9848144a2b43db3&quot;,
+  &quot;assembly&quot;: &quot;RatGeneticRenamer&quot;,
+  &quot;assembly_version&quot;: &quot;2.6.3.0&quot;,
+  &quot;attributes&quot;: [
+    {
+      &quot;type&quot;: &quot;MelonLoader.MelonInfoAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;RatGeneticRenamer.Core&quot;,
+        &quot;Rat Genetic Renamer&quot;,
+        &quot;1.0.0&quot;,
+        &quot;DyrClone&quot;,
+        null
+      ]
+    },
+    {
+      &quot;type&quot;: &quot;MelonLoader.MelonGameAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;Questing Goose Studio&quot;,
+        &quot;Probably Stolen&quot;
+      ]
+    },
+    {
+      &quot;type&quot;: &quot;System.Runtime.Versioning.TargetFrameworkAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;.NETCoreApp,Version=v6.0&quot;
+      ]
+    }
+  ],
+  &quot;embedded_resource_count&quot;: 0,
+  &quot;embedded_manifest_resources&quot;: [],
+  &quot;hash_mentioned_in_bundled_loader_log&quot;: true,
+  &quot;loader_assembly_refs&quot;: [
+    {
+      &quot;name&quot;: &quot;MelonLoader&quot;,
+      &quot;version&quot;: &quot;0.7.3.0&quot;
+    }
+  ]
+}
+</code></pre>
+<pre><code class="language-json">{
+  &quot;file&quot;: &quot;XIAOWOTradePerks.dll&quot;,
+  &quot;sha256&quot;: &quot;0b9f190c67d4c14976d4a7f4c8bc03c1c66449ce92fcf9cee1fce70f38280547&quot;,
+  &quot;assembly&quot;: &quot;XIAOWOTradePerks&quot;,
+  &quot;assembly_version&quot;: &quot;1.8.2.0&quot;,
+  &quot;attributes&quot;: [
+    {
+      &quot;type&quot;: &quot;MelonLoader.MelonInfoAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;XIAOWOTradePerks.Core&quot;,
+        &quot;XIAOWO-TradePerks&quot;,
+        &quot;1.8.2&quot;,
+        &quot;遗忘的小窝&quot;,
+        null
+      ]
+    },
+    {
+      &quot;type&quot;: &quot;MelonLoader.MelonGameAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;Questing Goose Studio&quot;,
+        &quot;Probably Stolen&quot;
+      ]
+    },
+    {
+      &quot;type&quot;: &quot;MelonLoader.MelonPriorityAttribute&quot;,
+      &quot;value&quot;: -2147483648
+    },
+    {
+      &quot;type&quot;: &quot;System.Runtime.Versioning.TargetFrameworkAttribute&quot;,
+      &quot;values&quot;: [
+        &quot;.NETCoreApp,Version=v6.0&quot;
+      ]
+    }
+  ],
+  &quot;embedded_resource_count&quot;: 26,
+  &quot;embedded_manifest_resources&quot;: [],
+  &quot;hash_mentioned_in_bundled_loader_log&quot;: true,
+  &quot;loader_assembly_refs&quot;: [
+    {
+      &quot;name&quot;: &quot;MelonLoader&quot;,
+      &quot;version&quot;: &quot;0.7.3.0&quot;
+    }
+  ]
+}
+</code></pre>
+<h2>G6｜共享配置、中文裸键与独立配置格式</h2>
+<p>来源：<code>UserData/MelonPreferences.cfg</code>；SHA-256：<code>6e7317cbf542c977549596f815192c5d569845c47887f08a8b71a2ff2ba14181</code>。</p>
+<h3>L1–L38</h3>
+<pre><code class="language-text">L1: [XIAOWOTradePerks_ModManager]
+L2: # Physical key above Tab; combinations such as Ctrl+Shift+M are supported.
+L3: ToggleHotkey = &quot;BackQuote&quot;
+L4: 
+L5: [customercredit]
+L6: # 
+L7: creditsperboost = 100
+L8: # 
+L9: boostpercent = 5
+L10: 
+L11: [DialogueSpeed]
+L12: # Enable faster dialogue / 启用对话加速
+L13: Enabled = true
+L14: # Typewriter speed multiplier (higher = faster) / 打字速度倍率（越大越快）
+L15: SpeedMultiplier = 4.0
+L16: # Delay between dialogue lines (higher = faster) / 句间等待倍率（越大越快）
+L17: QueueDelayMultiplier = 1.0
+L18: # Skip typewriter effect / 跳过打字机效果（瞬间显示）
+L19: InstantText = false
+L20: # Speed up hotkey combo, e.g. Equals or Alt+Equals / 加速组合键
+L21: SpeedUpHotkey = &quot;Equals&quot;
+L22: # Speed down hotkey combo, e.g. Minus or Alt+Minus / 减速组合键
+L23: SpeedDownHotkey = &quot;Minus&quot;
+L24: 
+L25: [ExtraPerks_WideConnections]
+L26: LastOutsideGrant = &quot;&quot;
+L27: 
+L28: [物品整理]
+L29: # 排序按钮的总开关。
+L30: 启用 = true
+L31: # 已放置的存储单元（货架/笼子）保持不动，只整理散落物品。
+L32: 容器保持原位 = true
+L33: # 不在交易/选择物品弹窗中添加排序按钮。
+L34: 跳过交易窗口 = true
+L35: # 隐藏格子数少于此值的网格（忽略小型储物/垃圾网格）。
+L36: 最小格子数 = 10
+L37: # 显示始终打开的库存（展示柜/主存储）。有标题的容器始终显示。
+L38: 显示后台存储 = true
+</code></pre>
+<h2>G7｜同为 cfg 但不能按标准 TOML 直接处理</h2>
+<p>来源：<code>UserData/PSWallpaper.cfg</code>；SHA-256：<code>bcacbcd5d16f5967a562706efebd2fe358391cb294aa20568b0270c598ed9a89</code>。</p>
+<h3>L1–L14</h3>
+<pre><code class="language-text">L1: # PSWallpaper —— 手机「壁纸」应用（改完重开手机页面即生效）
+L2: [PSWallpaper]
+L3: # 壁纸文件名（相对 UserData\wallpapers\；空 = 内置星空。可写子目录\名.png）
+L4: WallpaperFile=
+L5: # 适配：cover（裁切铺满，默认）/ fit（完整显示留边）/ stretch（拉伸）
+L6: WallpaperFit=cover
+L7: # ★ 底图亮度 0~100，5 一档；越大越亮，0 会变成全黑底图（默认 55）
+L8: WallpaperBrightness=55
+L9: # 扫描子目录的层数（默认 1）
+L10: WallpaperScanDepth=1
+L11: # 候选列表最多列几张（默认 40）
+L12: WallpaperMaxCandidates=40
+L13: # 把结果写入 UserData\PSWallpaper.log
+L14: LogToFile=true
+</code></pre>
+<h2>G8｜非 DLL 文件与生命周期归属</h2>
+<pre><code class="language-text">Plugins/：0 个文件
+UserLibs/：0 个文件
+Mods/BrewingExpansion/：3 个文件
+  Mods/BrewingExpansion/brewing_data.txt (89 bytes)
+  Mods/BrewingExpansion/brewing_data_9.txt (9 bytes)
+  Mods/BrewingExpansion/brewing_data_11.txt (8 bytes)
+Mods/MoreStorageColors/：1862 个文件
+  Mods/MoreStorageColors/Reference/hand_steel.png (945 bytes)
+  Mods/MoreStorageColors/Reference/cig_red.png (636 bytes)
+  Mods/MoreStorageColors/Reference/guide5.png (422 bytes)
+  Mods/MoreStorageColors/Reference/paper_buttons2.png (184 bytes)
+  Mods/MoreStorageColors/Reference/printer_chip_pistol.png (358 bytes)
+  Mods/MoreStorageColors/Reference/shutter_button_sheet_1.png (826 bytes)
+  Mods/MoreStorageColors/Reference/border_black.png (111 bytes)
+  Mods/MoreStorageColors/Reference/100ml_dark_10.png (236 bytes)
+  Mods/MoreStorageColors/Reference/rat_m_m_d.png (463 bytes)
+  Mods/MoreStorageColors/Reference/animal_cage.png (1147 bytes)
+  Mods/MoreStorageColors/Reference/checkbox_checked.png (249 bytes)
+  Mods/MoreStorageColors/Reference/100ml_blue_75.png (390 bytes)
+Mods/item_catalog.json (134353 bytes)
+Mods/item_mod_config.json (112 bytes)
+UserData/：14 个文件
+  UserData/KitchenCrashTrace.log (3607 bytes)
+  UserData/CuratedVisitors.StartupTrace-20260924-141646-280-29160-ded15b696bf34d53bd43b2c02d80c9d6.log (16082 bytes)
+  UserData/Loader.cfg (4805 bytes)
+  UserData/PSMarketRequests.cfg (2359 bytes)
+  UserData/CuratedVisitors.StartupTrace-20260924-141639-933-29160-ee61a20e09a6451ea7db5976249b5456.log (74148 bytes)
+  UserData/PSProcurement.cfg (9693 bytes)
+  UserData/PSPDA.log (5786 bytes)
+  UserData/PSMarketRequests.log (869 bytes)
+  UserData/MelonPreferences.cfg (4121 bytes)
+  UserData/PSWallpaper.log (1749 bytes)
+  UserData/PSWarehouse.log (15512 bytes)
+  UserData/PSProcurement.log (4865 bytes)
+</code></pre>
+<p>未提供实际 Windows LocalLow 目录，不据此确定存档位置；Mods 内文本不一概视为可删除资源。</p>
+<h2>R1｜应用版本与技术栈</h2>
+<p>来源：<code>backend/_version.py</code>；SHA-256：<code>e91da361f536e68843d58e91c1bac254de9381cf14525e4a0e78edc26c294b00</code>。</p>
+<h3>L1–L4</h3>
+<pre><code class="language-text">L1: # backend/_version.py
+L2: __version__ = &quot;0.24.7&quot;  # 主版本.次版本.补丁
+L3: __db_version__ = &quot;5&quot;
+L4: __build__ = &quot;dev&quot;  # dev, alpha, beta, stable, release
+</code></pre>
+<h2>R2｜Python 依赖范围</h2>
+<p>来源：<code>pyproject.toml</code>；SHA-256：<code>62f337ed5fe9ed5350de584c5f2a99e2385d2dcb4ab0649fca2a0d5d39ae71aa</code>。</p>
+<h3>L1–L41</h3>
+<pre><code class="language-text">L1: [project]
+L2: name = &quot;rimcrow&quot;
+L3: version = &quot;0.1.0&quot;
+L4: description = &quot;Add your description here&quot;
+L5: readme = &quot;README.md&quot;
+L6: requires-python = &quot;&gt;=3.11&quot;
+L7: dependencies = [
+L8:     &quot;beautifulsoup4&gt;=4.14.3&quot;,
+L9:     &quot;certifi&gt;=2026.1.4&quot;,
+L10:     &quot;colorlog&gt;=6.10.1&quot;,
+L11:     &quot;icecream&gt;=2.1.8&quot;,
+L12:     &quot;json-repair&gt;=0.58.0&quot;,
+L13:     &quot;keyring&gt;=25.7.0&quot;,
+L14:     &quot;litellm&gt;=1.81.14&quot;,
+L15:     &quot;lxml&gt;=6.0.2&quot;,
+L16:     &quot;nuitka&gt;=2.8.10&quot;,
+L17:     &quot;openai&gt;=2.15.0&quot;,
+L18:     &quot;packaging&gt;=25.0&quot;,
+L19:     &quot;pathspec&gt;=1.0.4&quot;,
+L20:     &quot;peewee&gt;=3.18.3&quot;,
+L21:     &quot;pillow&gt;=12.0.0&quot;,
+L22:     &quot;pip-system-certs&gt;=5.3&quot;,
+L23:     &quot;psutil&gt;=7.2.2&quot;,
+L24:     &quot;pydantic&gt;=2.12.5&quot;,
+L25:     &quot;pyinstaller&gt;=6.18.0&quot;,
+L26:     &quot;pytest&gt;=9.0.3&quot;,
+L27:     &quot;python-dateutil&gt;=2.9.0.post0&quot;,
+L28:     &quot;python-docx&gt;=1.2.0&quot;,
+L29:     &quot;pywebview&gt;=6.1&quot;,
+L30:     &quot;pywin32&gt;=311; sys_platform == 'win32'&quot;,
+L31:     &quot;reportlab&gt;=4.5.1&quot;,
+L32:     &quot;requests&gt;=2.32.5&quot;,
+L33:     &quot;send2trash&gt;=2.0.0&quot;,
+L34:     &quot;setuptools&lt;70.0.0&quot;,
+L35:     &quot;steam-vdf&gt;=0.1.10&quot;,
+L36:     &quot;zstandard&gt;=0.25.0&quot;,
+L37: ]
+L38: 
+L39: [tool.pytest.ini_options]
+L40: testpaths = [&quot;tests&quot;]
+L41: pythonpath = [&quot;.&quot;]
+</code></pre>
+<h2>R3｜Vue / JavaScript 前端依赖</h2>
+<p>来源：<code>frontend/package.json</code>；SHA-256：<code>4a89ee118efdaeebb7272f38f8585b719e652848bf04ecbabc7fa79d24a077e2</code>。</p>
+<h3>L1–L49</h3>
+<pre><code class="language-text">L1: {
+L2:   &quot;name&quot;: &quot;frontend&quot;,
+L3:   &quot;private&quot;: true,
+L4:   &quot;version&quot;: &quot;0.0.0&quot;,
+L5:   &quot;type&quot;: &quot;module&quot;,
+L6:   &quot;scripts&quot;: {
+L7:     &quot;dev&quot;: &quot;vite&quot;,
+L8:     &quot;build&quot;: &quot;vite build&quot;,
+L9:     &quot;preview&quot;: &quot;vite preview&quot;,
+L10:     &quot;i18n:extract&quot;: &quot;cd .. &amp;&amp; uv run python scripts/extract_i18n_messages.py&quot;,
+L11:     &quot;i18n:check&quot;: &quot;cd .. &amp;&amp; uv run python scripts/extract_i18n_messages.py --check&quot;,
+L12:     &quot;prebuild&quot;: &quot;npm run i18n:check&quot;
+L13:   },
+L14:   &quot;dependencies&quot;: {
+L15:     &quot;@codemirror/lang-json&quot;: &quot;^6.0.2&quot;,
+L16:     &quot;@codemirror/lang-xml&quot;: &quot;^6.1.0&quot;,
+L17:     &quot;@replit/codemirror-lang-csharp&quot;: &quot;^6.2.0&quot;,
+L18:     &quot;@tailwindcss/vite&quot;: &quot;^4.1.17&quot;,
+L19:     &quot;@tanstack/vue-virtual&quot;: &quot;^3.13.26&quot;,
+L20:     &quot;@vueuse/core&quot;: &quot;^14.1.0&quot;,
+L21:     &quot;date-fns&quot;: &quot;^4.1.0&quot;,
+L22:     &quot;dompurify&quot;: &quot;^3.3.0&quot;,
+L23:     &quot;driver.js&quot;: &quot;^1.4.0&quot;,
+L24:     &quot;highlight.js&quot;: &quot;^11.11.1&quot;,
+L25:     &quot;lucide-vue-next&quot;: &quot;^0.562.0&quot;,
+L26:     &quot;markdown-it&quot;: &quot;^14.1.1&quot;,
+L27:     &quot;motion-v&quot;: &quot;^1.7.4&quot;,
+L28:     &quot;pinia&quot;: &quot;^3.0.4&quot;,
+L29:     &quot;tw-animate-css&quot;: &quot;^1.4.0&quot;,
+L30:     &quot;v-viewer&quot;: &quot;^3.0.23&quot;,
+L31:     &quot;viewerjs&quot;: &quot;^1.11.7&quot;,
+L32:     &quot;vue&quot;: &quot;^3.5.24&quot;,
+L33:     &quot;vue-codemirror6&quot;: &quot;^1.5.2&quot;,
+L34:     &quot;vue-i18n&quot;: &quot;^11.4.2&quot;,
+L35:     &quot;vue-toastification&quot;: &quot;^2.0.0-rc.5&quot;,
+L36:     &quot;vue-virtual-scroller&quot;: &quot;^2.0.0-beta.8&quot;,
+L37:     &quot;vue3-colorpicker&quot;: &quot;^2.3.0&quot;,
+L38:     &quot;vue3-json-viewer&quot;: &quot;^2.4.1&quot;
+L39:   },
+L40:   &quot;devDependencies&quot;: {
+L41:     &quot;@tailwindcss/typography&quot;: &quot;^0.5.19&quot;,
+L42:     &quot;@vitejs/plugin-vue&quot;: &quot;^6.0.1&quot;,
+L43:     &quot;autoprefixer&quot;: &quot;^10.4.22&quot;,
+L44:     &quot;postcss&quot;: &quot;^8.5.6&quot;,
+L45:     &quot;sass-embedded&quot;: &quot;^1.97.1&quot;,
+L46:     &quot;tailwindcss&quot;: &quot;^4.1.17&quot;,
+L47:     &quot;vite&quot;: &quot;^7.2.4&quot;
+L48:   }
+L49: }
+</code></pre>
+<h2>R4｜RimWorld 特定的模组扫描入口</h2>
+<p>来源：<code>backend/scanner/mod_scanner.py</code>；SHA-256：<code>28398458eb8d6e5a19baa2e5b24bb46cfca9b090535fb1b850113c0a58bfc1d9</code>。</p>
+<h3>L525–L555</h3>
+<pre><code class="language-text">L525:         payload['status'] = normalized_status
+L526:         payload.setdefault('type', 'scan')
+L527:         payload.setdefault('id', payload.get('task_id', ''))
+L528:         payload.setdefault('progress', 100 if normalized_status == 'success' else 0)
+L529:         payload.setdefault('message', tr(&quot;tasks.scan.finished&quot;, &quot;扫描完成&quot;) if normalized_status == 'success' else '')
+L530:         payload.setdefault('metrics', {})
+L531:         if emit_events:
+L532:             EventBus.emit('scan-complete', payload)
+L533: 
+L534:     def _process_single_mod( self, mod_path, is_dlc_dir, existing_snapshots, dlc_parser: DLCParser | None, forced_update=False, size_check_override: bool | None = None, size_check_paths: set[str] | None = None, stats: dict | None = None, scan_details: dict | None = None ):
+L535:         &quot;&quot;&quot;
+L536:         处理单个 Mod 的纯函数逻辑。
+L537:         返回: Mod数据字典 或 None(无效) 或 {'_skipped': True, 'package_id': ...}
+L538:         &quot;&quot;&quot;
+L539:         mod_path = normalize_path_for_storage(mod_path)
+L540:         try:
+L541:             about_state = ModAnalyzer.resolve_mod_about_state(mod_path, cleanup_dual_files=True)
+L542:         except OSError as e:
+L543:             logger.warning(f&quot;清理重复 About 文件失败：{mod_path}，错误：{e}&quot;)
+L544:             about_state = ModAnalyzer.resolve_mod_about_state(mod_path, cleanup_dual_files=False)
+L545:         about_file = about_state.resolved_path
+L546:         is_disabled = about_state.is_disabled
+L547:         if not about_file and not is_dlc_dir: return None # 既不是 DLC 也没有 About.xml，无效
+L548:         
+L549:         # 检查 mtime
+L550:         try:
+L551:             stat = os.stat(about_file) if about_file else os.stat(mod_path)
+L552:             mtime = int(stat.st_mtime * 1000)
+L553:             ctime = int(stat.st_ctime * 1000)
+L554:         except OSError:
+L555:             mtime = 0; ctime = 0
+</code></pre>
+<h2>R5｜About.xml 与载入顺序语义</h2>
+<p>来源：<code>backend/scanner/parser_xml.py</code>；SHA-256：<code>8358d3866982fd7649dc2138e9a60b3154c78b23daf1b702e974b0753f375d03</code>。</p>
+<h3>L58–L79</h3>
+<pre><code class="language-text">L58:             &quot;dependencies_mods&quot;: [],      # 依赖 Mod
+L59:             &quot;load_after_mods&quot;: [],        # 必须在这些 Mod 之后加载
+L60:             &quot;load_before_mods&quot;: [],       # 必须在这些 Mod 之前加载
+L61:             &quot;incompatible_mods&quot;: [],      # 与这些 Mod 不兼容
+L62:             
+L63:             # --- 附加信息 ---
+L64:             &quot;icon_path&quot;: &quot;&quot;,     # 1.5+ 自定义图标路径
+L65:             &quot;save_breaking&quot;: None,  # 是否破坏存档 (ModSync)，True: 破坏, None：未知, False: 不破坏
+L66:         }
+L67: 
+L68:         about_path = about_path or os.path.join(mod_path, &quot;About&quot;, &quot;About.xml&quot;)
+L69:         manifest_path = os.path.join(mod_path, &quot;About&quot;, &quot;Manifest.xml&quot;)
+L70:         modsync_path = os.path.join(mod_path, &quot;About&quot;, &quot;ModSync.xml&quot;)
+L71: 
+L72:         # 1. 优先解析 About.xml (官方标准)
+L73:         if os.path.exists(about_path):
+L74:             self._parse_about(about_path, data)
+L75: 
+L76:         # 2. 补充解析 Manifest.xml (旧版本号、依赖补充)
+L77:         if os.path.exists(manifest_path):
+L78:             self._parse_manifest(manifest_path, data)
+L79: 
+</code></pre>
+<h3>L302–L325</h3>
+<pre><code class="language-text">L302:             # &lt;modDependencies&gt;
+L303:             #   &lt;li&gt;
+L304:             #     &lt;packageId&gt;brrainz.harmony&lt;/packageId&gt;
+L305:             #     &lt;displayName&gt;Harmony&lt;/displayName&gt;
+L306:             #     &lt;steamWorkshopUrl&gt;...&lt;/steamWorkshopUrl&gt;
+L307:             #     &lt;downloadUrl&gt;...&lt;/downloadUrl&gt;
+L308:             #   &lt;/li&gt;
+L309:             # &lt;/modDependencies&gt;
+L310:             # 1. Load Before (含 force 和 ByVersion)
+L311:             data[&quot;load_before_mods&quot;] = self._merge_relations(root, [
+L312:                 (&quot;loadBefore&quot;, &quot;all&quot;, False),
+L313:                 (&quot;forceLoadBefore&quot;, &quot;all&quot;, True),
+L314:                 (&quot;loadBeforeByVersion&quot;, &quot;BY_TAG&quot;, False)
+L315:             ])
+L316: 
+L317:             # 2. Load After (含 force 和 ByVersion)
+L318:             data[&quot;load_after_mods&quot;] = self._merge_relations(root, [
+L319:                 (&quot;loadAfter&quot;, &quot;all&quot;, False),
+L320:                 (&quot;forceLoadAfter&quot;, &quot;all&quot;, True),
+L321:                 (&quot;loadAfterByVersion&quot;, &quot;BY_TAG&quot;, False)
+L322:             ])
+L323: 
+L324:             # 3. Incompatible (含 ByVersion)
+L325:             data[&quot;incompatible_mods&quot;] = self._merge_relations(root, [
+</code></pre>
+<h2>R6｜严格禁用依赖 About.xml.disabled</h2>
+<p>来源：<code>backend/scanner/analyzer.py</code>；SHA-256：<code>9ed4eebfb191909ef592af72c18b93e93e65c9ee4c55f7da24a449f286688dab</code>。</p>
+<h3>L357–L380</h3>
+<pre><code class="language-text">L357:         return info
+L358:     
+L359:     @staticmethod
+L360:     def resolve_mod_about_state(mod_path: str, cleanup_dual_files: bool = False) -&gt; ModAboutState:
+L361:         &quot;&quot;&quot;
+L362:         统一解析 Mod 的 About 文件状态。
+L363: 
+L364:         规则：
+L365:         - `About.xml` 存在时视为启用。
+L366:         - 仅存在 `About.xml.disabled` 时视为禁用。
+L367:         - 两者同时存在时，以 `About.xml` 为准；如允许修复，则自动删除残留的 `.disabled`。
+L368:         &quot;&quot;&quot;
+L369:         about_xml = os.path.join(mod_path, 'About', 'About.xml')
+L370:         disabled_xml = about_xml + '.disabled'
+L371: 
+L372:         has_about = os.path.exists(about_xml)
+L373:         has_disabled = os.path.exists(disabled_xml)
+L374:         cleaned_conflict = False
+L375: 
+L376:         if has_about and has_disabled and cleanup_dual_files:
+L377:             os.remove(disabled_xml)
+L378:             has_disabled = False
+L379:             cleaned_conflict = True
+L380: 
+</code></pre>
+<h2>R7｜RimWorld 环境及 savedatafolder 参数</h2>
+<p>来源：<code>backend/managers/mgr_profile.py</code>；SHA-256：<code>af8f16964d2a8d58c3f9d77cb546a4cfb1e4dd214a06fc44f87492d9e60ca145</code>。</p>
+<h3>L38–L57</h3>
+<pre><code class="language-text">L38:     run_commands: list = field(default_factory=list)
+L39:     inactive_mods_order: list = field(default_factory=list)
+L40:     temp_mods_order: list = field(default_factory=list)
+L41:     is_steam: bool = False
+L42:     is_steam_managed: bool = False
+L43:     runtime_capabilities: dict = field(default_factory=dict)
+L44:     
+L45:     is_healthy: bool = True
+L46:     health_report: dict = field(default_factory=dict) 
+L47:     
+L48:     def __post_init__(self):
+L49:         # 环境上下文创建时固定布局，避免系统类型或路径探测变化后派生路径前后不一致。
+L50:         object.__setattr__(self, '_resolved_layout', resolve_rimworld_layout(self.game_install_path))
+L51: 
+L52:     # 根据创建上下文固定得到的布局计算绝对路径。
+L53:     @property
+L54:     def local_mods_path(self):
+L55:         return self._resolved_layout.local_mods_root
+L56:     @property
+L57:     def game_dlc_path(self):
+</code></pre>
+<h3>L587–L623</h3>
+<pre><code class="language-text">L587:         return self.build_profile_context(profile.id)
+L588:         
+L589:     
+L590:     def get_launch_args(self, profile_id: str = '', include_executable: bool = True):
+L591:         &quot;&quot;&quot;
+L592:         获取启动参数
+L593:         :param profile_id: 环境ID，默认当前环境
+L594:         :param include_executable: 是否包含游戏可执行文件路径
+L595:         :return: 启动参数列表
+L596:         &quot;&quot;&quot;
+L597:         if not profile_id:
+L598:             profile_id = self.current_profile.id
+L599:         profile = GameProfile.get_or_none(GameProfile.id == profile_id)
+L600:         if not profile: return []
+L601:         args = []
+L602:         if include_executable:
+L603:             args.append(GameManager.detect_executable(profile.game_install_path) or '')
+L604:         # 只要环境显式绑定了用户数据根目录，就始终把 savedatafolder 注入启动参数。
+L605:         default_user_data_path = GameManager.auto_detect_paths().get('user_data_path','')
+L606:         profile_root = self._normalize_user_data_path(profile.user_data_path) if profile.user_data_path else &quot;&quot;
+L607:         is_default_root = False
+L608:         if default_user_data_path and profile_root:
+L609:             is_default_root = UserDataRoot.from_raw(
+L610:                 default_user_data_path,
+L611:                 default_roots=GameManager.get_default_user_data_paths(),
+L612:             ).equivalent_to(profile_root)
+L613:         if profile_root and not is_default_root:
+L614:             args.append(f&quot;-savedatafolder={os.path.abspath(profile_root)}&quot;)
+L615:         # 合并自定义参数
+L616:         run_commands = getattr(profile, &quot;run_commands&quot;, None) or []
+L617:         if run_commands: args.extend(run_commands)
+L618: 
+L619:         return args
+L620: 
+L621:     def _clone_user_data(self, src_config_dir, target_root):
+L622:         &quot;&quot;&quot;复制存档和配置到新隔离区&quot;&quot;&quot;
+L623:         # src_config_dir 通常是 .../LocalLow/Ludeon Studios/RimWorld by Ludeon Studios/Config
+</code></pre>
+<h2>R8｜七个 AI 读取工具的实际定义</h2>
+<p>来源：<code>backend/ai/ai_tools.py</code>；SHA-256：<code>4628ae1c71262819c57a036600ba38868dcfd66dc826caace6cc0356edfb823f</code>。</p>
+<h3>L301–L365</h3>
+<pre><code class="language-text">L301: TOOL_DEFINITIONS: dict[str, ToolDefinition[Any]] = {
+L302:     &quot;get_log_context&quot;: ToolDefinition(
+L303:         name=&quot;get_log_context&quot;,
+L304:         label=&quot;日志上下文&quot;,
+L305:         llm_description=&quot;读取某条错误摘要对应的详细日志上下文，包含原始报错内容与截断堆栈。仅当摘要不足以定位问题时再调用。&quot;,
+L306:         ui_description=&quot;获取指定错误日志的详细上下文（包含完整错误信息和核心堆栈）。仅当摘要中的 stack_preview 无法让你得出结论时才使用。&quot;,
+L307:         args_model=GetLogContextArgs,
+L308:         handler_name=&quot;_tool_get_log_context&quot;,
+L309:         result_summarizer=_summarize_log_context,
+L310:     ),
+L311:     &quot;search_mods&quot;: ToolDefinition(
+L312:         name=&quot;search_mods&quot;,
+L313:         label=&quot;搜索模组&quot;,
+L314:         llm_description=&quot;按名称、别名、作者或 package_id 片段搜索可能对应的模组，用于确认准确 package_id。&quot;,
+L315:         ui_description=&quot;当且仅当你不确定某个 Mod 的准确 package_id 时，使用此工具模糊搜索。可输入名字、别名或部分 ID 查找可能对应的 package_id。&quot;,
+L316:         args_model=SearchModsArgs,
+L317:         handler_name=&quot;_tool_search_mods&quot;,
+L318:         result_summarizer=_summarize_search_mods,
+L319:     ),
+L320:     &quot;get_active_mod_list&quot;: ToolDefinition(
+L321:         name=&quot;get_active_mod_list&quot;,
+L322:         label=&quot;当前启用列表&quot;,
+L323:         llm_description=&quot;获取当前环境中的启用模组列表，用于整体排序和冲突排查。&quot;,
+L324:         ui_description=&quot;获取当前排序文件中的已激活模组列表，用于宏观检查模组顺序，返回模组包名列表。&quot;,
+L325:         args_model=GetActiveModListArgs,
+L326:         handler_name=&quot;_tool_get_active_mod_list&quot;,
+L327:         result_summarizer=_summarize_active_mods,
+L328:     ),
+L329:     &quot;get_mod_info&quot;: ToolDefinition(
+L330:         name=&quot;get_mod_info&quot;,
+L331:         label=&quot;模组元数据&quot;,
+L332:         llm_description=f&quot;读取已安装模组的元数据。simple 返回基本信息：{AI_MOD_INFO_SIMPLE_FIELDS}；all 返回全部信息；specific 返回指定字段：{AI_MOD_INFO_ALLOWED_FIELDS}。&quot;,
+L333:         ui_description=f&quot;获取当前环境中已安装模组的元数据。simple 返回基本必要信息：{AI_MOD_INFO_SIMPLE_FIELDS}。all 返回全部信息；specific 返回可选字段信息：{AI_MOD_INFO_ALLOWED_FIELDS}。&quot;,
+L334:         args_model=GetModInfoArgs,
+L335:         handler_name=&quot;_tool_get_mod_info&quot;,
+L336:         result_summarizer=_summarize_mod_info,
+L337:     ),
+L338:     &quot;get_mod_rules&quot;: ToolDefinition(
+L339:         name=&quot;get_mod_rules&quot;,
+L340:         label=&quot;模组规则&quot;,
+L341:         llm_description=&quot;读取模组依赖、前置、后置和不兼容规则，用于判断显性排序和兼容关系。&quot;,
+L342:         ui_description=&quot;获取该模组的依赖模组、前置/后置模组和不兼容模组规则，以了解该模组与其它模组之间的显性关系。只有在怀疑缺失前置、加载顺序错误或存在不兼容模组时再调用。&quot;,
+L343:         args_model=GetModRulesArgs,
+L344:         handler_name=&quot;_tool_get_mod_rules&quot;,
+L345:         result_summarizer=_summarize_mod_rules,
+L346:     ),
+L347:     &quot;get_mod_user_data&quot;: ToolDefinition(
+L348:         name=&quot;get_mod_user_data&quot;,
+L349:         label=&quot;模组用户数据&quot;,
+L350:         llm_description=&quot;读取管理器中的模组别名、标签、备注、颜色、分组等用户态信息，仅用于辅助理解玩家归类。&quot;,
+L351:         ui_description=&quot;获取该已安装模组在管理器中的用户态上下文：别名、标签、备注、颜色、自定义类型和所属分组。这些信息只用于辅助理解玩家归类，属于模组管理器专有信息，与游戏机制无关。&quot;,
+L352:         args_model=GetModUserDataArgs,
+L353:         handler_name=&quot;_tool_get_mod_user_data&quot;,
+L354:         result_summarizer=_summarize_mod_user_data,
+L355:     ),
+L356:     &quot;get_group_mods&quot;: ToolDefinition(
+L357:         name=&quot;get_group_mods&quot;,
+L358:         label=&quot;分组模组&quot;,
+L359:         llm_description=&quot;按分组名读取分组下的模组列表，仅用于辅助理解玩家自己的分组归类。&quot;,
+L360:         ui_description=&quot;按分组名查询分组所含模组。分组信息只用于辅助理解玩家归类，属于模组管理器专有信息，与游戏机制无关。&quot;,
+L361:         args_model=GetGroupModsArgs,
+L362:         handler_name=&quot;_tool_get_group_mods&quot;,
+L363:         result_summarizer=_summarize_group_mods,
+L364:     ),
+L365: }
+</code></pre>
+<h3>L400–L459</h3>
+<pre><code class="language-text">L400: 
+L401:     def get_tool_schemas(self, enabled_names: list[str] | None = None) -&gt; list[dict[str, Any]]:
+L402:         &quot;&quot;&quot;
+L403:         动态生成大模型所需的 OpenAI/LiteLLM 标准 JSON Schema 结构。
+L404:         :param enabled_names: 前端传来的启用工具名称列表，如果为空则返回全部
+L405:         &quot;&quot;&quot;
+L406:         schemas = []
+L407:         enabled_names = enabled_names or []
+L408:         for name, spec in self.registry.items():
+L409:             # 过滤未启用的工具
+L410:             if enabled_names and name not in enabled_names: continue
+L411:             schemas.append(spec.to_openai_schema())
+L412:         return schemas
+L413: 
+L414:     def execute_structured(self, name: str, arguments_str: str) -&gt; ToolExecutionResult:
+L415:         &quot;&quot;&quot;
+L416:         统一的工具执行路由。
+L417: 
+L418:         流程固定为：
+L419:         1. 解析模型给出的 JSON 参数
+L420:         2. 用 `pydantic` 做强校验和规范化
+L421:         3. 把“干净参数对象”交给具体工具方法
+L422: 
+L423:         这样具体工具方法可以专注业务，不必反复写 `get()/int()/try/except` 样板代码。
+L424:         &quot;&quot;&quot;
+L425:         try:
+L426:             args = json.loads(arguments_str) if arguments_str else {}
+L427:         except json.JSONDecodeError:
+L428:             payload = {&quot;error&quot;: &quot;工具参数格式不正确，请重新组织输入后重试。&quot;}
+L429:             return self._build_execution_result(name=name, payload=payload)
+L430: 
+L431:         spec = self.registry.get(name)
+L432:         if spec is None:
+L433:             payload = {&quot;error&quot;: &quot;系统工具不可用，请稍后重试。&quot;}
+L434:             return self._build_execution_result(name=name, payload=payload)
+L435: 
+L436:         try:
+L437:             validated_args = spec.definition.args_model.model_validate(args)
+L438:         except ValidationError as e:
+L439:             logger.warning(
+L440:                 &quot;[AI诊断] 工具参数校验失败。tool=%s&quot;,
+L441:                 name,
+L442:                 extra={&quot;error_code&quot;: &quot;AI.TOOL.ARGS_INVALID&quot;, &quot;extra_context&quot;: {&quot;tool&quot;: name}},
+L443:             )
+L444:             payload = {&quot;error&quot;: &quot;工具参数不符合要求，请重新组织输入后重试。&quot;}
+L445:             return self._build_execution_result(name=name, payload=payload)
+L446: 
+L447:         try:
+L448:             logger.debug(f&quot;[AI诊断] 开始执行工具 name={name} args={validated_args.model_dump()}&quot;)
+L449:             payload = spec.handler(validated_args)
+L450:             return self._build_execution_result(name=name, payload=payload)
+L451:         except Exception as e:
+L452:             logger.error(
+L453:                 &quot;AI 工具执行异常。tool=%s&quot;,
+L454:                 name,
+L455:                 extra={&quot;error_code&quot;: &quot;AI.TOOL.EXECUTION_FAILED&quot;, &quot;extra_context&quot;: {&quot;tool&quot;: name}},
+L456:                 exc_info=True,
+L457:             )
+L458:             payload = {&quot;error&quot;: &quot;工具执行失败，请稍后重试。&quot;}
+L459:             return self._build_execution_result(name=name, payload=payload)
+</code></pre>
+<h2>R9｜有界 Agent 执行、重复工具限制与轨迹</h2>
+<p>来源：<code>backend/ai/assistant_runtime.py</code>；SHA-256：<code>ff3686df2af34b84181fb0fa2334e31972de601c05e6a0e895b44a6ccfccc967</code>。</p>
+<h3>L43–L53</h3>
+<pre><code class="language-text">L43: from backend.settings import settings
+L44: from backend.utils.constants import get_lang_by_code
+L45: from backend.utils.error_contract import build_stack_detail, classify_exception
+L46: from backend.utils.event_bus import EventBus
+L47: from backend.utils.logger import logger
+L48: 
+L49: ASSISTANT_MAX_LOOPS = 10
+L50: TRACE_RECORD_LIMIT = 200
+L51: SESSION_RECENT_MESSAGE_LIMIT = 8
+L52: SESSION_EVIDENCE_LIMIT = 12
+L53: TRACE_TOOL_TIME_SPAN_FALLBACK = 1000
+</code></pre>
+<h3>L1656–L1686</h3>
+<pre><code class="language-text">L1656:     def _run_session_loop(
+L1657:         self,
+L1658:         *,
+L1659:         session_id: str,
+L1660:         messages: list[dict],
+L1661:         llm_kwargs: dict,
+L1662:         model_name: str,
+L1663:         token_usage: dict[str, Any],
+L1664:         prompt_input_breakdown: dict[str, Any],
+L1665:         assistant: AssistantDefinition,
+L1666:         tools,
+L1667:         tool_choice,
+L1668:         tool_executor: AIToolExecutor,
+L1669:         trace_record: RequestTraceRecord | None = None,
+L1670:         session_state: SessionState,
+L1671:         resolved_attachments: list[ResolvedContextAttachment],
+L1672:     ) -&gt; dict[str, Any]:
+L1673:         loop_count = 0
+L1674:         executed_tool_signatures: set[str] = set()
+L1675:         base_prompt_tokens = int((prompt_input_breakdown or {}).get(&quot;total_tokens&quot;, 0) or 0)
+L1676:         cumulative_prompt_input_breakdown = create_prompt_input_breakdown()
+L1677: 
+L1678:         while loop_count &lt; ASSISTANT_MAX_LOOPS:
+L1679:             loop_count += 1
+L1680:             try:
+L1681:                 prompt_tokens_this_round = self._estimate_messages_tokens(messages, model_name)
+L1682:                 token_usage[&quot;estimated_prompt_tokens&quot;] += prompt_tokens_this_round
+L1683:                 token_usage[&quot;estimated_total_tokens&quot;] += prompt_tokens_this_round
+L1684:                 round_prompt_input_breakdown = self._build_prompt_input_breakdown_for_round(
+L1685:                     prompt_tokens_this_round=prompt_tokens_this_round,
+L1686:                     base_prompt_tokens=base_prompt_tokens,
+</code></pre>
+<h3>L1757–L1784</h3>
+<pre><code class="language-text">L1757:                 logger.debug(
+L1758:                     f&quot;[AI会话] 会话完成 session_id={session_id} loop={loop_count} &quot;
+L1759:                     f&quot;analysis_chars={len(final_response.get('analysis', ''))} &quot;
+L1760:                     f&quot;total_tokens≈{token_usage['estimated_total_tokens']}&quot;
+L1761:                 )
+L1762:                 return final_response
+L1763:             except AssistantRequestCancelled:
+L1764:                 raise
+L1765:             except Exception as exc:
+L1766:                 error_id = uuid.uuid4().hex[:10]
+L1767:                 logger.error(
+L1768:                     &quot;AI 会话执行失败。session_id=%s&quot;,
+L1769:                     session_id,
+L1770:                     extra={&quot;error_code&quot;: &quot;AI.SESSION.RUN_FAILED&quot;, &quot;extra_context&quot;: {&quot;session_id&quot;: session_id, &quot;error_id&quot;: error_id}},
+L1771:                     exc_info=True,
+L1772:                 )
+L1773:                 return self._build_error_response(exc, token_usage, error_id=error_id, context={&quot;session_id&quot;: session_id})
+L1774: 
+L1775:         return self._build_forced_summary(
+L1776:             session_id,
+L1777:             messages,
+L1778:             llm_kwargs,
+L1779:             model_name,
+L1780:             token_usage,
+L1781:             assistant=assistant,
+L1782:             prompt_input_breakdown=prompt_input_breakdown,
+L1783:             accumulated_prompt_input_breakdown=cumulative_prompt_input_breakdown,
+L1784:         )
+</code></pre>
+<h3>L1786–L1836</h3>
+<pre><code class="language-text">L1786:     def _execute_tool_calls(
+L1787:         self,
+L1788:         *,
+L1789:         session_id: str,
+L1790:         formatted_tool_calls: list[dict[str, Any]],
+L1791:         tool_executor: AIToolExecutor,
+L1792:         messages: list[dict],
+L1793:         executed_tool_signatures: set[str],
+L1794:         trace_record: RequestTraceRecord | None = None,
+L1795:         session_state: SessionState,
+L1796:     ) -&gt; None:
+L1797:         for tc in formatted_tool_calls:
+L1798:             func_name = tc[&quot;function&quot;][&quot;name&quot;]
+L1799:             func_args = tc[&quot;function&quot;][&quot;arguments&quot;]
+L1800:             tool_start_at = time.perf_counter()
+L1801:             tool_display = tool_executor.build_tool_call_display(func_name, func_args)
+L1802: 
+L1803:             EventBus.emit(&quot;ai-tool-call&quot;, {
+L1804:                 &quot;session_id&quot;: session_id,
+L1805:                 &quot;tool_id&quot;: tc[&quot;id&quot;],
+L1806:                 &quot;name&quot;: func_name,
+L1807:                 &quot;display_name&quot;: tool_display.get(&quot;display_name&quot;, &quot;&quot;),
+L1808:                 &quot;arguments&quot;: func_args,
+L1809:                 &quot;arguments_preview&quot;: tool_display.get(&quot;arguments_preview&quot;, &quot;&quot;),
+L1810:                 &quot;arguments_pretty&quot;: tool_display.get(&quot;arguments_pretty&quot;, &quot;&quot;),
+L1811:             })
+L1812: 
+L1813:             call_signature = f&quot;{func_name}|{func_args}&quot;
+L1814:             if call_signature in executed_tool_signatures:
+L1815:                 tool_execution = ToolExecutionResult(
+L1816:                     name=func_name,
+L1817:                     ok=False,
+L1818:                     model_output=json.dumps({&quot;error&quot;: DUPLICATE_TOOL_CALL_ERROR}, ensure_ascii=False),
+L1819:                     data={&quot;error&quot;: DUPLICATE_TOOL_CALL_ERROR},
+L1820:                     summary=f&quot;执行失败：{DUPLICATE_TOOL_CALL_ERROR}&quot;,
+L1821:                     error=DUPLICATE_TOOL_CALL_ERROR,
+L1822:                 )
+L1823:                 logger.warning(f&quot;[AI防死锁] 拦截重复调用: {call_signature}&quot;)
+L1824:             else:
+L1825:                 executed_tool_signatures.add(call_signature)
+L1826:                 self._raise_if_cancelled(session_id)
+L1827:                 try:
+L1828:                     tool_execution = tool_executor.execute_structured(func_name, func_args)
+L1829:                 except AssistantRequestCancelled:
+L1830:                     raise
+L1831:                 except Exception as tool_err:
+L1832:                     logger.error(f&quot;[AI会话] 工具执行异常 tool={func_name}: {tool_err}&quot;, exc_info=True)
+L1833:                     tool_error_message = &quot;工具执行失败，请稍后重试。&quot;
+L1834:                     tool_execution = ToolExecutionResult(
+L1835:                         name=func_name,
+L1836:                         ok=False,
+</code></pre>
+<h3>L1847–L1889</h3>
+<pre><code class="language-text">L1847:                 func_name,
+L1848:                 tool_execution.model_output,
+L1849:             )
+L1850:             result_display = tool_executor.build_tool_result_display(tool_execution)
+L1851:             if trace_record is not None:
+L1852:                 trace_record.tool_calls.append(
+L1853:                     RequestToolCallTrace(
+L1854:                         tool_id=tc[&quot;id&quot;],
+L1855:                         name=func_name,
+L1856:                         arguments=func_args,
+L1857:                         status=&quot;done&quot; if tool_ok else &quot;error&quot;,
+L1858:                         result=tool_execution.model_output,
+L1859:                         duration_ms=duration_ms,
+L1860:                         summary=tool_summary,
+L1861:                         display_name=tool_display.get(&quot;display_name&quot;, &quot;&quot;),
+L1862:                         arguments_preview=tool_display.get(&quot;arguments_preview&quot;, &quot;&quot;),
+L1863:                         arguments_pretty=tool_display.get(&quot;arguments_pretty&quot;, &quot;&quot;),
+L1864:                         result_pretty=result_display.get(&quot;result_pretty&quot;, &quot;&quot;),
+L1865:                     )
+L1866:                 )
+L1867: 
+L1868:             EventBus.emit(&quot;ai-tool-result&quot;, {
+L1869:                 &quot;session_id&quot;: session_id,
+L1870:                 &quot;tool_id&quot;: tc[&quot;id&quot;],
+L1871:                 &quot;status&quot;: &quot;done&quot; if tool_ok else &quot;error&quot;,
+L1872:                 &quot;duration_ms&quot;: duration_ms,
+L1873:                 &quot;display_name&quot;: result_display.get(&quot;display_name&quot;, &quot;&quot;),
+L1874:                 &quot;summary&quot;: tool_summary,
+L1875:                 &quot;result&quot;: tool_execution.model_output,
+L1876:                 &quot;result_pretty&quot;: result_display.get(&quot;result_pretty&quot;, &quot;&quot;),
+L1877:             })
+L1878:             self._append_evidence_item(
+L1879:                 session_state,
+L1880:                 source=f&quot;tool:{func_name}&quot;,
+L1881:                 summary=tool_summary,
+L1882:                 data=tool_execution.data,
+L1883:             )
+L1884: 
+L1885:             messages.append({
+L1886:                 &quot;role&quot;: &quot;tool&quot;,
+L1887:                 &quot;tool_call_id&quot;: tc[&quot;id&quot;],
+L1888:                 &quot;name&quot;: func_name,
+L1889:                 &quot;content&quot;: tool_execution.model_output,
+</code></pre>
+<h2>R10｜内置助手的 RimWorld 提示词、工具和动作</h2>
+<p>来源：<code>backend/ai/def_entries.py</code>；SHA-256：<code>ef160a5e5755d8f43353391dbcb4e7e14e23f84972b1ce4aa3262b9ed863123a</code>。</p>
+<h3>L105–L184</h3>
+<pre><code class="language-text">L105:         &quot;game_log_analysis&quot;: _with_prompt_meta({
+L106:             &quot;name&quot;: &quot;游戏日志分析&quot;,
+L107:             &quot;description&quot;: &quot;分析 RimWorld 游戏日志，帮助玩家解决 Mod 冲突和报错。&quot;,
+L108:             &quot;system&quot;: (
+L109:                 &quot;你是一个专门处理 Unity3D 和 RimWorld 游戏错误日志的诊断专家，&quot;
+L110:                 &quot;擅长判断真正根因、区分连锁报错，并给出可靠且节制的修复建议。\n&quot;
+L111:                 &quot;如果涉及 Mod 冲突、排序错误、缺失前置或不兼容关系，请明确指出所有涉及 Mod 的 package_id。\n\n&quot;
+L112:                 &quot;- 日志来源: {diagnosis_context.source_type}\n&quot;
+L113:                 &quot;- 日志文件名: {diagnosis_context.filename}\n\n&quot;
+L114:                 &quot;会话流程：\n&quot;
+L115:                 &quot;1. 首轮先阅读已压缩的错误摘要，识别最高价值的 1-3 个根因候选；不要为了凑证据而反复调用工具。\n&quot;
+L116:                 &quot;2. 只有在摘要不足以确认根因时才调用 get_log_context。\n&quot;
+L117:                 &quot;3. 调用 get_log_context 时，只能使用附件错误摘要中 errors[].target_line 的原始数值。不要把日志编号、表格序号、重复次数或你推测的行号当作 target_line。\n&quot;
+L118:                 &quot;4. 工具返回足够证据后立即收敛结论；不要重复查询同一 target_line。\n&quot;
+L119:                 &quot;5. 明确区分“已确认事实”“高概率推断”“仍需验证”。\n\n&quot;
+L120:                 &quot;诊断边界：\n&quot;
+L121:                 &quot;- 优先解释最早、最具体、最能导致后续连锁报错的异常；高频报错不一定是根因。\n&quot;
+L122:                 &quot;- 不要把存档编辑、开发者模式操作、向作者反馈等建议写成可执行 action；这些只能写在 analysis 中。\n&quot;
+L123:                 &quot;- 涉及启用/停用 Mod 或新增排序/冲突规则时，只有 package_id、动作方向和理由都明确，才允许输出 action；否则 actions 必须为空数组。\n&quot;
+L124:                 &quot;- action 只表达应用可以直接执行的最小变更，不要在 action 里写夸大的标题或说明。\n\n&quot;
+L125:                 &quot;analysis 部分尽量按以下结构组织：\n&quot;
+L126:                 &quot;- 结论\n&quot;
+L127:                 &quot;- 关键证据\n&quot;
+L128:                 &quot;- 修复建议\n&quot;
+L129:                 &quot;- 待验证项&quot;
+L130:             ),
+L131:             &quot;user_template&quot;: &quot;{message}\n\n{diagnosis_context_block}\n&quot;,
+L132:         }, category=&quot;assistant&quot;, attachment_kinds=[&quot;diagnosis_context&quot;]),
+L133:         &quot;mod_general_assistant&quot;: _with_prompt_meta({
+L134:             &quot;name&quot;: &quot;模组通用助手&quot;,
+L135:             &quot;description&quot;: &quot;面向模组信息、排序、兼容、依赖与使用建议的多轮助手默认模板。&quot;,
+L136:             &quot;system&quot;: &quot;你是 RimCrow 内置的模组助手，负责围绕 RimWorld 模组信息进行多轮协助。\n\n你的基本原则：\n1. 优先利用当前消息、已解析附件摘要和已知事实回答，不要先入为主。\n2. 如果工具已返回足够信息，先基于现有证据收敛，不要反复检索同一问题。\n3. 明确区分“已确认事实”和“基于经验的推断”。\n4. 涉及模组时，尽量同时写出名称与 packageId；如果信息不足，就直接说明不足，不要编造。\n5. 如果用户是在比较、筛选、解释或排查模组，请优先给出清楚结论，再补简要依据。\n6. 回答始终使用 {target_lang}。\n\n如果当前会话没有足够上下文，你可以先提出最关键的下一步问题，或者在允许时调用工具补齐信息。&quot;,
+L137:             &quot;user_template&quot;: &quot;{message}\n\n{mod_selection_block}&quot;,
+L138:         }, category=&quot;assistant&quot;, attachment_kinds=[&quot;mod_selection&quot;]),
+L139:     }
+L140: 
+L141: 
+L142: def get_default_assistant_definitions() -&gt; dict[str, dict]:
+L143:     &quot;&quot;&quot;返回系统内置助手入口定义。&quot;&quot;&quot;
+L144:     return {
+L145:         &quot;assistant.log_game&quot;: _assistant_definition(
+L146:             assistant_id=&quot;assistant.log_game&quot;,
+L147:             name=&quot;游戏日志助手&quot;,
+L148:             description=&quot;面向 RimWorld 游戏日志的多轮强化诊断助手。&quot;,
+L149:             prompt_id=&quot;game_log_analysis&quot;,
+L150:             source_kinds=[&quot;logs&quot;],
+L151:             tool_scope=[
+L152:                 &quot;get_log_context&quot;,
+L153:                 &quot;search_mods&quot;,
+L154:                 &quot;get_active_mod_list&quot;,
+L155:                 &quot;get_mod_info&quot;,
+L156:                 &quot;get_mod_rules&quot;,
+L157:                 &quot;get_mod_user_data&quot;,
+L158:                 &quot;get_group_mods&quot;,
+L159:             ],
+L160:             action_types=[&quot;MOD_STATE&quot;, &quot;MOD_RULE&quot;],
+L161:         ),
+L162:         &quot;assistant.log_app&quot;: _assistant_definition(
+L163:             assistant_id=&quot;assistant.log_app&quot;,
+L164:             name=&quot;软件日志助手&quot;,
+L165:             description=&quot;面向 RimCrow 自身运行日志的多轮诊断助手。&quot;,
+L166:             prompt_id=&quot;app_log_analysis&quot;,
+L167:             source_kinds=[&quot;logs&quot;],
+L168:             tool_scope=[],
+L169:             action_types=[&quot;TEXT_TRANSFER&quot;],
+L170:         ),
+L171:         &quot;assistant.mod_general&quot;: _assistant_definition(
+L172:             assistant_id=&quot;assistant.mod_general&quot;,
+L173:             name=&quot;模组助手&quot;,
+L174:             description=&quot;面向单个或多个模组信息的通用多轮助手。&quot;,
+L175:             prompt_id=&quot;mod_general_assistant&quot;,
+L176:             source_kinds=[&quot;mods&quot;, &quot;global&quot;],
+L177:             tool_scope=[
+L178:                 &quot;search_mods&quot;,
+L179:                 &quot;get_mod_info&quot;,
+L180:                 &quot;get_mod_rules&quot;,
+L181:                 &quot;get_mod_user_data&quot;,
+L182:                 &quot;get_group_mods&quot;,
+L183:             ],
+L184:             action_types=[&quot;MOD_STATE&quot;, &quot;MOD_RULE&quot;],
+</code></pre>
+<h2>R11｜动作卡片的执行边界</h2>
+<p>来源：<code>frontend/src/features/ai/ai-store/runtime/aiActionRuntime.js</code>；SHA-256：<code>315093b96c4744ab89a57fdf0bef576260c73f186d84be7d16c9ff3f63a7d7dc</code>。</p>
+<h3>L382–L437</h3>
+<pre><code class="language-text">L382:   async MOD_STATE(payload, action) {
+L383:     const shouldEnable = getActionVariant(action) !== 'disable'
+L384:     const modIds = Array.isArray(payload.mod_ids) ? payload.mod_ids : []
+L385:     if (modIds.length === 0) {
+L386:       toast.warning(getActionMissingPayloadMessage(action))
+L387:       return
+L388:     }
+L389:     // 默认前端会先把这类动作拆成单模组卡片；
+L390:     // 这里仍保留逐项执行兜底，避免其它入口直接执行批量 payload。
+L391:     for (const modId of modIds) {
+L392:       await modStore.changeModsActive([modId], shouldEnable)
+L393:     }
+L394:     const successMessage = getActionSuccessMessage(action)
+L395:     if (successMessage) {
+L396:       toast.success(successMessage)
+L397:     }
+L398:   },
+L399: 
+L400:   async MOD_RULE(payload, action) {
+L401:     /**
+L402:      * 应用一条用户规则动作。
+L403:      *
+L404:      * 规则类动作有副作用且可能影响排序，因此必须先确认，再在成功后
+L405:      * 根据后端定义决定是否追加“顺手自动排序”的二次动作。
+L406:      */
+L407:     const normalizedType = String(action?.variant || payload.rule_type || '')
+L408:     if (!payload.mod_id || !payload.target_id || !normalizedType) {
+L409:       toast.warning(getActionMissingPayloadMessage(action))
+L410:       return
+L411:     }
+L412: 
+L413:     const confirmMeta = getActionConfirmMeta(action)
+L414:     const confirmed = await confirmStore.confirmAction(
+L415:       confirmMeta.title || t('ai.actions.fallback.confirm_title', '确认执行操作'),
+L416:       confirmMeta.message || getActionPreview(action) || getActionDescription(action),
+L417:       { type: 'warning', confirmText: confirmMeta.confirmText || t('common.action.confirm', '确认'), cancelText: t('common.action.cancel', '取消') },
+L418:     )
+L419:     if (!confirmed) return
+L420: 
+L421:     await ruleStore.addUserModRule(payload.mod_id, normalizedType, payload.target_id)
+L422: 
+L423:     const postSuccessMeta = getActionPostSuccessMeta(action)
+L424:     if (postSuccessMeta.message &amp;&amp; await confirmStore.confirmAction(
+L425:       postSuccessMeta.title || t('ai.actions.fallback.applied_title', '操作已应用'),
+L426:       postSuccessMeta.message,
+L427:       { type: 'success', confirmText: postSuccessMeta.confirmText || t('common.action.ok', '确定'), cancelText: t('common.action.later_short', '稍后') },
+L428:     )) {
+L429:       await modStore.autoSortMods()
+L430:       return
+L431:     }
+L432: 
+L433:     const successMessage = getActionSuccessMessage(action)
+L434:     if (successMessage &amp;&amp; !postSuccessMeta.message) {
+L435:       toast.success(successMessage)
+L436:     }
+L437:   },
+</code></pre>
+<h2>R12｜启停动作修改列表状态，不等于部署已验证</h2>
+<p>来源：<code>frontend/src/features/mod/stores/modStore.js</code>；SHA-256：<code>8d56991edd9283be5de762579ed07fca7b5530deb7c5d65c0ecc832df94e3685</code>。</p>
+<h3>L722–L745</h3>
+<pre><code class="language-text">L722:   // 批量启用/停用Mod
+L723:   const changeModsActive = async (ids, active) =&gt; {
+L724:     if(typeof ids === 'string') ids = [ids]
+L725:     const nextIds = Array.isArray(ids) ? [...ids] : []
+L726:     if (nextIds.length === 0) return false
+L727:     return await runListHistoryTransaction({
+L728:       type: active ? 'change-active-enable' : 'change-active-disable',
+L729:       label: active
+L730:         ? t('history.mod.activate_count', '启用 {count} 个 Mod', { count: nextIds.length })
+L731:         : t('history.mod.deactivate_count', '停用 {count} 个 Mod', { count: nextIds.length }),
+L732:       trackedModIds: nextIds
+L733:     }, async () =&gt; {
+L734:       removeIdsOnAllList(nextIds)
+L735:       if(active) {
+L736:         await smartInsertMods(nextIds)
+L737:       } else {
+L738:         inactiveIds.value.unshift(...nextIds)
+L739:       }
+L740:       takeModListByIds(nextIds).forEach(mod =&gt; {
+L741:         mod.last_moved_time = Date.now()
+L742:         mod.last_active_time = Date.now()
+L743:       })
+L744:     })
+L745:   }
+</code></pre>
+<h2>R13｜现有单文件原子写入保护</h2>
+<p>来源：<code>backend/utils/json_io.py</code>；SHA-256：<code>87d85b38de9cd7b6cfa7ea5816aad90cb98d8d0e819d1f7c64004eccfe85bb09</code>。</p>
+<h3>L1–L49</h3>
+<pre><code class="language-text">L1: import json
+L2: import os
+L3: import tempfile
+L4: from pathlib import Path
+L5: from typing import Any
+L6: 
+L7: 
+L8: def write_json_atomic(path: Path | str, payload: Any, *, indent: int = 4, lock: Any = None) -&gt; None:
+L9:     &quot;&quot;&quot;
+L10:     以“同目录临时文件 + fsync + os.replace”写入 JSON。
+L11:     同目录替换能保证跨平台原子性；fsync 用于降低断电或崩溃时写入半截文件的风险。
+L12:     &quot;&quot;&quot;
+L13:     target_path = Path(path)
+L14:     target_path.parent.mkdir(parents=True, exist_ok=True)
+L15: 
+L16:     def _write() -&gt; None:
+L17:         fd = None
+L18:         temp_path: Path | None = None
+L19:         try:
+L20:             fd, temp_name = tempfile.mkstemp(
+L21:                 prefix=f&quot;.{target_path.stem}.&quot;,
+L22:                 suffix=&quot;.tmp&quot;,
+L23:                 dir=str(target_path.parent),
+L24:             )
+L25:             temp_path = Path(temp_name)
+L26:             with os.fdopen(fd, &quot;w&quot;, encoding=&quot;utf-8&quot;) as handle:
+L27:                 fd = None
+L28:                 json.dump(payload, handle, indent=indent, ensure_ascii=False)
+L29:                 handle.flush()
+L30:                 os.fsync(handle.fileno())
+L31:             os.replace(temp_path, target_path)
+L32:         except Exception:
+L33:             if fd is not None:
+L34:                 try:
+L35:                     os.close(fd)
+L36:                 except OSError:
+L37:                     pass
+L38:             if temp_path and temp_path.exists():
+L39:                 try:
+L40:                     temp_path.unlink()
+L41:                 except OSError:
+L42:                     pass
+L43:             raise
+L44: 
+L45:     if lock is None:
+L46:         _write()
+L47:         return
+L48:     with lock:
+L49:         _write()
+</code></pre>
+<h2>R14｜现有包安装的暂存与替换逻辑</h2>
+<p>来源：<code>backend/managers/mgr_mod_package.py</code>；SHA-256：<code>9866025b05f6ce3f890e721c2741b180bf431b5e71a5e0a0ad52aace99f21764</code>。</p>
+<h3>L997–L1070</h3>
+<pre><code class="language-text">L997:     def _import_mod_directories(
+L998:         self,
+L999:         bundle: zipfile.ZipFile,
+L1000:         mod_entries: list[dict[str, Any]],
+L1001:         target_root: str,
+L1002:         conflict_plan: dict[str, dict[str, Any]],
+L1003:         *,
+L1004:         cancel_event: threading.Event | None = None,
+L1005:         progress_callback: Callable[[int, int, dict[str, Any]], None] | None = None,
+L1006:     ) -&gt; dict[str, Any]:
+L1007:         if not target_root:
+L1008:             raise ValueError(&quot;未指定有效的模组导入目标&quot;)
+L1009:         os.makedirs(target_root, exist_ok=True)
+L1010:         warnings: list[str] = []
+L1011:         imported_mods: list[dict[str, Any]] = []
+L1012:         skipped_mods: list[dict[str, Any]] = []
+L1013:         renamed_mods: list[dict[str, Any]] = []
+L1014:         normalized_entries = [item for item in mod_entries if str(item.get(&quot;folder_name&quot;) or &quot;&quot;).strip()]
+L1015:         total_mods = len(normalized_entries)
+L1016: 
+L1017:         for index, item in enumerate(normalized_entries, start=1):
+L1018:             self._check_import_cancelled(cancel_event)
+L1019:             if progress_callback:
+L1020:                 progress_callback(index, total_mods, item)
+L1021:             folder_name = str(item.get(&quot;folder_name&quot;) or &quot;&quot;).strip()
+L1022:             plan = conflict_plan.get(folder_name.lower(), {&quot;mode&quot;: &quot;overwrite&quot;, &quot;rename_to&quot;: &quot;&quot;})
+L1023:             destination_name = folder_name
+L1024:             destination_path = os.path.join(target_root, destination_name)
+L1025:             if os.path.exists(destination_path):
+L1026:                 mode = plan.get(&quot;mode&quot;, &quot;overwrite&quot;)
+L1027:                 if mode == &quot;skip&quot;:
+L1028:                     skipped_mods.append({&quot;folder_name&quot;: folder_name, &quot;path&quot;: destination_path})
+L1029:                     continue
+L1030:                 if mode == &quot;rename&quot;:
+L1031:                     destination_name = plan.get(&quot;rename_to&quot;) or self._build_unique_import_name(target_root, folder_name)
+L1032:                     destination_path = os.path.join(target_root, destination_name)
+L1033:                     renamed_mods.append({&quot;from&quot;: folder_name, &quot;to&quot;: destination_name})
+L1034:             staging_root = self._extract_mod_directory_to_staging(
+L1035:                 bundle,
+L1036:                 folder_name,
+L1037:                 destination_path,
+L1038:                 cancel_event=cancel_event,
+L1039:             )
+L1040:             try:
+L1041:                 replace_dir_atomically(destination_path, staging_root)
+L1042:             finally:
+L1043:                 shutil.rmtree(staging_root, ignore_errors=True)
+L1044:             imported_mods.append({&quot;folder_name&quot;: destination_name, &quot;path&quot;: destination_path})
+L1045:             if destination_name != folder_name:
+L1046:                 warnings.append(f'模组 &quot;{folder_name}&quot; 已另存为 &quot;{destination_name}&quot;')
+L1047: 
+L1048:         return {
+L1049:             &quot;warnings&quot;: warnings,
+L1050:             &quot;imported_mods&quot;: imported_mods,
+L1051:             &quot;skipped_mods&quot;: skipped_mods,
+L1052:             &quot;renamed_mods&quot;: renamed_mods,
+L1053:         }
+L1054: 
+L1055:     def _extract_mod_directory_to_staging(
+L1056:         self,
+L1057:         bundle: zipfile.ZipFile,
+L1058:         folder_name: str,
+L1059:         destination_path: str,
+L1060:         *,
+L1061:         cancel_event: threading.Event | None = None,
+L1062:     ) -&gt; Path:
+L1063:         staging_root = create_sibling_stage_dir(destination_path, &quot;mod-import-&quot;)
+L1064:         extract_prefix_to_dir(
+L1065:             bundle,
+L1066:             f&quot;mods/{folder_name}&quot;,
+L1067:             staging_root,
+L1068:             cancel_check=lambda: self._check_import_cancelled(cancel_event),
+L1069:         )
+L1070:         return staging_root
+</code></pre>
+<h2>R15｜凭据保存与拒绝明文降级的分支</h2>
+<p>来源：<code>backend/utils/secret_store.py</code>；SHA-256：<code>ce35f77596757cd54447478f5f4b5bd5d61dda36762e1afd87a8742977353e04</code>。</p>
+<h3>L95–L145</h3>
+<pre><code class="language-text">L95:     def get_secret(self, key: str) -&gt; str:
+L96:         normalized = self.validate_key(key)
+L97:         backend = self.backend
+L98:         if backend is None:
+L99:             self.last_error = _tr(&quot;secret.errors.backend_unavailable&quot;, &quot;系统凭据库不可用&quot;)
+L100:             return &quot;&quot;
+L101:         try:
+L102:             value = backend.get_password(self.service_name, normalized)
+L103:             if not value:
+L104:                 value = self._migrate_legacy_secret(backend, normalized)
+L105:             self.last_error = &quot;&quot;
+L106:             return str(value or &quot;&quot;)
+L107:         except Exception as exc:
+L108:             self.last_error = str(exc) or _tr(&quot;secret.errors.read_failed&quot;, &quot;系统凭据库读取失败&quot;)
+L109:             logger.warning(&quot;读取系统凭据失败: %s&quot;, normalized, exc_info=True)
+L110:             return &quot;&quot;
+L111: 
+L112:     def _migrate_legacy_secret(self, backend: Any, key: str) -&gt; str:
+L113:         for legacy_service_name in self.legacy_service_names:
+L114:             legacy_value = backend.get_password(legacy_service_name, key)
+L115:             if not legacy_value:
+L116:                 continue
+L117:             try:
+L118:                 backend.set_password(self.service_name, key, str(legacy_value))
+L119:                 try:
+L120:                     backend.delete_password(legacy_service_name, key)
+L121:                 except Exception as exc:
+L122:                     if not self._is_missing_secret_error(exc):
+L123:                         logger.warning(&quot;旧凭据删除失败，将在后续启动继续清理: service=%s key=%s&quot;, legacy_service_name, key, exc_info=True)
+L124:                 logger.info(&quot;已迁移旧凭据: %s -&gt; %s key=%s&quot;, legacy_service_name, self.service_name, key)
+L125:             except Exception:
+L126:                 logger.warning(&quot;旧凭据迁移失败，已保留旧值等待下次重试: service=%s key=%s&quot;, legacy_service_name, key, exc_info=True)
+L127:             return str(legacy_value or &quot;&quot;)
+L128:         return &quot;&quot;
+L129: 
+L130:     def set_secret(self, key: str, value: str) -&gt; None:
+L131:         normalized = self.validate_key(key)
+L132:         text = str(value or &quot;&quot;).strip()
+L133:         backend = self.backend
+L134:         if backend is None:
+L135:             raise self._fail(_tr(&quot;secret.errors.local_store_unavailable&quot;, &quot;本机安全存储不可用，请检查系统凭据服务后重试&quot;))
+L136:         try:
+L137:             if text:
+L138:                 backend.set_password(self.service_name, normalized, text)
+L139:             else:
+L140:                 self.delete_secret(normalized)
+L141:             self.fallback_keys.discard(normalized)
+L142:             self.fallback_errors.pop(normalized, None)
+L143:             self.last_error = &quot;&quot;
+L144:         except Exception as exc:
+L145:             raise self._fail(_tr(&quot;secret.errors.save_failed&quot;, &quot;无法保存密钥，请确认本机安全存储可用后重试&quot;), exc) from exc
+</code></pre>
+<h2>R16｜浏览器模式桥接：公开方法枚举、调用分支和 CORS</h2>
+<p>来源：<code>backend/browser_runtime.py</code>；SHA-256：<code>4f349b2df55b614cad675711e7ec0f1c0240c9c21478e37d00673f546111397b</code>。</p>
+<h3>L588–L625</h3>
+<pre><code class="language-text">L588: 
+L589: class BrowserAppServer:
+L590:     def __init__(self, api, static_root: Path | None, use_dev_server: bool = False):
+L591:         self.api = api
+L592:         self.static_root = static_root
+L593:         self.use_dev_server = use_dev_server
+L594:         self._shutdown_event = threading.Event()
+L595:         self._serve_thread: threading.Thread | None = None
+L596:         self._session_manager = BrowserSessionManager(self.request_shutdown)
+L597:         self._httpd = ThreadingHTTPServer((&quot;127.0.0.1&quot;, 0), self._create_handler())
+L598:         self.base_url = f&quot;http://127.0.0.1:{self._httpd.server_address[1]}&quot;
+L599: 
+L600:     @staticmethod
+L601:     def resolve_static_root():
+L602:         candidates = [Path(os.getcwd()) / &quot;frontend&quot; / &quot;dist&quot;, Path(os.getcwd())]
+L603:         for root in candidates:
+L604:             if (root / &quot;index.html&quot;).exists(): return root
+L605:         return None
+L606: 
+L607:     @staticmethod
+L608:     def should_use_dev_server():
+L609:         return not getattr(__import__(&quot;sys&quot;), &quot;frozen&quot;, False) and is_port_available(DEV_SERVER_HOST, DEV_SERVER_PORT)
+L610: 
+L611:     def get_launch_url(self):
+L612:         api_base = quote(self.base_url, safe=&quot;&quot;)
+L613:         if self.use_dev_server:
+L614:             separator = &quot;&amp;&quot; if &quot;?&quot; in DEV_SERVER_URL else &quot;?&quot;
+L615:             return f&quot;{DEV_SERVER_URL}{separator}api_base={api_base}&quot;
+L616:         return f&quot;{self.base_url}/?api_base={api_base}&quot;
+L617: 
+L618:     def get_available_methods(self):
+L619:         blocked = {&quot;cleanup&quot;, &quot;get_window&quot;, &quot;set_window&quot;}
+L620:         return sorted(
+L621:             name
+L622:             for name in dir(self.api)
+L623:             if not name.startswith(&quot;_&quot;) and name not in blocked and callable(getattr(self.api, name))
+L624:         )
+L625: 
+</code></pre>
+<h3>L690–L718</h3>
+<pre><code class="language-text">L690:                     session_id = str(payload.get(&quot;client_id&quot;, &quot;&quot;)).strip()
+L691:                     ok = outer._session_manager.heartbeat(session_id)
+L692:                     return self._send_json({&quot;status&quot;: &quot;success&quot; if ok else &quot;warning&quot;, &quot;message&quot;: &quot;&quot; if ok else tr(&quot;browser.session.expired&quot;, &quot;浏览器会话已失效，请刷新页面或重启软件。&quot;)})
+L693:                 if parsed.path == &quot;/api/session/close&quot;:
+L694:                     payload = self._read_json_body()
+L695:                     session_id = str(payload.get(&quot;client_id&quot;, &quot;&quot;)).strip()
+L696:                     outer._session_manager.close_session(session_id)
+L697:                     return self._send_json({&quot;status&quot;: &quot;success&quot;})
+L698:                 if parsed.path.startswith(&quot;/api/call/&quot;):
+L699:                     method_name = unquote(parsed.path.removeprefix(&quot;/api/call/&quot;)).strip()
+L700:                     return self._handle_api_call(method_name)
+L701:                 self.send_error(404, &quot;Not Found&quot;)
+L702: 
+L703:             def log_message(self, format, *args): return
+L704: 
+L705:             def _handle_api_call(self, method_name: str):
+L706:                 if method_name not in outer.get_available_methods():
+L707:                     return self._send_json({&quot;status&quot;: &quot;error&quot;, &quot;message&quot;: tr(&quot;browser.api.method_missing&quot;, &quot;请求的后端接口不存在，请刷新页面或重启软件后重试。&quot;)}, status_code=404)
+L708: 
+L709:                 payload = self._read_json_body()
+L710:                 args = payload.get(&quot;args&quot;, [])
+L711:                 kwargs = payload.get(&quot;kwargs&quot;, {})
+L712:                 method = getattr(outer.api, method_name)
+L713:                 try:
+L714:                     result = method(*args, **kwargs)
+L715:                 except Exception as exc:
+L716:                     error_id = uuid.uuid4().hex[:10]
+L717:                     user_message = tr(&quot;browser.api.call_failed&quot;, &quot;后端接口执行失败。可能是运行环境、路径权限或内部状态暂时不可用。&quot;)
+L718:                     envelope = coerce_error_envelope(
+</code></pre>
+<h3>L784–L805</h3>
+<pre><code class="language-text">L784: 
+L785:                 if not outer.static_root:
+L786:                     return self._send_json({&quot;status&quot;: &quot;error&quot;, &quot;message&quot;: tr(&quot;browser.static.frontend_missing&quot;, &quot;未找到前端页面资源，请重新构建前端或检查安装包完整性。&quot;)}, status_code=500)
+L787: 
+L788:                 request_path = parsed.path or &quot;/&quot;
+L789:                 relative_path = request_path.lstrip(&quot;/&quot;)
+L790:                 candidate = (outer.static_root / relative_path).resolve()
+L791:                 root_resolved = outer.static_root.resolve()
+L792: 
+L793:                 if request_path == &quot;/&quot; or not relative_path:
+L794:                     candidate = root_resolved / &quot;index.html&quot;
+L795: 
+L796:                 if not str(candidate).startswith(str(root_resolved)):
+L797:                     self.send_error(403, &quot;Forbidden&quot;)
+L798:                     return
+L799: 
+L800:                 if candidate.is_dir():
+L801:                     candidate = candidate / &quot;index.html&quot;
+L802:                 if not candidate.exists() or not candidate.is_file():
+L803:                     candidate = root_resolved / &quot;index.html&quot;
+L804: 
+L805:                 content_type = mimetypes.guess_type(str(candidate))[0] or &quot;application/octet-stream&quot;
+</code></pre>
+<h3>L837–L850</h3>
+<pre><code class="language-text">L837:             def _read_json_body(self):
+L838:                 content_length = int(self.headers.get(&quot;Content-Length&quot;, &quot;0&quot;) or &quot;0&quot;)
+L839:                 if content_length &lt;= 0: return {}
+L840:                 raw_body = self.rfile.read(content_length)
+L841:                 if not raw_body: return {}
+L842:                 try: return json.loads(raw_body.decode(&quot;utf-8&quot;))
+L843:                 except Exception: return {}
+L844: 
+L845:             def _send_common_headers(self, content_type=&quot;application/json; charset=utf-8&quot;):
+L846:                 self.send_header(&quot;Content-Type&quot;, content_type)
+L847:                 self.send_header(&quot;Access-Control-Allow-Origin&quot;, &quot;*&quot;)
+L848:                 self.send_header(&quot;Access-Control-Allow-Headers&quot;, &quot;Content-Type&quot;)
+L849:                 self.send_header(&quot;Access-Control-Allow-Methods&quot;, &quot;GET,POST,OPTIONS&quot;)
+L850: 
+</code></pre>
+<h2>R17｜旧日志规则以 RimWorld 为中心</h2>
+<p>来源：<code>backend/managers/mgr_game_logs.py</code>；SHA-256：<code>114462ec1823b7619f37b0bb5ff606a5f21506e966d6b5cf3fccdd195a3f8efe</code>。</p>
+<h3>L1–L115</h3>
+<pre><code class="language-text">L1: # backend/managers/mgr_game_logs.py
+L2: import copy
+L3: import json
+L4: import os
+L5: import re
+L6: from datetime import datetime
+L7: import threading
+L8: import time
+L9: 
+L10: from backend.load_order.package_tokens import parse_package_token
+L11: from backend.managers.mgr_game import GameManager
+L12: from backend.managers.mgr_load_order import LoadOrderManager
+L13: from backend.managers.mgr_profile import ProfileContext
+L14: from backend.i18n.messages import localized_key, tr
+L15: from backend.utils.event_bus import EventBus
+L16: from backend.utils.logger import BaseLogReader, generate_log_id, logger
+L17: 
+L18: 
+L19: INFERRED_TYPE_LABELS = {
+L20:     'XMLSyntaxError': tr('game_log.inferred_type.xml_syntax_error', 'XML 语法错误'),
+L21:     'DefConfigError': tr('game_log.inferred_type.def_config_error', '定义配置错误'),
+L22:     'CrossRefError': tr('game_log.inferred_type.cross_ref_error', '引用缺失'),
+L23:     'AssemblyConflict': tr('game_log.inferred_type.assembly_conflict', '程序集冲突'),
+L24:     'TickException': tr('game_log.inferred_type.tick_exception', 'Tick 异常'),
+L25:     'DrawException': tr('game_log.inferred_type.draw_exception', '绘制异常'),
+L26:     'NullReference': tr('game_log.inferred_type.null_reference', '空引用异常'),
+L27:     'OutOfMemory': tr('game_log.inferred_type.out_of_memory', '内存不足'),
+L28:     'MissingTexture': tr('game_log.inferred_type.missing_texture', '贴图缺失'),
+L29:     'MissingDef': tr('game_log.inferred_type.missing_def', '定义缺失'),
+L30:     'XMLFieldError': tr('game_log.inferred_type.xml_field_error', 'XML 字段错误'),
+L31:     'MissingReference': tr('game_log.inferred_type.missing_reference', '引用加载失败'),
+L32:     'TranslationError': tr('game_log.inferred_type.translation_error', '翻译数据错误'),
+L33:     'PackageIdError': tr('game_log.inferred_type.package_id_error', '包名格式错误'),
+L34:     'PatchWarning': tr('game_log.inferred_type.patch_warning', '补丁警告'),
+L35: }
+L36: 
+L37: 
+L38: class LogAnalyzer:
+L39:     &quot;&quot;&quot;启发式日志诊断分析器：推断错误类型并提取关联的 Mod ID 或 文件路径&quot;&quot;&quot;
+L40:     def __init__(self):
+L41:         self.known_rules = [
+L42:             {
+L43:                 'id': 'missing_def',
+L44:                 'type': 'MissingDef',
+L45:                 'pattern': re.compile(r'\b\S+\s+\S+\s+is not defined in any loaded mods\.', re.IGNORECASE),
+L46:                 'explanation': tr('game_log.diagnosis.missing_def', '有 Mod 正在引用不存在的定义，通常是缺少前置、版本不匹配或旧存档残留引用。')
+L47:             },
+L48:             {
+L49:                 'id': 'xml_unknown_field',
+L50:                 'type': 'XMLFieldError',
+L51:                 'pattern': re.compile(r&quot;XML error:\s+.+?\s+doesn't correspond to any field in type\s+.+?\.&quot;, re.IGNORECASE),
+L52:                 'explanation': tr('game_log.diagnosis.xml_unknown_field', '某个 XML 字段不被当前游戏或目标类型识别，常见原因是 Mod 版本过旧、游戏版本不匹配或配置写错。')
+L53:             },
+L54:             {
+L55:                 'id': 'config_error',
+L56:                 'type': 'DefConfigError',
+L57:                 'pattern': re.compile(r'Config error in', re.IGNORECASE),
+L58:                 'explanation': tr('game_log.diagnosis.config_error', '某个定义配置不符合游戏要求，通常需要检查日志提到的对象和对应 Mod。')
+L59:             },
+L60:             {
+L61:                 'id': 'cross_reference_missing',
+L62:                 'type': 'CrossRefError',
+L63:                 'pattern': re.compile(r'Could not resolve cross-reference|Could not resolve reference to object with loadID', re.IGNORECASE),
+L64:                 'explanation': tr('game_log.diagnosis.cross_reference_missing', '游戏无法找到被引用的对象，常见原因是缺少依赖、加载顺序不对或存档里引用了已移除内容。')
+L65:             },
+L66:             {
+L67:                 'id': 'could_not_load_reference',
+L68:                 'type': 'MissingReference',
+L69:                 'pattern': re.compile(r'Could not load reference to\s+.+?\s+named\s+.+', re.IGNORECASE),
+L70:                 'explanation': tr('game_log.diagnosis.could_not_load_reference', '日志中的对象引用没有加载成功，优先检查相关 Mod 是否启用、依赖是否齐全。')
+L71:             },
+L72:             {
+L73:                 'id': 'missing_texture',
+L74:                 'type': 'MissingTexture',
+L75:                 'pattern': re.compile(r'Failed to find any texture|Could not load UnityEngine\.Texture2D', re.IGNORECASE),
+L76:                 'explanation': tr('game_log.diagnosis.missing_texture', '游戏找不到贴图资源，通常是资源路径写错、Mod 文件缺失或版本包不完整。')
+L77:             },
+L78:             {
+L79:                 'id': 'null_reference_exception',
+L80:                 'type': 'NullReference',
+L81:                 'pattern': re.compile(r'NullReferenceException', re.IGNORECASE),
+L82:                 'explanation': tr('game_log.diagnosis.null_reference_exception', '有代码访问了不存在的对象。单独看这类错误信息量有限，需要结合错误堆栈里的来源继续判断。')
+L83:             },
+L84:             {
+L85:                 'id': 'type_load_exception',
+L86:                 'type': 'AssemblyConflict',
+L87:                 'pattern': re.compile(r'ReflectionTypeLoadException|MissingMethodException|TypeLoadException|MissingFieldException', re.IGNORECASE),
+L88:                 'explanation': tr('game_log.diagnosis.type_load_exception', '程序集或方法字段不匹配，常见原因是 Mod 版本不兼容、依赖库版本冲突或游戏更新后旧 DLL 未适配。')
+L89:             },
+L90:             {
+L91:                 'id': 'translation_data_error',
+L92:                 'type': 'TranslationError',
+L93:                 'pattern': re.compile(r'Translation data .*? has errors|translation data has errors', re.IGNORECASE),
+L94:                 'explanation': tr('game_log.diagnosis.translation_data_error', '翻译文件存在格式或字段问题，通常不一定导致崩溃，但会影响文本显示。')
+L95:             },
+L96:             {
+L97:                 'id': 'package_id_format',
+L98:                 'type': 'PackageIdError',
+L99:                 'pattern': re.compile(r'PackageId .*? is not in valid format', re.IGNORECASE),
+L100:                 'explanation': tr('game_log.diagnosis.package_id_format', 'Mod 的 packageId 格式不规范，可能影响依赖识别、加载顺序和管理器匹配。')
+L101:             },
+L102:             {
+L103:                 'id': 'patch_obsolete_method',
+L104:                 'type': 'PatchWarning',
+L105:                 'pattern': re.compile(r'patch(?:es)? on obsolete method|patched jump instruction', re.IGNORECASE),
+L106:                 'explanation': tr('game_log.diagnosis.patch_obsolete_method', '有补丁作用在过时或不稳定的方法上，通常说明相关 Mod 需要更新。')
+L107:             },
+L108:         ]
+L109:         # 常见错误特征匹配
+L110:         self.rules = {
+L111:             'XMLSyntaxError': re.compile(r'XML error|XML parsing error', re.IGNORECASE),
+L112:             'DefConfigError': re.compile(r'Config error in', re.IGNORECASE),
+L113:             'CrossRefError': re.compile(r'Could not resolve cross-reference|cross-reference|Could not resolve reference to object with loadID', re.IGNORECASE),
+L114:             'AssemblyConflict': re.compile(r'ReflectionTypeLoadException|MissingMethodException|TypeLoadException', re.IGNORECASE),
+L115:             'TickException': re.compile(r'Exception ticking', re.IGNORECASE),
+</code></pre>
+<h2>R18｜MIT 许可</h2>
+<p>来源：<code>LICENSE</code>；SHA-256：<code>3944bc4dac485e160dfdadbb27fad6c7b1ab6bad2bbf40cc784fbd1b8eff36e4</code>。</p>
+<h3>L1–L21</h3>
+<pre><code class="language-text">L1: MIT License
+L2: 
+L3: Copyright (c) 2026 RimCrow contributors
+L4: 
+L5: Permission is hereby granted, free of charge, to any person obtaining a copy
+L6: of this software and associated documentation files (the &quot;Software&quot;), to deal
+L7: in the Software without restriction, including without limitation the rights
+L8: to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+L9: copies of the Software, and to permit persons to whom the Software is
+L10: furnished to do so, subject to the following conditions:
+L11: 
+L12: The above copyright notice and this permission notice shall be included in all
+L13: copies or substantial portions of the Software.
+L14: 
+L15: THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+L16: IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+L17: FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+L18: AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+L19: LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+L20: OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+L21: SOFTWARE.
+</code></pre>
+<h2>T1｜执行范围与原始测试输出</h2>
+<h3>ai_runtime.txt</h3>
+<pre><code class="language-text">
+==================================== ERRORS ====================================
+_____________ ERROR collecting tests/test_ai_assistant_runtime.py ______________
+ImportError while importing test module '/mnt/data/audit/rimcrow/RimCrow/tests/test_ai_assistant_runtime.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.13/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_ai_assistant_runtime.py:59: in &lt;module&gt;
+    import backend.ai.assistant_runtime as assistant_runtime_module
+backend/ai/assistant_runtime.py:26: in &lt;module&gt;
+    from backend.ai.def_actions import normalize_ai_actions
+backend/ai/def_actions.py:10: in &lt;module&gt;
+    from backend.ai.ai_contracts import (
+backend/ai/ai_contracts.py:13: in &lt;module&gt;
+    from backend.utils.tools import (
+backend/utils/tools.py:14: in &lt;module&gt;
+    from backend.paths.core import (
+backend/paths/__init__.py:10: in &lt;module&gt;
+    from .game_locations import (
+backend/paths/game_locations.py:9: in &lt;module&gt;
+    import vdf
+E   ModuleNotFoundError: No module named 'vdf'
+=========================== short test summary info ============================
+ERROR tests/test_ai_assistant_runtime.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.16s
+
+</code></pre>
+<h3>compileall.txt</h3>
+<pre><code class="language-text">backend/static_page.py:1315: SyntaxWarning: invalid escape sequence '\{'
+  const formatMessage = (template, params = {{}}) =&gt; String(template || '').replace(/\{{(\w+)\}}/g, (_, key) =&gt; params[key] ?? '');
+backend/static_page.py:1315: SyntaxWarning: invalid escape sequence '\}'
+  const formatMessage = (template, params = {{}}) =&gt; String(template || '').replace(/\{{(\w+)\}}/g, (_, key) =&gt; params[key] ?? '');
+backend/static_page.py:1394: SyntaxWarning: invalid escape sequence '\w'
+  &lt;/html&gt;&quot;&quot;&quot;
+
+</code></pre>
+<h3>frontend_mod_identity.txt</h3>
+<pre><code class="language-text">命令无标准输出；退出码在 audit_summary.json 记录。
+</code></pre>
+<h3>额外只读配置探测</h3>
+<pre><code class="language-json">[
+  {
+    &quot;file&quot;: &quot;Loader.cfg&quot;,
+    &quot;standard_tomllib&quot;: &quot;pass&quot;,
+    &quot;top_level_keys&quot;: 5
+  },
+  {
+    &quot;file&quot;: &quot;MelonPreferences.cfg&quot;,
+    &quot;standard_tomllib&quot;: &quot;reject&quot;,
+    &quot;error&quot;: &quot;Invalid initial character for a key part (at line 28, column 2)&quot;
+  },
+  {
+    &quot;file&quot;: &quot;PSMarketRequests.cfg&quot;,
+    &quot;standard_tomllib&quot;: &quot;pass&quot;,
+    &quot;top_level_keys&quot;: 26
+  },
+  {
+    &quot;file&quot;: &quot;PSProcurement.cfg&quot;,
+    &quot;standard_tomllib&quot;: &quot;pass&quot;,
+    &quot;top_level_keys&quot;: 34
+  },
+  {
+    &quot;file&quot;: &quot;PSWallpaper.cfg&quot;,
+    &quot;standard_tomllib&quot;: &quot;reject&quot;,
+    &quot;error&quot;: &quot;Invalid value (at line 4, column 15)&quot;
+  }
+]
+</code></pre>
+<p>标准解析器拒绝不等于游戏配置损坏，可能是方言或不同格式。</p>
+</details><details id="dll-inventory"><summary>展开：全部 45 个 DLL 的元数据概览</summary><p>“日志中有哈希”只表示该文件哈希在上传日志中出现，不等于功能全部生效。完整哈希与属性见压缩包内 mod_inventory.json。</p><div class="table-scroll"><table><thead><tr><th>文件</th><th>Melon 显示名</th><th>Melon 版本</th><th>程序集</th><th>程序集版本</th><th>嵌入清单</th><th>日志中有哈希</th><th>SHA-256 前缀</th></tr></thead><tbody><tr><td>3低概率2%.dll</td><td>EmptyNukeBarrel_Rare</td><td>1.0.27-localfix1</td><td>EmptyNukeBarrel_Rare</td><td>1.0.27.0</td><td>—</td><td>是</td><td>887f6b6e6332…</td></tr><tr><td>AugPresenceGuard.dll</td><td>AugPresenceGuard</td><td>1.0.0</td><td>AugPresenceGuard</td><td>1.0.0.0</td><td>—</td><td>是</td><td>5f0c47eba2f6…</td></tr><tr><td>AutoBatterySwap.dll</td><td>AutoBatterySwap</td><td>1.10.1</td><td>AutoBatterySwap</td><td>0.0.0.0</td><td>—</td><td>是</td><td>d697c3b4a779…</td></tr><tr><td>BrewingExpansion.dll</td><td>Brewing Expansion</td><td>0.4.0</td><td>BrewingExpansion</td><td>0.0.0.0</td><td>—</td><td>是</td><td>cf5f2bf8c091…</td></tr><tr><td>CharacterForgeRuntime.dll</td><td>CharacterForge Runtime</td><td>1.1.1</td><td>CharacterForgeRuntime</td><td>1.1.1.0</td><td>—</td><td>是</td><td>6bf67f845621…</td></tr><tr><td>ClickToAdvance.dll</td><td>ClickToAdvance</td><td>1.0.0</td><td>ClickToAdvance</td><td>1.0.0.0</td><td>—</td><td>是</td><td>bcf261776a6b…</td></tr><tr><td>CustomerCreditBoostm.dll</td><td>CustomerCreditBoost</td><td>1.2.0</td><td>CustomerCreditBoost</td><td>0.0.0.0</td><td>—</td><td>是</td><td>31cc77774e4f…</td></tr><tr><td>DialogueSpeed-1.0.0m.dll</td><td>DialogueSpeed</td><td>1.0.0</td><td>DialogueSpeed</td><td>1.0.0.0</td><td>—</td><td>是</td><td>94f0db8e57ed…</td></tr><tr><td>ExtraPerks.dll</td><td>ExtraPerks</td><td>0.2.0</td><td>ExtraPerks</td><td>0.2.0.0</td><td>—</td><td>是</td><td>a66b0a8be9f7…</td></tr><tr><td>InventorySorter.dll</td><td>Inventory Sorter</td><td>1.0.1</td><td>InventorySorter</td><td>1.0.0.0</td><td>—</td><td>是</td><td>e20f6122908d…</td></tr><tr><td>ItemForgeRuntime.dll</td><td>ItemForge Runtime</td><td>1.2.3</td><td>ItemForgeRuntime</td><td>1.2.3.0</td><td>—</td><td>是</td><td>d52270822759…</td></tr><tr><td>JCuratedVisitors.dll</td><td>烛印会与失灯区</td><td>1.0.9</td><td>JCuratedVisitors</td><td>1.0.9.0</td><td>—</td><td>是</td><td>585d9f84649a…</td></tr><tr><td>KitchenCrashTrace.dll</td><td>Kitchen Crash Trace</td><td>0.3.2</td><td>KitchenCrashTrace</td><td>0.3.2.0</td><td>—</td><td>是</td><td>72f48dc69759…</td></tr><tr><td>MoreStorageColors.dll</td><td>More Storage Colors</td><td>1.1.0</td><td>MoreStorageColors</td><td>1.1.0.0</td><td>—</td><td>是</td><td>d6f49a6d31bd…</td></tr><tr><td>Nested Storage.dll</td><td>NestedStorage</td><td>1.7.2</td><td>Nested Storage</td><td>0.0.0.0</td><td>—</td><td>是</td><td>be640b87b468…</td></tr><tr><td>PSCharacterPack_CuratedVisitors.dll</td><td>第七席与绯色来客·人物资源</td><td>0.3.3</td><td>PSCharacterPack_CuratedVisitors</td><td>0.3.3.0</td><td>CharacterForge.characters.json / API 1</td><td>是</td><td>6209b8f7c2aa…</td></tr><tr><td>PSCharacterPack_Fishingfriends.dll</td><td>钓鱼商人</td><td>1.3.10</td><td>PSCharacterPack_Fishingfriends</td><td>1.0.0.0</td><td>CharacterForge.characters.json / API 1</td><td>是</td><td>903902f8a9ce…</td></tr><tr><td>PSFishingCuisineExpansion.dll</td><td>钓鱼料理扩展</td><td>1.0.0</td><td>PSFishingCuisineExpansion</td><td>1.0.0.0</td><td>ItemForge.items.json / API 19</td><td>是</td><td>6f4daf8dc153…</td></tr><tr><td>PSItemPack_CuratedVisitors.dll</td><td>第七席与绯色来客</td><td>0.3.3</td><td>PSItemPack_CuratedVisitors</td><td>0.3.3.0</td><td>ItemForge.items.json / API 19</td><td>是</td><td>75fcb11415a0…</td></tr><tr><td>PSItemPack_Gofishing.dll</td><td>gofishing</td><td>1.3.10</td><td>PSItemPack_Gofishing</td><td>1.0.0.0</td><td>ItemForge.items.json / API 19</td><td>是</td><td>ccf46fe925f0…</td></tr><tr><td>PSItemPack_MoreFood.dll</td><td>E1z的更多食物</td><td>1.0.1</td><td>PSItemPack_MoreFood</td><td>1.0.0.0</td><td>ItemForge.items.json / API 12</td><td>是</td><td>190c29ed382d…</td></tr><tr><td>PSItemPack_SanmuShiwushechipinPack1.dll</td><td>无 MelonInfo（需看内容清单）</td><td>—</td><td>PSItemPack_SanmuShiwushechipinPack1</td><td>1.0.0.0</td><td>ItemForge.items.json / API 5</td><td>未检出</td><td>5b9990f1b78f…</td></tr><tr><td>PSMarketRequests.dll</td><td>PSMarketRequests</td><td>1.4.13</td><td>PSMarketRequests</td><td>1.0.0.0</td><td>—</td><td>是</td><td>4e0c60389216…</td></tr><tr><td>PSPDA.dll</td><td>Terminal</td><td>0.5.66</td><td>PSPDA</td><td>1.0.0.0</td><td>—</td><td>是</td><td>f7eb2a5ad22b…</td></tr><tr><td>PSProcurement.dll</td><td>PSProcurement</td><td>0.47.72</td><td>PSProcurement</td><td>1.0.0.0</td><td>—</td><td>是</td><td>df1cac8084f1…</td></tr><tr><td>PSWallpaper.dll</td><td>PSWallpaper</td><td>1.0.10</td><td>PSWallpaper</td><td>1.0.0.0</td><td>—</td><td>是</td><td>fc934110f8ad…</td></tr><tr><td>PSWarehouse.dll</td><td>PSWarehouse</td><td>0.6.4</td><td>PSWarehouse</td><td>1.0.0.0</td><td>—</td><td>是</td><td>ceebb9fe0141…</td></tr><tr><td>ProbablyStolenInspector.dll</td><td>ProbablyStolenInspector</td><td>3.20.3</td><td>ProbablyStolenInspector</td><td>0.0.0.0</td><td>—</td><td>是</td><td>76206b4664c2…</td></tr><tr><td>ProbablyStolenItemManager.dll</td><td>Probably Stolen Item Manager</td><td>0.4.7</td><td>ProbablyStolenItemManager</td><td>0.0.0.0</td><td>—</td><td>是</td><td>0ae56b227ba8…</td></tr><tr><td>RatColonyOptimizer.dll</td><td>Rat Colony Optimizer</td><td>1.0.0</td><td>RatGeneticRenamer</td><td>1.0.0.0</td><td>—</td><td>未检出</td><td>d48dd8c870c2…</td></tr><tr><td>RatGeneticRenamer.dll</td><td>Rat Genetic Renamer</td><td>1.0.0</td><td>RatGeneticRenamer</td><td>2.6.3.0</td><td>—</td><td>是</td><td>c0a8c7105036…</td></tr><tr><td>SciRat.dll</td><td>科学养鼠</td><td>1.3.10</td><td>SciRat</td><td>1.1.0.0</td><td>—</td><td>是</td><td>0de62c4d0dbd…</td></tr><tr><td>WagesPerks.dll</td><td>Wage&#x27;s Perks</td><td>1.2.2-localfix1</td><td>JacksonPerks</td><td>1.0.0.0</td><td>—</td><td>是</td><td>90c37b898dd4…</td></tr><tr><td>WaterScanTooltip.dll</td><td>WaterScanTooltip</td><td>1.5.2</td><td>WaterScanTooltip</td><td>1.0.0.0</td><td>—</td><td>是</td><td>550fec74acfe…</td></tr><tr><td>WaterTower.dll</td><td>WaterTower</td><td>1.0.5</td><td>WaterTower</td><td>0.1.0.0</td><td>—</td><td>是</td><td>bd0f1e25a079…</td></tr><tr><td>WineAppraisalMaster.dll</td><td>鼠布林&amp;假酒供应商mod</td><td>2.0.0</td><td>WineAppraisalMaster</td><td>2.0.0.0</td><td>—</td><td>是</td><td>c6dc086f88d2…</td></tr><tr><td>XIAOWO-WRDUnlock.dll</td><td>XIAOWO-WRDUnlock</td><td>1.0.7</td><td>NetworkUnlockEffective</td><td>1.0.7.0</td><td>—</td><td>是</td><td>9a43c9838d59…</td></tr><tr><td>XIAOWOKitchenBusiness.dll</td><td>XIAOWO-KitchenBusiness</td><td>1.1.41</td><td>XIAOWOKitchenBusiness</td><td>1.1.41.0</td><td>—</td><td>是</td><td>e95beddb14ec…</td></tr><tr><td>XIAOWONellisStory-v1.2.1.dll</td><td>XIAOWO-NellisStory</td><td>1.2.1</td><td>XIAOWONellisStory</td><td>1.2.1.0</td><td>—</td><td>是</td><td>82bd1bc8f546…</td></tr><tr><td>XIAOWOPrecisionBayExpansion.dll</td><td>XIAOWO-PrecisionBayExpansion</td><td>1.0.1</td><td>XIAOWOPrecisionBayExpansion</td><td>1.0.1.0</td><td>—</td><td>是</td><td>44209f8473ce…</td></tr><tr><td>XIAOWORatColony.dll</td><td>XIAOWO-RatColony</td><td>1.0.12</td><td>XIAOWORatColony</td><td>1.0.12.0</td><td>—</td><td>是</td><td>e04344955b82…</td></tr><tr><td>XIAOWOTradePerks.dll</td><td>XIAOWO-TradePerks</td><td>1.8.2</td><td>XIAOWOTradePerks</td><td>1.8.2.0</td><td>—</td><td>是</td><td>0b9f190c67d4…</td></tr><tr><td>XIAOWOUnlimitedBayExpansion.dll</td><td>XIAOWO-UnlimitedBayExpansion</td><td>1.0.2</td><td>XIAOWOUnlimitedBayExpansion</td><td>1.0.2.0</td><td>—</td><td>是</td><td>5166ebe10102…</td></tr><tr><td>XIAOWOWeeklyVisitors.dll</td><td>XIAOWO-WeeklyVisitors</td><td>1.0.3</td><td>XIAOWOWeeklyVisitors</td><td>1.0.3.0</td><td>—</td><td>是</td><td>1817ad8d3174…</td></tr><tr><td>moreUpdate.dll</td><td>More Device Upgrades</td><td>0.2.0-localfix1</td><td>MoreDeviceUpgrades</td><td>1.0.0.0</td><td>—</td><td>是</td><td>49189ca42c3f…</td></tr></tbody></table></div></details><div class="footer">单文件离线阅读版本。未包含字体文件、游戏或模组二进制；无外部脚本或联网依赖。</div></main></div></body></html>

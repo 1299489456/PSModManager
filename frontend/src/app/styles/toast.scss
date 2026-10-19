@@ -1,0 +1,31 @@
+$vt-opacity: 0.3;
+
+$vt-color-default: rgba(var(--rgb-accent-primary), $vt-opacity);
+$vt-text-color-default: var(--color-accent-primary);
+$vt-color-success: rgba(var(--rgb-accent-success), $vt-opacity);
+$vt-text-color-success: var(--color-accent-success);
+$vt-color-warning: rgba(var(--rgb-accent-warn), $vt-opacity);
+$vt-text-color-warning: var(--color-accent-warn);
+$vt-color-error: rgba(var(--rgb-accent-danger), $vt-opacity);
+$vt-text-color-error: var(--color-accent-danger);
+$vt-color-info: rgba(var(--rgb-text-dim), $vt-opacity);
+$vt-text-color-info: var(--color-text-dim);
+
+
+// Import the regular Vue Toastification stylesheets (or create your own)
+@import "vue-toastification/src/scss/_variables";
+@import "vue-toastification/src/scss/_toastContainer";
+@import "vue-toastification/src/scss/_toast";
+@import "vue-toastification/src/scss/_closeButton";
+@import "vue-toastification/src/scss/_progressBar";
+@import "vue-toastification/src/scss/_icon";
+@import "vue-toastification/src/scss/animations/_bounce";
+
+.#{$vt-namespace}__toast {
+  backdrop-filter: blur(5px);
+//   border: 1px solid rgba(255,255,255,0.2);
+  border: 1px solid currentColor;
+}
+.#{$vt-namespace}__progress-bar {
+  background-color: currentColor;
+}

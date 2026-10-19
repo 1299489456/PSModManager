@@ -1,0 +1,2338 @@
+{
+  "schema_version": 1,
+  "plan_version": "2.0",
+  "created_at": "2026-09-28",
+  "product": "PSModManager",
+  "reference_commit": "a7e875112a175a914bb4706a82589d96d62adc70",
+  "scope": "Simple local Mod manager with optional AI. Direct install/enable/disable/uninstall is the core target; PS-03-07 will connect the simplified consumer using existing services. This is documentation planning only, not a product-code change or new verification PASS. Profiles, configuration editing, game launch, complex rollback/history and AI are optional. G0-G5 are historical records and no longer enforce development prerequisites. All prior task status/verification/evidence and failure reasons are preserved. Existing resource authorization, read-only RimCrow source, isolated testing, and no automatic dependency installation/commit/publish constraints remain.",
+  "execution_order": [
+    "PS-00-01",
+    "PS-00-02",
+    "PS-00-03",
+    "PS-00-04",
+    "PS-00-05",
+    "PS-01-01",
+    "PS-01-02",
+    "PS-01-03",
+    "PS-01-04",
+    "PS-01-05",
+    "PS-01-06",
+    "PS-01-07",
+    "PS-02-01",
+    "PS-02-02",
+    "PS-02-03",
+    "PS-02-04",
+    "PS-02-05",
+    "PS-03-01",
+    "PS-03-02",
+    "PS-03-03",
+    "PS-03-04",
+    "PS-03-05",
+    "PS-03-06",
+    "PS-03-07",
+    "PS-04-01",
+    "PS-04-02",
+    "PS-04-03",
+    "PS-04-04",
+    "PS-04-05",
+    "PS-05-01",
+    "PS-05-02",
+    "PS-05-03",
+    "PS-05-04",
+    "PS-06-01",
+    "PS-06-02",
+    "PS-06-03",
+    "PS-06-04"
+  ],
+  "requirements": [
+    {
+      "id": "FR-001",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-00-01",
+        "PS-00-02",
+        "PS-05-02"
+      ]
+    },
+    {
+      "id": "FR-002",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-01-01",
+        "PS-01-07"
+      ]
+    },
+    {
+      "id": "FR-003",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-01-02",
+        "PS-01-03"
+      ]
+    },
+    {
+      "id": "FR-004",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-00-03",
+        "PS-01-03",
+        "PS-01-07",
+        "PS-03-04"
+      ]
+    },
+    {
+      "id": "FR-005",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-01-04"
+      ]
+    },
+    {
+      "id": "FR-006",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-01-05"
+      ]
+    },
+    {
+      "id": "FR-007",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-01-06",
+        "PS-01-07",
+        "PS-02-04",
+        "PS-03-06"
+      ]
+    },
+    {
+      "id": "FR-008",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-00-03",
+        "PS-02-01",
+        "PS-02-05"
+      ]
+    },
+    {
+      "id": "FR-009",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-02-02",
+        "PS-02-05"
+      ]
+    },
+    {
+      "id": "FR-010",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-00-03",
+        "PS-02-03",
+        "PS-02-05"
+      ]
+    },
+    {
+      "id": "FR-011",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-01-04",
+        "PS-01-06",
+        "PS-02-04",
+        "PS-02-05"
+      ]
+    },
+    {
+      "id": "FR-012",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-00-03",
+        "PS-03-02",
+        "PS-03-07"
+      ]
+    },
+    {
+      "id": "FR-013",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-03-01",
+        "PS-03-03",
+        "PS-03-07"
+      ]
+    },
+    {
+      "id": "FR-014",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-03-04",
+        "PS-03-07"
+      ]
+    },
+    {
+      "id": "FR-015",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-03-05",
+        "PS-03-07"
+      ]
+    },
+    {
+      "id": "FR-016",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-03-01",
+        "PS-03-06",
+        "PS-03-07"
+      ]
+    },
+    {
+      "id": "FR-017",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-00-04",
+        "PS-01-07",
+        "PS-02-05",
+        "PS-03-07",
+        "PS-04-05",
+        "PS-05-01"
+      ]
+    },
+    {
+      "id": "FR-018",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-04-01",
+        "PS-04-02",
+        "PS-04-05"
+      ]
+    },
+    {
+      "id": "FR-019",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-04-03",
+        "PS-04-04",
+        "PS-04-05"
+      ]
+    },
+    {
+      "id": "FR-020",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-04-01",
+        "PS-04-04",
+        "PS-04-05"
+      ]
+    },
+    {
+      "id": "FR-021",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-05-02",
+        "PS-05-03",
+        "PS-05-04",
+        "PS-06-04"
+      ]
+    },
+    {
+      "id": "FR-022",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-05-04"
+      ]
+    },
+    {
+      "id": "FR-023",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-06-01"
+      ]
+    },
+    {
+      "id": "FR-024",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-06-02"
+      ]
+    },
+    {
+      "id": "FR-025",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-06-03"
+      ]
+    },
+    {
+      "id": "FR-026",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-06-04"
+      ]
+    },
+    {
+      "id": "NFR-001",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-00-02",
+        "PS-00-04",
+        "PS-00-05",
+        "PS-01-01",
+        "PS-01-03",
+        "PS-02-01",
+        "PS-03-01",
+        "PS-03-02",
+        "PS-03-05",
+        "PS-04-02",
+        "PS-04-03",
+        "PS-06-03"
+      ]
+    },
+    {
+      "id": "NFR-002",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-01-01",
+        "PS-02-02",
+        "PS-03-01"
+      ]
+    },
+    {
+      "id": "NFR-003",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-00-03",
+        "PS-02-01",
+        "PS-03-01",
+        "PS-03-02",
+        "PS-03-03",
+        "PS-03-04",
+        "PS-04-03",
+        "PS-05-03",
+        "PS-06-03",
+        "PS-06-04"
+      ]
+    },
+    {
+      "id": "NFR-004",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-01-02",
+        "PS-02-02"
+      ]
+    },
+    {
+      "id": "NFR-005",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-00-04",
+        "PS-01-02",
+        "PS-01-05",
+        "PS-02-03",
+        "PS-03-05",
+        "PS-04-01",
+        "PS-04-02",
+        "PS-06-01",
+        "PS-06-02"
+      ]
+    },
+    {
+      "id": "NFR-006",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-00-02",
+        "PS-01-06",
+        "PS-03-06",
+        "PS-04-04"
+      ]
+    },
+    {
+      "id": "NFR-007",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-01-03",
+        "PS-01-05",
+        "PS-05-01"
+      ]
+    },
+    {
+      "id": "NFR-008",
+      "source": "01-product-scope.md",
+      "tasks": [
+        "PS-00-01",
+        "PS-00-03",
+        "PS-00-04",
+        "PS-00-05",
+        "PS-01-07",
+        "PS-03-03",
+        "PS-03-07",
+        "PS-04-05",
+        "PS-05-01",
+        "PS-05-02",
+        "PS-05-03",
+        "PS-05-04",
+        "PS-06-04"
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "M0",
+      "name": "独立基线与验证基础",
+      "goal": "新桌面安全启动，原产品/游戏零副作用，后续验证有真实入口",
+      "exit_task": "PS-00-05",
+      "gate": null,
+      "tasks": [
+        "PS-00-01",
+        "PS-00-02",
+        "PS-00-03",
+        "PS-00-04",
+        "PS-00-05"
+      ],
+      "previous_gate": "G0",
+      "role": "existing_capability_reference"
+    },
+    {
+      "id": "M1",
+      "name": "只读库存与诊断",
+      "goal": "从主界面解释模组身份、内容包和历史运行结果",
+      "exit_task": "PS-01-07",
+      "gate": null,
+      "tasks": [
+        "PS-01-01",
+        "PS-01-02",
+        "PS-01-03",
+        "PS-01-04",
+        "PS-01-05",
+        "PS-01-06",
+        "PS-01-07"
+      ],
+      "previous_gate": "G1",
+      "role": "existing_capability_reference"
+    },
+    {
+      "id": "M2",
+      "name": "包库与配置编辑",
+      "goal": "本地导入、版本锁、Profile与差异可用，游戏仍不写入",
+      "exit_task": "PS-02-05",
+      "gate": null,
+      "tasks": [
+        "PS-02-01",
+        "PS-02-02",
+        "PS-02-03",
+        "PS-02-04",
+        "PS-02-05"
+      ],
+      "previous_gate": "G2",
+      "role": "existing_capability_reference"
+    },
+    {
+      "id": "M3",
+      "name": "可恢复部署与离线MVP",
+      "goal": "Direct install/enable/disable/uninstall; advanced history, configuration and launch are optional.",
+      "exit_task": "PS-03-07",
+      "gate": null,
+      "tasks": [
+        "PS-03-01",
+        "PS-03-02",
+        "PS-03-03",
+        "PS-03-04",
+        "PS-03-05",
+        "PS-03-06",
+        "PS-03-07"
+      ],
+      "previous_gate": "G3",
+      "role": "core_with_optional_tasks"
+    },
+    {
+      "id": "M4",
+      "name": "AI证据与受控计划",
+      "goal": "Optional AI advice adopted through ordinary management actions.",
+      "exit_task": "PS-04-05",
+      "gate": null,
+      "tasks": [
+        "PS-04-01",
+        "PS-04-02",
+        "PS-04-03",
+        "PS-04-04",
+        "PS-04-05"
+      ],
+      "previous_gate": "G4",
+      "role": "optional_ai"
+    },
+    {
+      "id": "M5",
+      "name": "质量、打包与本地交付",
+      "goal": "发行产物在干净Windows运行，文档/迁移/证据完整",
+      "exit_task": "PS-05-04",
+      "gate": null,
+      "tasks": [
+        "PS-05-01",
+        "PS-05-02",
+        "PS-05-03",
+        "PS-05-04"
+      ],
+      "previous_gate": "G5",
+      "role": "on_demand_delivery"
+    },
+    {
+      "id": "M6",
+      "name": "延后增强",
+      "goal": "只读探针、在线源、存档隔离和自动更新，分别按需授权",
+      "exit_task": null,
+      "gate": null,
+      "tasks": [
+        "PS-06-01",
+        "PS-06-02",
+        "PS-06-03",
+        "PS-06-04"
+      ],
+      "previous_gate": null,
+      "role": "deferred"
+    }
+  ],
+  "gates": [
+    {
+      "id": "G0",
+      "milestone": "M0",
+      "after_task": "PS-00-05",
+      "status": "PASS",
+      "requires_gates": [],
+      "required_tasks": [
+        "PS-00-01",
+        "PS-00-02",
+        "PS-00-03",
+        "PS-00-04",
+        "PS-00-05"
+      ],
+      "evidence": [
+        "evidence/PS-00-05/20260928T060846Z-delivery/G0-review.json",
+        "evidence/G0/20260928T062005Z-audit/summary.json",
+        "evidence/PS-01-01/20260928T065800Z-delivery/G0-review.json",
+        "evidence/PS-01-02/20260928T072300Z-delivery/G0-review.json",
+        "evidence/PS-01-03/20260928T074200Z-delivery/G0-review.json",
+        "evidence/PS-01-04/20260928T075300Z-delivery/G0-review.json",
+        "evidence/PS-01-05/20260928T080902Z-delivery/G0-review.json",
+        "evidence/PS-01-06/20260928T082000Z-delivery/G0-review.json",
+        "evidence/PS-01-07/20260928T083843Z-delivery/G0-review.json",
+        "evidence/PS-01-07/20260928T091302Z-gap-close/G0-review.json"
+      ],
+      "enforced": false,
+      "record_role": "historical"
+    },
+    {
+      "id": "G1",
+      "milestone": "M1",
+      "after_task": "PS-01-07",
+      "status": "BLOCKED",
+      "requires_gates": [
+        "G0"
+      ],
+      "required_tasks": [
+        "PS-01-01",
+        "PS-01-02",
+        "PS-01-03",
+        "PS-01-04",
+        "PS-01-05",
+        "PS-01-06",
+        "PS-01-07"
+      ],
+      "evidence": [
+        "evidence/PS-01-07/20260928T083843Z-delivery/G1-review.json",
+        "evidence/PS-01-07/20260928T083843Z-delivery/summary.json",
+        "evidence/G1/20260928T090343Z-audit/summary.json",
+        "evidence/G1/20260928T090343Z-audit/report.md",
+        "evidence/G1/20260928T090343Z-audit/case-review.json",
+        "evidence/PS-01-07/20260928T091302Z-gap-close/summary.json",
+        "evidence/PS-01-07/20260928T091302Z-gap-close/case-review.json",
+        "evidence/PS-01-07/20260928T091302Z-gap-close/manual-ui-checklist.md",
+        "evidence/G1/20260928T095501Z-gap-close/summary.json",
+        "evidence/PS-01-07/20260929T010932Z-ui-feedback/G1-review.json",
+        "evidence/G2/20260929T052841Z-manual-feedback/summary.json",
+        "evidence/G2/20260929T052841Z-manual-feedback/report.md",
+        "evidence/PS-02-05/20260929T053700Z-ui-repair/summary.json",
+        "evidence/PS-02-05/20260929T053700Z-ui-repair/report.md",
+        "evidence/G2/20260929T080414Z-recheck-feedback/summary.json",
+        "evidence/G2/20260929T080414Z-recheck-feedback/report.md",
+        "evidence/PS-02-05/20260929T081558Z-ui-polish/summary.json",
+        "evidence/PS-02-05/20260929T081558Z-ui-polish/report.md",
+        "evidence/PS-02-05/20260929T081558Z-ui-polish/M3-development-readiness.md"
+      ],
+      "enforced": false,
+      "record_role": "historical"
+    },
+    {
+      "id": "G2",
+      "milestone": "M2",
+      "after_task": "PS-02-05",
+      "status": "BLOCKED",
+      "requires_gates": [
+        "G1"
+      ],
+      "required_tasks": [
+        "PS-02-01",
+        "PS-02-02",
+        "PS-02-03",
+        "PS-02-04",
+        "PS-02-05"
+      ],
+      "evidence": [
+        "evidence/PS-02-05/20260929T031700Z-delivery/G2-review.json",
+        "evidence/PS-02-05/20260929T031700Z-delivery/report.md",
+        "evidence/G2/20260929T032324Z-audit/summary.json",
+        "evidence/G2/20260929T032324Z-audit/report.md",
+        "evidence/G2/20260929T052841Z-manual-feedback/summary.json",
+        "evidence/G2/20260929T052841Z-manual-feedback/report.md",
+        "evidence/PS-02-05/20260929T053700Z-ui-repair/summary.json",
+        "evidence/PS-02-05/20260929T053700Z-ui-repair/report.md",
+        "evidence/G2/20260929T080414Z-recheck-feedback/summary.json",
+        "evidence/G2/20260929T080414Z-recheck-feedback/report.md",
+        "evidence/PS-02-05/20260929T081558Z-ui-polish/summary.json",
+        "evidence/PS-02-05/20260929T081558Z-ui-polish/report.md",
+        "evidence/PS-02-05/20260929T081558Z-ui-polish/M3-development-readiness.md"
+      ],
+      "enforced": false,
+      "record_role": "historical"
+    },
+    {
+      "id": "G3",
+      "milestone": "M3",
+      "after_task": "PS-03-07",
+      "status": "NOT_RUN",
+      "requires_gates": [
+        "G2"
+      ],
+      "required_tasks": [
+        "PS-03-01",
+        "PS-03-02",
+        "PS-03-03",
+        "PS-03-04",
+        "PS-03-05",
+        "PS-03-06",
+        "PS-03-07"
+      ],
+      "evidence": [],
+      "enforced": false,
+      "record_role": "historical"
+    },
+    {
+      "id": "G4",
+      "milestone": "M4",
+      "after_task": "PS-04-05",
+      "status": "NOT_RUN",
+      "requires_gates": [
+        "G3"
+      ],
+      "required_tasks": [
+        "PS-04-01",
+        "PS-04-02",
+        "PS-04-03",
+        "PS-04-04",
+        "PS-04-05"
+      ],
+      "evidence": [],
+      "enforced": false,
+      "record_role": "historical"
+    },
+    {
+      "id": "G5",
+      "milestone": "M5",
+      "after_task": "PS-05-04",
+      "status": "NOT_RUN",
+      "requires_gates": [
+        "G4"
+      ],
+      "required_tasks": [
+        "PS-05-01",
+        "PS-05-02",
+        "PS-05-03",
+        "PS-05-04"
+      ],
+      "evidence": [],
+      "enforced": false,
+      "record_role": "historical"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "PS-00-01",
+      "title": "固定参考基线并建立独立源码副本",
+      "milestone": "M0",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [],
+      "required_gate": null,
+      "requirements": [
+        "FR-001",
+        "NFR-008"
+      ],
+      "estimate_hours": [
+        8,
+        12
+      ],
+      "card": "tasks/PS-00-01.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-001"
+      ],
+      "evidence": [
+        "evidence/PS-00-01/20260928T032245703563Z/summary.json",
+        "evidence/PS-00-01/20260928T033001Z-environment/summary.json",
+        "evidence/PS-00-01/20260928T033849Z/summary.json",
+        "evidence/PS-00-01/20260928T094952Z-52e9eb13/summary.json"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": null,
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-00-02",
+      "title": "独立产品身份、数据根与最小桌面入口",
+      "milestone": "M0",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-00-01"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-001",
+        "NFR-001",
+        "NFR-006"
+      ],
+      "estimate_hours": [
+        16,
+        24
+      ],
+      "card": "tasks/PS-00-02.md",
+      "verification_profiles": [
+        "synthetic",
+        "desktop-local"
+      ],
+      "cases": [
+        "CASE-001",
+        "CASE-002"
+      ],
+      "evidence": [
+        "evidence/PS-00-02/20260928T040336Z-synthetic/summary.json",
+        "evidence/PS-00-02/20260928T040339Z-desktop/summary.json",
+        "evidence/PS-00-02/20260928T040359Z-delivery/summary.json",
+        "evidence/PS-00-02/20260928T094954Z-7709fbb8/summary.json",
+        "evidence/PS-00-02/20260928T095142Z-6137f47f/summary.json"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": null,
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-00-03",
+      "title": "核心 DTO、存储模型与迁移基座",
+      "milestone": "M0",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-00-02"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-004",
+        "FR-008",
+        "FR-010",
+        "FR-012",
+        "NFR-003",
+        "NFR-008"
+      ],
+      "estimate_hours": [
+        20,
+        32
+      ],
+      "card": "tasks/PS-00-03.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-003"
+      ],
+      "evidence": [
+        "evidence/PS-00-03/20260928T051406Z-synthetic/summary.json",
+        "evidence/PS-00-03/20260928T051444Z-delivery/summary.json",
+        "evidence/PS-00-03/20260928T094957Z-f6a31130/summary.json"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": null,
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-00-04",
+      "title": "桌面命令桥、进度事件与真实 WebView 验证入口",
+      "milestone": "M0",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-00-03"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-017",
+        "NFR-001",
+        "NFR-005",
+        "NFR-008"
+      ],
+      "estimate_hours": [
+        20,
+        32
+      ],
+      "card": "tasks/PS-00-04.md",
+      "verification_profiles": [
+        "synthetic",
+        "desktop-local"
+      ],
+      "cases": [
+        "CASE-004"
+      ],
+      "evidence": [
+        "evidence/PS-00-04/20260928T054256Z-synthetic/summary.json",
+        "evidence/PS-00-04/20260928T054031Z-frontend/summary.json",
+        "evidence/PS-00-04/20260928T054303Z-desktop/summary.json",
+        "evidence/PS-00-04/20260928T054502Z-delivery/summary.json",
+        "evidence/PS-00-04/20260928T095007Z-3a805a8e/summary.json",
+        "evidence/PS-00-04/20260928T095156Z-c7df0e13/summary.json"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": null,
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-00-05",
+      "title": "合成样本、验证 runner 与证据基座",
+      "milestone": "M0",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-00-04"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "NFR-001",
+        "NFR-008"
+      ],
+      "estimate_hours": [
+        16,
+        24
+      ],
+      "card": "tasks/PS-00-05.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-005"
+      ],
+      "evidence": [
+        "evidence/PS-00-05/20260928T060951Z-7cf7cbe8/summary.json",
+        "evidence/PS-00-05/20260928T060846Z-delivery/summary.json",
+        "evidence/PS-00-05/20260928T095016Z-206b5c61/summary.json"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": null,
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-01-01",
+      "title": "安装发现、目录校验与运行环境指纹",
+      "milestone": "M1",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-00-05"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-002",
+        "NFR-001",
+        "NFR-002"
+      ],
+      "estimate_hours": [
+        16,
+        24
+      ],
+      "card": "tasks/PS-01-01.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-006"
+      ],
+      "evidence": [
+        "evidence/PS-01-01/20260928T065437Z-1b61804e/summary.json",
+        "evidence/PS-01-01/20260928T065457Z-77527987/summary.json",
+        "evidence/PS-01-01/20260928T065800Z-delivery/summary.json",
+        "evidence/PS-01-01/20260928T095212Z-b3487b49/summary.json",
+        "evidence/PS-01-01/20260928T095447Z-18f8f6df/summary.json"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": "G0",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-01-02",
+      "title": "受限元数据工作进程与 C# 解析器",
+      "milestone": "M1",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-00-05"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-003",
+        "NFR-004",
+        "NFR-005"
+      ],
+      "estimate_hours": [
+        32,
+        48
+      ],
+      "card": "tasks/PS-01-02.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-007",
+        "CASE-010",
+        "CASE-024"
+      ],
+      "evidence": [
+        "evidence/PS-01-02/20260928T072136Z-076ed141/summary.json",
+        "evidence/PS-01-02/20260928T072300Z-delivery/summary.json",
+        "evidence/PS-01-02/20260928T095217Z-7ac4b72a/summary.json",
+        "evidence/PS-01-02/20260929T012409Z-76b1cbda/summary.json",
+        "evidence/PS-01-02/20260929T013005Z-4ae90cbe/summary.json",
+        "evidence/PS-02-05/20260929T053700Z-ui-repair/summary.json",
+        "evidence/PS-02-05/20260929T053700Z-ui-repair/report.md",
+        "evidence/PS-01-02/20260929T055148Z-f0c95bef/summary.json"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": "G0",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-01-03",
+      "title": "只读库存、增量缓存与扫描代次",
+      "milestone": "M1",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-01-01",
+        "PS-01-02"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-003",
+        "FR-004",
+        "NFR-001",
+        "NFR-007"
+      ],
+      "estimate_hours": [
+        24,
+        36
+      ],
+      "card": "tasks/PS-01-03.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-008",
+        "CASE-009",
+        "CASE-014"
+      ],
+      "evidence": [
+        "evidence/PS-01-03/20260928T074035Z-73e240cd/summary.json",
+        "evidence/PS-01-03/20260928T074200Z-delivery/summary.json",
+        "evidence/PS-01-03/20260928T095247Z-b7f3d11a/summary.json"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": "G0",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-01-04",
+      "title": "内容框架角色、嵌入清单和依赖证据",
+      "milestone": "M1",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-01-03"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-005",
+        "FR-011"
+      ],
+      "estimate_hours": [
+        20,
+        28
+      ],
+      "card": "tasks/PS-01-04.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-011",
+        "CASE-012",
+        "CASE-013",
+        "CASE-014",
+        "CASE-015"
+      ],
+      "evidence": [
+        "evidence/PS-01-04/20260928T075133Z-1daba583/summary.json",
+        "evidence/PS-01-04/20260928T075300Z-delivery/summary.json",
+        "evidence/PS-01-04/20260928T095303Z-5d7e2490/summary.json"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": "G0",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-01-05",
+      "title": "多源日志 tail、会话划分与证据索引",
+      "milestone": "M1",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-01-01",
+        "PS-00-04"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-006",
+        "NFR-005",
+        "NFR-007"
+      ],
+      "estimate_hours": [
+        28,
+        40
+      ],
+      "card": "tasks/PS-01-05.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-016",
+        "CASE-017"
+      ],
+      "evidence": [
+        "evidence/PS-01-05/20260928T080841Z-c4f56d05/summary.json",
+        "evidence/PS-01-05/20260928T080902Z-delivery/summary.json",
+        "evidence/PS-01-05/20260928T080902Z-delivery/consumer-review.json",
+        "evidence/PS-01-05/20260928T080902Z-delivery/report.md",
+        "evidence/PS-01-05/20260928T095342Z-1ae7c7dc/summary.json"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": "G0",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-01-06",
+      "title": "确定性诊断与加载结果解释",
+      "milestone": "M1",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-01-04",
+        "PS-01-05"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-007",
+        "FR-011",
+        "NFR-006"
+      ],
+      "estimate_hours": [
+        20,
+        32
+      ],
+      "card": "tasks/PS-01-06.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-010",
+        "CASE-011",
+        "CASE-018",
+        "CASE-019",
+        "CASE-020"
+      ],
+      "evidence": [
+        "evidence/PS-01-06/20260928T082148Z-6dba8e0c/summary.json",
+        "evidence/PS-01-06/20260928T082000Z-delivery/summary.json",
+        "evidence/PS-01-06/20260928T082000Z-delivery/consumer-review.json",
+        "evidence/PS-01-06/20260928T082000Z-delivery/report.md",
+        "evidence/PS-01-06/20260928T095359Z-627db0c3/summary.json"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": "G0",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-01-07",
+      "title": "只读工作台集成与本机基线核对",
+      "milestone": "M1",
+      "status": "BLOCKED",
+      "verification": "BLOCKED",
+      "depends_on": [
+        "PS-01-06",
+        "PS-00-04"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-017",
+        "FR-002",
+        "FR-004",
+        "FR-007",
+        "NFR-008"
+      ],
+      "estimate_hours": [
+        24,
+        36
+      ],
+      "card": "tasks/PS-01-07.md",
+      "verification_profiles": [
+        "synthetic",
+        "desktop-local",
+        "real-readonly"
+      ],
+      "cases": [
+        "CASE-021"
+      ],
+      "evidence": [
+        "evidence/PS-01-07/20260928T083843Z-delivery/summary.json",
+        "evidence/PS-01-07/20260928T083843Z-delivery/consumer-review.json",
+        "evidence/PS-01-07/20260928T083843Z-delivery/visual-review.json",
+        "evidence/PS-01-07/20260928T083843Z-delivery/G1-review.json",
+        "evidence/PS-01-07/20260928T083843Z-delivery/route-results.json",
+        "evidence/PS-01-07/20260928T094814Z-93a7fc5c/summary.json",
+        "evidence/PS-01-07/20260928T094818Z-9cb0553d/summary.json",
+        "evidence/PS-01-07/20260928T094706Z-390a3834/summary.json",
+        "evidence/PS-01-07/20260928T091302Z-gap-close/summary.json",
+        "evidence/PS-01-07/20260928T091302Z-gap-close/case-review.json",
+        "evidence/PS-01-07/20260928T091302Z-gap-close/manual-ui-checklist.md",
+        "evidence/PS-01-07/20260928T091302Z-gap-close/report.md",
+        "evidence/PS-01-07/20260929T010932Z-ui-feedback/summary.json",
+        "evidence/PS-01-07/20260929T010932Z-ui-feedback/manual-ui-checklist.md",
+        "evidence/PS-01-07/20260929T010932Z-ui-feedback/report.md",
+        "evidence/G2/20260929T052841Z-manual-feedback/summary.json",
+        "evidence/G2/20260929T052841Z-manual-feedback/report.md",
+        "evidence/PS-02-05/20260929T053700Z-ui-repair/summary.json",
+        "evidence/PS-02-05/20260929T053700Z-ui-repair/report.md",
+        "evidence/G2/20260929T080414Z-recheck-feedback/summary.json",
+        "evidence/G2/20260929T080414Z-recheck-feedback/report.md",
+        "evidence/PS-02-05/20260929T081558Z-ui-polish/summary.json",
+        "evidence/PS-02-05/20260929T081558Z-ui-polish/report.md",
+        "evidence/PS-02-05/20260929T081558Z-ui-polish/M3-development-readiness.md"
+      ],
+      "blocked_reason": "当前 UI 字体/信息层次及主题持久化已修复并自动回归；新人工审核按用户要求推迟至 M3/M4 后。历史人工失败和 DPI 用户通过分别保留；当前完整 CASE-021 real-readonly 未重跑，极端 FailFast 未解决。G1 不记 PASS。",
+      "previous_required_gate": "G0",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-02-01",
+      "title": "不可变包库、文件归属与显式接管",
+      "milestone": "M2",
+      "status": "BLOCKED",
+      "verification": "BLOCKED",
+      "depends_on": [
+        "PS-01-07"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-008",
+        "NFR-001",
+        "NFR-003"
+      ],
+      "estimate_hours": [
+        20,
+        32
+      ],
+      "card": "tasks/PS-02-01.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-022"
+      ],
+      "evidence": [
+        "evidence/PS-02-01/20260929T014951Z-preflight/preflight.json",
+        "evidence/PS-02-01/20260929T015609Z-9c177005/summary.json",
+        "evidence/PS-02-01/20260929T015713Z-a82dd03a/summary.json",
+        "evidence/PS-02-01/20260929T015758Z-delivery/summary.json",
+        "evidence/PS-02-01/20260929T015758Z-delivery/report.md",
+        "evidence/PS-02-05/20260929T053700Z-ui-repair/summary.json",
+        "evidence/PS-02-05/20260929T053700Z-ui-repair/report.md"
+      ],
+      "blocked_reason": "包库、显式接管和消费者已有实现；本轮修复 pythonw 扫描入口并通过实际桌面扫描→清单→逐项接管→包库。CASE-022 文件符号链接负例此前因 WinError 1314 未执行产品断言，缺口保留；G1 新版人工/实机验收未放行。",
+      "previous_required_gate": "G1",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-02-02",
+      "title": "本地 DLL、目录与 ZIP 安全导入",
+      "milestone": "M2",
+      "status": "BLOCKED",
+      "verification": "BLOCKED",
+      "depends_on": [
+        "PS-02-01",
+        "PS-01-02"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-009",
+        "NFR-002",
+        "NFR-004"
+      ],
+      "estimate_hours": [
+        24,
+        36
+      ],
+      "card": "tasks/PS-02-02.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-023",
+        "CASE-024"
+      ],
+      "evidence": [
+        "evidence/PS-02-02/20260929T020022Z-preflight/preflight.json",
+        "evidence/PS-02-02/20260929T020822Z-4922ec9f/summary.json",
+        "evidence/PS-02-02/20260929T021007Z-54ec18d0/summary.json",
+        "evidence/PS-02-02/20260929T021138Z-delivery/summary.json",
+        "evidence/PS-02-02/20260929T021138Z-delivery/report.md",
+        "evidence/PS-02-05/20260929T053700Z-ui-repair/summary.json",
+        "evidence/PS-02-05/20260929T053700Z-ui-repair/report.md"
+      ],
+      "blocked_reason": "DLL/目录/ZIP 安全导入已接通生产包库与界面。依据用户澄清，允许选择游戏安装文件作只读复制来源；当前合成回归及一个授权实际 DLL 只读导入通过，原文件哈希不变；G1 与前置阶段验收仍 BLOCKED，不自动进入后续阶段。",
+      "previous_required_gate": "G1",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-02-03",
+      "title": "Profile 草稿、版本锁与清单导入导出",
+      "milestone": "M2",
+      "status": "BLOCKED",
+      "verification": "BLOCKED",
+      "depends_on": [
+        "PS-02-01"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-010",
+        "NFR-005"
+      ],
+      "estimate_hours": [
+        20,
+        28
+      ],
+      "card": "tasks/PS-02-03.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-025"
+      ],
+      "evidence": [
+        "evidence/PS-02-03/20260929T021421Z-preflight/preflight.json",
+        "evidence/PS-02-03/20260929T023004Z-dd57abbc/summary.json",
+        "evidence/PS-02-03/20260929T023231Z-7d7a4439/summary.json",
+        "evidence/PS-02-03/20260929T023459Z-f557b305/summary.json",
+        "evidence/PS-02-03/20260929T023200Z-delivery/summary.json",
+        "evidence/PS-02-03/20260929T023200Z-delivery/report.md",
+        "evidence/PS-02-05/20260929T053700Z-ui-repair/summary.json",
+        "evidence/PS-02-05/20260929T053700Z-ui-repair/report.md",
+        "evidence/PS-02-05/20260929T081558Z-ui-polish/summary.json",
+        "evidence/PS-02-05/20260929T081558Z-ui-polish/report.md",
+        "evidence/PS-02-05/20260929T081558Z-ui-polish/M3-development-readiness.md"
+      ],
+      "blocked_reason": "显示排序、原子跨栏编辑、版本锁、清单预览反馈、保存重开已通过本轮合成与桌面消费者回归；新增 UI 人工验收按用户要求延期，前置阶段门未放行。",
+      "previous_required_gate": "G1",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-02-04",
+      "title": "依赖与兼容性图的可解释检查",
+      "milestone": "M2",
+      "status": "BLOCKED",
+      "verification": "BLOCKED",
+      "depends_on": [
+        "PS-02-03",
+        "PS-01-04",
+        "PS-01-06"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-011",
+        "FR-007"
+      ],
+      "estimate_hours": [
+        24,
+        32
+      ],
+      "card": "tasks/PS-02-04.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-015",
+        "CASE-026"
+      ],
+      "evidence": [
+        "evidence/PS-02-04/20260929T024016Z-preflight/preflight.json",
+        "evidence/PS-02-04/20260929T024958Z-service/junit.xml",
+        "evidence/PS-02-04/20260929T025027Z-graph-tests/junit.xml",
+        "evidence/PS-02-04/20260929T025100Z-desktop/junit.xml",
+        "evidence/PS-02-04/20260929T025729Z-525c12ea/summary.json",
+        "evidence/PS-02-04/20260929T030200Z-delivery/summary.json",
+        "evidence/PS-02-04/20260929T030200Z-delivery/report.md",
+        "evidence/PS-02-05/20260929T053700Z-ui-repair/summary.json",
+        "evidence/PS-02-05/20260929T053700Z-ui-repair/report.md",
+        "evidence/PS-02-05/20260929T081558Z-ui-polish/summary.json",
+        "evidence/PS-02-05/20260929T081558Z-ui-polish/report.md",
+        "evidence/PS-02-05/20260929T081558Z-ui-polish/M3-development-readiness.md"
+      ],
+      "blocked_reason": "按用户反馈移除编辑页显式检查操作与结果；兼容服务/图及计划阻断契约保留，当前真实桌面 RPC/API 回归与历史检查页面证据分列。后续 M3 planner 消费尚未实现，人工审核延期，前置门未放行。",
+      "previous_required_gate": "G1",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-02-05",
+      "title": "包库与配置编辑工作流集成",
+      "milestone": "M2",
+      "status": "BLOCKED",
+      "verification": "BLOCKED",
+      "depends_on": [
+        "PS-02-02",
+        "PS-02-03",
+        "PS-02-04"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-008",
+        "FR-009",
+        "FR-010",
+        "FR-011",
+        "FR-017"
+      ],
+      "estimate_hours": [
+        20,
+        32
+      ],
+      "card": "tasks/PS-02-05.md",
+      "verification_profiles": [
+        "synthetic",
+        "desktop-local"
+      ],
+      "cases": [
+        "CASE-027"
+      ],
+      "evidence": [
+        "evidence/PS-02-05/20260929T030325Z-preflight/summary.json",
+        "evidence/PS-02-05/20260929T031142Z-f0bc8e89/summary.json",
+        "evidence/PS-02-05/20260929T031614Z-bf04d454/summary.json",
+        "evidence/PS-02-05/20260929T031614Z-8a36229c/summary.json",
+        "evidence/PS-02-05/20260929T031700Z-delivery/summary.json",
+        "evidence/PS-02-05/20260929T031700Z-delivery/report.md",
+        "evidence/G2/20260929T052841Z-manual-feedback/summary.json",
+        "evidence/G2/20260929T052841Z-manual-feedback/report.md",
+        "evidence/PS-02-05/20260929T053700Z-ui-repair/summary.json",
+        "evidence/PS-02-05/20260929T053700Z-ui-repair/report.md",
+        "evidence/PS-02-05/20260929T062319Z-ee83060a/summary.json",
+        "evidence/PS-02-05/20260929T062251Z-92efb2b3/summary.json",
+        "evidence/G2/20260929T080414Z-recheck-feedback/summary.json",
+        "evidence/G2/20260929T080414Z-recheck-feedback/report.md",
+        "evidence/PS-02-05/20260929T081558Z-ui-polish/summary.json",
+        "evidence/PS-02-05/20260929T081558Z-ui-polish/report.md",
+        "evidence/PS-02-05/20260929T081558Z-ui-polish/M3-development-readiness.md"
+      ],
+      "blocked_reason": "当前 UI 修复及稳定输入下的 synthetic/desktop-local 自动回归通过；人工复核经用户明确延期至 M3/M4 后，旧 FAIL 原样保留。真实 Mod 个案未重新导入，当前完整 CASE-021 与 CASE-022 文件符号链接环境缺口保留。G1/G2 BLOCKED；M3 独立合成开发准备已整理，本轮未执行 PS-03-01。",
+      "previous_required_gate": "G1",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-03-01",
+      "title": "部署路径保护、安装锁与进程守卫",
+      "milestone": "M3",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-02-05"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-013",
+        "FR-016",
+        "NFR-001",
+        "NFR-002",
+        "NFR-003"
+      ],
+      "estimate_hours": [
+        28,
+        40
+      ],
+      "card": "tasks/PS-03-01.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-028"
+      ],
+      "evidence": [
+        "evidence/PS-03-01/20260929T085130Z-implementation/plan.md",
+        "evidence/PS-03-01/20260929T085130Z-implementation/predecessor-audit.json",
+        "evidence/PS-03-01/20260929T092048Z-2da1a962/summary.json",
+        "evidence/PS-03-01/20260929T092426Z-3431f161/summary.json",
+        "evidence/PS-03-01/20260929T085130Z-implementation/summary.json",
+        "evidence/PS-03-01/20260929T085130Z-implementation/report.md",
+        "evidence/PS-03-01/20260929T085130Z-implementation/environment-blocker.json",
+        "evidence/PS-03-01/20261010T051901Z-4cc85745/summary.json",
+        "evidence/PS-03-01/20261010T051938Z-d8ccf23d/summary.json",
+        "evidence/PS-03-01/20261010T052432Z-2e9b624f/summary.json",
+        "evidence/PS-03-01/20261010T051041Z-elevated-validation/summary.json",
+        "evidence/PS-03-01/20261010T051041Z-elevated-validation/report.md",
+        "evidence/PS-03-01/20261010T051041Z-elevated-validation/final-integrity.json",
+        "evidence/PS-03-01/20261010T051041Z-elevated-validation/security-review.md"
+      ],
+      "blocked_reason": null,
+      "verification_scope": "本卡独立 synthetic 全部责任验证通过；按用户授权管理员子进程执行，225 PASS/0 FAIL/0 SKIP，CASE-028 100 PASS，exit 0。真实文件使用者候选、同一进程句柄映像/创建时间比较、句柄存续至最终复查、受限相关进程 unknown 拒写均通过。普通权限首轮220 PASS/2 SKIP被runner判FAIL，历史失败均保留。仅当前Windows/NTFS；不代表PS-02-05/G1/G2人工、阶段集成、真实游戏或未来executor验收，前序状态保持BLOCKED。",
+      "previous_required_gate": "G2",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-03-02",
+      "title": "ActionPlan、差异预检与批准绑定",
+      "milestone": "M3",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-03-01",
+        "PS-02-04"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-012",
+        "NFR-001",
+        "NFR-003"
+      ],
+      "estimate_hours": [
+        24,
+        32
+      ],
+      "card": "tasks/PS-03-02.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-029"
+      ],
+      "evidence": [
+        "evidence/PS-03-02/20261010T053829Z-implementation/preflight.json",
+        "evidence/PS-03-02/20261010T053829Z-implementation/predecessor-audit.json",
+        "evidence/PS-03-02/20261010T053829Z-implementation/tests-early/junit-first.xml",
+        "evidence/PS-03-02/20261010T053829Z-implementation/tests-early/junit-second.xml",
+        "evidence/PS-03-02/20261010T053829Z-implementation/tests-early/junit-third.xml",
+        "evidence/PS-03-02/20261010T053829Z-implementation/ui-desktop-01-junit.xml",
+        "evidence/PS-03-02/20261010T053829Z-implementation/ui-desktop-04-junit.xml",
+        "evidence/PS-03-02/20261010T053829Z-implementation/tests-final-extra/junit.xml",
+        "evidence/PS-03-02/20261010T053829Z-implementation/tests-final-receipts/junit-first.xml",
+        "evidence/PS-03-02/20261010T055431Z-b69ba105/summary.json",
+        "evidence/PS-03-02/20261010T060353Z-79a895c5/summary.json",
+        "evidence/PS-03-02/20261010T060353Z-79a895c5/cases.json",
+        "evidence/PS-03-02/20261010T053829Z-implementation/summary.json",
+        "evidence/PS-03-02/20261010T053829Z-implementation/report.md",
+        "evidence/PS-03-02/20261010T053829Z-implementation/final-integrity.json",
+        "evidence/PS-03-02/20261010T053829Z-implementation/scope-integrity.json",
+        "evidence/PS-03-02/20261010T053829Z-implementation/security-review.md",
+        "evidence/PS-03-02/20261010T053829Z-implementation/next-readiness.md"
+      ],
+      "blocked_reason": null,
+      "verification_scope": "本卡独立 synthetic 责任通过：429 PASS/0 FAIL/0 SKIP，exit 0；CASE-029 映射90 Python（88实际后端计划例、1真实WebView、1路由契约例）+20 Node消费者例。真实用户与本地受控AI RPC共用同一PlanService，批准使用原生人工确认、HMAC来源及共享operation；只写私有计划/批准，不执行游戏部署。302当前输入与2168产物摘要无差异。前序PS-02-04和G1/G2人工/阶段集成仍BLOCKED，不继承人工通过。真实游戏、联网AI、实际执行器和重复apply单次效果未验收。PS-03-03保持TODO，未开始。",
+      "previous_required_gate": "G2",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-03-03",
+      "title": "持久 journal、部署执行与启动恢复",
+      "milestone": "M3",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-03-02"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-013",
+        "NFR-003",
+        "NFR-008"
+      ],
+      "estimate_hours": [
+        40,
+        56
+      ],
+      "card": "tasks/PS-03-03.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-029",
+        "CASE-030",
+        "CASE-031",
+        "CASE-032",
+        "CASE-033"
+      ],
+      "evidence": [
+        "evidence/PS-03-03/20261010T062233Z-implementation/preflight.json",
+        "evidence/PS-03-03/20261010T062233Z-implementation/predecessor-audit.json",
+        "evidence/PS-03-03/20261010T062233Z-implementation/summary.json",
+        "evidence/PS-03-03/20261010T062233Z-implementation/report.md",
+        "evidence/PS-03-03/20261010T062233Z-implementation/cases.json",
+        "evidence/PS-03-03/20261010T062233Z-implementation/final-integrity.json",
+        "evidence/PS-03-03/20261010T062233Z-implementation/scope-integrity.json",
+        "evidence/PS-03-03/20261010T062233Z-implementation/closure-integrity.json",
+        "evidence/PS-03-03/20261010T062233Z-implementation/retained-runs.json",
+        "evidence/PS-03-03/20261010T062233Z-implementation/desktop-audit.json",
+        "evidence/PS-03-03/20261010T062233Z-implementation/documentation-check-01.log",
+        "evidence/PS-03-03/20261010T062233Z-implementation/documentation-targeted.json",
+        "evidence/PS-03-03/20261010T062233Z-implementation/runner-02-interruption.json",
+        "evidence/PS-03-03/20261010T062233Z-implementation/node-mapping-01.json",
+        "evidence/PS-03-03/20261010T062233Z-implementation/review.md",
+        "evidence/PS-03-03/20261010T062233Z-implementation/limitations.md",
+        "evidence/PS-03-03/20261010T062233Z-implementation/next-readiness.md",
+        "evidence/PS-03-03/20261010T075026Z-3c330ce9/summary.json",
+        "evidence/PS-03-03/20261010T075026Z-3c330ce9/cases.json",
+        "evidence/PS-03-03/20261010T072041Z-4f8daef3/summary.json",
+        "evidence/PS-03-03/20261010T074047Z-08b50e52/summary.json",
+        "evidence/PS-03-03/20261010T062206Z-rename-probes/report.md"
+      ],
+      "blocked_reason": null,
+      "verification_scope": "本卡独立 synthetic 全部必要责任通过：470 PASS/0 FAIL/0 SKIP，exit 0；实际 UI 与本地 AI 共用 executor，持久 HMAC journal、真实同卷文件/SQLite current/generation、取消回滚、24持久边界实际产品子进程终止及启动恢复完成。313当前产品输入与4643产物摘要无差异。Python覆盖CASE-029～033；Node仅CASE-029/030/032组件分项，不替代进程/DB验收。首轮405PASS/2FAIL和第二轮提前终止FAIL/未完成、所有早期失败保留。补充旧守卫98PASS/2SKIP，文件符号链接权限仍缺；全仓文档递归因旧DACL负例BLOCKED/exit2，定向文档另记。G1/G2人工与阶段集成仍BLOCKED，不继承人工通过；部署提交不代表运行验证，verification_status=not_run。真实游戏/实际Mod/正式存档、物理磁盘满、硬件断电、其他OS、联网AI、发布未验收。PS-03-04保持TODO未开始。",
+      "previous_required_gate": "G2",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "existing_capability_reference"
+    },
+    {
+      "id": "PS-03-04",
+      "title": "回滚、外部漂移与恢复历史",
+      "milestone": "M3",
+      "status": "BLOCKED",
+      "verification": "BLOCKED",
+      "depends_on": [
+        "PS-03-03"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-014",
+        "FR-004",
+        "NFR-003"
+      ],
+      "estimate_hours": [
+        24,
+        36
+      ],
+      "card": "tasks/PS-03-04.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-022",
+        "CASE-034"
+      ],
+      "evidence": [
+        "evidence/PS-03-04/20261012T024000Z-implementation/plan.md",
+        "evidence/PS-03-04/20261012T024000Z-implementation/preflight.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/predecessor-audit.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/ui/focus-diagnosis.md",
+        "evidence/PS-03-04/20261012T024000Z-implementation/ui/foreground-metadata-01.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/ui/freeze-activation.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/unit-wait-01.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/node-wait-01.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/retained-runner-01-integrity.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/retained-runner-02-integrity.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/scope-integrity.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/documentation-targeted.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/report.md",
+        "evidence/PS-03-04/20261012T024000Z-implementation/summary.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/cases.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/environment.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/retained-runs.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/desktop-audit.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/product-source-equivalence.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/runner-order-01.xml",
+        "evidence/PS-03-04/20261012T024000Z-implementation/documentation-check-01.log",
+        "evidence/PS-03-04/20261012T024000Z-implementation/review.md",
+        "evidence/PS-03-04/20261012T024000Z-implementation/limitations.md",
+        "evidence/PS-03-04/20261012T024000Z-implementation/next-readiness.md",
+        "evidence/PS-03-04/20261012T024000Z-implementation/closure-summary-integrity.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/closure-integrity.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/closure-inputs.sha256",
+        "evidence/PS-03-04/20261012T024000Z-implementation/closure-artifacts.sha256",
+        "evidence/PS-03-04/20261012T024000Z-implementation/owned-process-final.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/blocked-audit-02.log",
+        "evidence/PS-03-04/20261012T024000Z-implementation/finalize-blocked-final.log",
+        "evidence/PS-03-04/20261012T024000Z-implementation/finalize-blocked-final.provenance.json",
+        "evidence/PS-03-04/20261012T024000Z-implementation/finalize-schema-final.log",
+        "evidence/PS-03-04/20261012T032154Z-c5a3e349/summary.json",
+        "evidence/PS-03-04/20261012T041402Z-1aaeb012/summary.json"
+      ],
+      "blocked_reason": "真实 WebView 必验被当前 Windows 系统锁屏层 LockScreenBackstopFrame 遮挡，首次可信产品输入前已停止；等待用户解锁后复验，不绕过锁屏。两轮完整 synthetic runner 原 FAIL 保留，尚不能记 VERIFIED/PASS。",
+      "verification_scope": "本卡独立合成实现已接通共享计划/批准/executor、部署历史及恢复页。第二轮真实后端责任51项通过，当前组件76项、基线篡改补测8项、runner检查36项分别通过；均不替代当前必验桌面/完整路线。历史 WebView u5 只对应旧输入不继承。最后完整路线463 PASS/3失败（含teardown ERROR），exit1；首轮462 PASS/4失败亦保留。当前321产品输入中后端/前端字节未变，仅4验证输入改变；保留两轮原输入/产物摘要和失败字节。完整文档遍历因历史DACL负例BLOCKED，定向文档另记。真实游戏/实际Mod/正式存档、系统DPI/人工、断电/物理磁盘满、联网AI和发布未验收；G1/G2仍BLOCKED，运行验证not_run。",
+      "previous_required_gate": "G2",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "optional"
+    },
+    {
+      "id": "PS-03-05",
+      "title": "配置适配器与保真字段变更",
+      "milestone": "M3",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-03-03",
+        "PS-02-03"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-015",
+        "NFR-001",
+        "NFR-005"
+      ],
+      "estimate_hours": [
+        28,
+        40
+      ],
+      "card": "tasks/PS-03-05.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-035"
+      ],
+      "evidence": [
+        "evidence/PS-03-05/20261012T072919Z-config/summary.json",
+        "evidence/PS-03-05/20261012T072919Z-config/report.md",
+        "evidence/PS-03-05/20261012T072919Z-config/pytest-02.xml",
+        "evidence/PS-03-05/20261012T072919Z-config/webview-02.xml"
+      ],
+      "blocked_reason": null,
+      "verification_scope": "选定 PSWallpaper.cfg 的已有 WallpaperFit/WallpaperBrightness/LogToFile。synthetic：适配器/真实配置API 53 PASS、原API policy 47 PASS、原Profile/API 76 PASS、Node组件/bridge 37 PASS；实际WebView自动DOM保存/外改/刷新及新进程重开1 PASS（2阶段13行为断言，退出0，无残留）。保留未知字段/注释/编码、可选原文件备份及占用/只读错误已验；不经计划批准，不依赖普通安装。首轮52 PASS/2 ERROR、首次构建准备路径错误及WebView1 FAIL均保留。真实配置、游戏内生效、可信指针/人工DPI、其他格式、硬件故障/写中强杀、混合事务、联网AI和发布未验证。",
+      "previous_required_gate": "G2",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "optional"
+    },
+    {
+      "id": "PS-03-06",
+      "title": "游戏启动、会话关联与分层运行验证",
+      "milestone": "M3",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-03-03",
+        "PS-01-01"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-016",
+        "FR-007",
+        "NFR-006"
+      ],
+      "estimate_hours": [
+        24,
+        36
+      ],
+      "card": "tasks/PS-03-06.md",
+      "verification_profiles": [
+        "synthetic",
+        "desktop-local"
+      ],
+      "cases": [
+        "CASE-036"
+      ],
+      "evidence": [
+        "evidence/PS-03-06/20261012T082208Z-launch/summary.json",
+        "evidence/PS-03-06/20261012T082208Z-launch/report.md",
+        "evidence/PS-03-06/20261012T082208Z-launch/pytest-03.xml",
+        "evidence/PS-03-06/20261012T082208Z-launch/desktop-02.xml"
+      ],
+      "blocked_reason": null,
+      "verification_scope": "可选普通启动范围：synthetic 118 PASS（CASE-036启动20、原API47、产品身份32、配置保存19），desktop-local实际WebView/Vue/bridge/合成进程1 PASS（2阶段12行为断言、App退出0、无残留）；Node组件54 PASS。固定EXE/cwd、中文空格路径、无任意参数、重复启动、退出码0/7/259、坏EXE/执行权限/安装占用错误、外部进程不结束、关闭管理器不停止游戏、重开和旧日志不冒充运行正常已验。pytest-02的117PASS/1FAIL和desktop-01的1FAIL均保留。仅自动DOM，未验证可信指针/人工DPI、真实游戏/Mods/正式存档、初始化/主菜单/玩法、可选会话/运行历史、Steam协议/额外参数、其他OS、联网AI和发布。未开始PS-03-07。",
+      "previous_required_gate": "G2",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "optional",
+      "previous_depends_on": [
+        "PS-03-04",
+        "PS-03-05",
+        "PS-01-05"
+      ]
+    },
+    {
+      "id": "PS-03-07",
+      "previous_title": "部署工作台闭环与离线 MVP 实机验收",
+      "title": "Mod 安装、启停和卸载接线",
+      "milestone": "M3",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-03-03",
+        "PS-02-05"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-012",
+        "FR-013",
+        "FR-014",
+        "FR-015",
+        "FR-016",
+        "FR-017",
+        "NFR-008"
+      ],
+      "estimate_hours": [
+        28,
+        40
+      ],
+      "card": "tasks/PS-03-07.md",
+      "verification_profiles": [
+        "synthetic",
+        "desktop-local",
+        "real-game"
+      ],
+      "cases": [
+        "CASE-037",
+        "CASE-038"
+      ],
+      "evidence": [
+        "evidence/PS-03-07/20261012T090210Z-direct-mods/summary.json",
+        "evidence/PS-03-07/20261012T090210Z-direct-mods/report.md",
+        "evidence/PS-03-07/20261012T090210Z-direct-mods/pytest-03.xml",
+        "evidence/PS-03-07/20261012T090210Z-direct-mods/pytest-05.xml",
+        "evidence/PS-03-07/20261012T090210Z-direct-mods/regression-01.xml",
+        "evidence/PS-03-07/20261012T090210Z-direct-mods/desktop-01.xml"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": "G2",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "core_simplification",
+      "previous_depends_on": [
+        "PS-03-04",
+        "PS-03-05",
+        "PS-03-06"
+      ],
+      "verification_scope": "普通 Mod 一次点击安装/启用/停用/卸载已接通真实包库、planner/executor、守卫和默认列表，无用户 Profile/计划批准前置。synthetic 84 PASS（当前普通动作26、相关原API/批准回归58），desktop-local 1 PASS（4实际app进程、17行为断言、6截图），Node40 PASS，退出均0。重开、三个扫描根、共享文件、未知/外改保留、实际只读/占用、ZIP越界、取消和提交恢复已测；空间为限额故障注入。pytest-01/02/04和build-01失败保留。CASE-038真实游戏可选NOT_RUN；仅自动DOM，未验可信指针/人工DPI、真实Mods/游戏运行/正式存档、硬件故障、联网AI或发布。旧人工/门及其他任务状态保留，未开始下一项。"
+    },
+    {
+      "id": "PS-04-01",
+      "title": "AI 会话基础、独立凭据与发送范围",
+      "milestone": "M4",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-03-07"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-018",
+        "FR-020",
+        "NFR-005"
+      ],
+      "estimate_hours": [
+        20,
+        32
+      ],
+      "card": "tasks/PS-04-01.md",
+      "verification_profiles": [
+        "synthetic",
+        "desktop-local"
+      ],
+      "cases": [
+        "CASE-039"
+      ],
+      "evidence": [
+        "evidence/PS-04-01/20261012T093830Z-ai-session/summary.json",
+        "evidence/PS-04-01/20261012T093830Z-ai-session/report.md",
+        "evidence/PS-04-01/20261012T093830Z-ai-session/pytest-02.xml",
+        "evidence/PS-04-01/20261012T093830Z-ai-session/desktop-03.xml",
+        "evidence/PS-04-01/20261012T093830Z-ai-session/ui-node-02.log"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": "G3",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "optional_ai",
+      "verification_scope": "选定可选OpenAI兼容纯文本会话、独立Windows compound凭据、当前问题/手选文本发送已接实际设置与会话UI；默认Mod无AI读取/联网，不依赖AI。synthetic113PASS（真实localhostHTTP/隐私34+原API47+身份32），Node51PASS，desktop-local1PASS（2实际app、12行为、3截图、6 loopback HTTP/SSE、默认管理与保存0HTTP checkpoint、真实自造Vault跨重开/清除），均exit0。密钥不回显、不入config/日志/事件/导出/错误，knownkey跨chunk与关闭遮罩、普通错误/离线/取消已验。desktop-01的1FAIL为测试误禁asyncio内部self-pipe，保留；02/03通过。ai-live未经授权NOT_RUN；未做工具/建议安装/完整附件/持久历史、真实游戏/实际Mods/正式存档、人工DPI/可信输入、其他OS或发布；没有开始下一项。"
+    },
+    {
+      "id": "PS-04-02",
+      "title": "证据工具与执行时授权",
+      "milestone": "M4",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-04-01",
+        "PS-01-06"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-018",
+        "NFR-001",
+        "NFR-005"
+      ],
+      "estimate_hours": [
+        24,
+        32
+      ],
+      "card": "tasks/PS-04-02.md",
+      "verification_profiles": [
+        "synthetic"
+      ],
+      "cases": [
+        "CASE-040",
+        "CASE-041"
+      ],
+      "evidence": [
+        "evidence/PS-04-02/20261013T013756Z-ai-tools/summary.json",
+        "evidence/PS-04-02/20261013T013756Z-ai-tools/report.md",
+        "evidence/PS-04-02/20261013T013756Z-ai-tools/tool-consumer-02.xml",
+        "evidence/PS-04-02/20261013T013756Z-ai-tools/tool-preview-02.xml",
+        "evidence/PS-04-02/20261013T013756Z-ai-tools/scope-redaction-03.xml",
+        "evidence/PS-04-02/20261013T013756Z-ai-tools/privacy-02.xml",
+        "evidence/PS-04-02/20261013T013756Z-ai-tools/desktop-04.xml",
+        "evidence/PS-04-02/20261013T013756Z-ai-tools/ui-node-03.log",
+        "evidence/PS-04-02/20261013T013756Z-ai-tools/regression-01.xml"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": "G3",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "optional_ai",
+      "verification_scope": "选定可选只读六查询已接实际AI会话/HTTP-SSE/WebView；synthetic最终153个唯一Python检查通过（50policy单元、23AI实际bridge/HTTP消费者、34隐私、19配置与26Mod回归、1实际WebView），Node61PASS/build exit0。当前安装/单片段校验、已支持配置、注入/任意命令及越界对象拒绝、脱敏/截断边界/时限/取消、基础启停独立；已修AI页滚动。4个失败运行保留并明确测试原因。真实provider/游戏/实际用户Mods/正式存档/人工DPI与发布未测；建议采用尚未实现，没有开始下一项。"
+    },
+    {
+      "id": "PS-04-03",
+      "previous_title": "AI 提案、批准卡片与部署计划接入",
+      "title": "AI 建议与普通 Mod 操作接入",
+      "milestone": "M4",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-04-02",
+        "PS-03-07"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-019",
+        "NFR-001",
+        "NFR-003"
+      ],
+      "estimate_hours": [
+        20,
+        32
+      ],
+      "card": "tasks/PS-04-03.md",
+      "verification_profiles": [
+        "synthetic",
+        "desktop-local"
+      ],
+      "cases": [
+        "CASE-042"
+      ],
+      "evidence": [
+        "evidence/PS-04-03/20261013T020942Z-ai-actions/summary.json",
+        "evidence/PS-04-03/20261013T020942Z-ai-actions/report.md",
+        "evidence/PS-04-03/20261013T020942Z-ai-actions/synthetic-01.xml",
+        "evidence/PS-04-03/20261013T020942Z-ai-actions/privacy-final.xml",
+        "evidence/PS-04-03/20261013T020942Z-ai-actions/desktop-03.xml",
+        "evidence/PS-04-03/20261013T020942Z-ai-actions/ui-node-final.log",
+        "evidence/PS-04-03/20261013T020942Z-ai-actions/redaction-01.xml",
+        "evidence/PS-04-03/20261013T020942Z-ai-actions/suggestion-pytest-01.xml"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": "G3",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "optional_ai",
+      "previous_depends_on": [
+        "PS-04-02",
+        "PS-03-02"
+      ],
+      "verification_scope": "选定可选AI建议已接实际会话/SSE和建议按钮，仅用户点击才经只读解析调用原mod.action；无Profile/计划批准前置。synthetic最终128个唯一检查通过（18建议实际消费者、23查询回归、37隐私含重复过滤、50policy单元），desktop-local1PASS（1实际app、9行为、12loopbackHTTP、7普通动作含取消、3截图；bbox+hit-test可见、无原生批准），Node97PASS/build exit0。清除密钥后旧建议仍脱敏、4张上限/去重、稳定key/重放、过期/换范围/旧会话、占位/漂移/取消等已测。suggestion-pytest-01及redaction-01失败保留，前者测试构造修正，后者真实隐私缺陷已修；早期desktop PASS保留但覆盖不足，03替代最终可见UI结论。外部provider/真实游戏/实际用户Mods/正式存档、可信指针/人工DPI、发布未测；未开始PS-04-04。"
+    },
+    {
+      "id": "PS-04-04",
+      "title": "AI 预算、取消、降级和验证反馈",
+      "milestone": "M4",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-04-03"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-020",
+        "FR-019",
+        "NFR-006"
+      ],
+      "estimate_hours": [
+        20,
+        32
+      ],
+      "card": "tasks/PS-04-04.md",
+      "verification_profiles": [
+        "synthetic",
+        "desktop-local"
+      ],
+      "cases": [
+        "CASE-043"
+      ],
+      "evidence": [
+        "evidence/PS-04-04/20261013T024726Z-ai-resilience/summary.json",
+        "evidence/PS-04-04/20261013T024726Z-ai-resilience/report.md",
+        "evidence/PS-04-04/20261013T024726Z-ai-resilience/test-results.json",
+        "evidence/PS-04-04/20261013T024726Z-ai-resilience/synthetic-final.xml",
+        "evidence/PS-04-04/20261013T024726Z-ai-resilience/synthetic-fix.xml",
+        "evidence/PS-04-04/20261013T024726Z-ai-resilience/desktop-04.xml",
+        "evidence/PS-04-04/20261013T024726Z-ai-resilience/ui-node-01.log",
+        "evidence/PS-04-04/20261013T024726Z-ai-resilience/resilience-01.xml",
+        "evidence/PS-04-04/20261013T024726Z-ai-resilience/desktop-01.xml",
+        "evidence/PS-04-04/20261013T024726Z-ai-resilience/desktop-02.xml"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": "G3",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "optional_ai",
+      "verification_scope": "本卡选定可选AI时限/累计输出及工具限额、排队与流中取消清理、普通错误和手动重试已接现有会话/Gateway/任务/UI。synthetic最终99唯一PASS（CASE043 21、建议18、查询23、隐私37；synthetic-final98PASS/1旧计时断言FAIL，窄修正重跑1PASS）；desktop-local1PASS（1实际app、9行为、7 loopbackHTTP/SSE、4普通Mod文件动作、7可见截图；所有workers/订阅/进程残留0），Node120PASS/build exit0。无自动重试/安装/启动或费用金额，离线普通管理独立。resilience-01、synthetic-final、desktop-01/02失败保留并说明测试原因；desktop-03 PASS保留截图重绘局限，04替代最终图像。外部provider/实际游戏/用户Mods/正式存档、可信指针/人工DPI和发布未测；未开始PS-04-05。"
+    },
+    {
+      "id": "PS-04-05",
+      "title": "AI 诊断闭环验收",
+      "milestone": "M4",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-04-04"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-018",
+        "FR-019",
+        "FR-020",
+        "FR-017",
+        "NFR-008"
+      ],
+      "estimate_hours": [
+        20,
+        32
+      ],
+      "card": "tasks/PS-04-05.md",
+      "verification_profiles": [
+        "synthetic",
+        "desktop-local",
+        "ai-live"
+      ],
+      "cases": [
+        "CASE-044"
+      ],
+      "evidence": [
+        "evidence/PS-04-05/20261013T030746Z-ai-workbench/report.md",
+        "evidence/PS-04-05/20261013T030746Z-ai-workbench/summary.json",
+        "evidence/PS-04-05/20261013T030746Z-ai-workbench/commands.json",
+        "evidence/PS-04-05/20261013T030746Z-ai-workbench/changes.json",
+        "evidence/PS-04-05/20261013T030746Z-ai-workbench/docs-check.json",
+        "evidence/PS-04-05/20261013T030746Z-ai-workbench/synthetic-final.xml",
+        "evidence/PS-04-05/20261013T030746Z-ai-workbench/desktop-03.xml",
+        "evidence/PS-04-05/20261013T030746Z-ai-workbench/desktop-01.xml",
+        "evidence/PS-04-05/20261013T030746Z-ai-workbench/desktop-02.xml",
+        "evidence/PS-04-05/20261013T051122Z-clr-exit-fix/scope.md",
+        "evidence/PS-04-05/20261013T051122Z-clr-exit-fix/report.md",
+        "evidence/PS-04-05/20261013T051122Z-clr-exit-fix/summary.json",
+        "evidence/PS-04-05/20261013T051122Z-clr-exit-fix/commands.json",
+        "evidence/PS-04-05/20261013T051122Z-clr-exit-fix/changes.json",
+        "evidence/PS-04-05/20261013T051122Z-clr-exit-fix/synthetic-01.xml",
+        "evidence/PS-04-05/20261013T051122Z-clr-exit-fix/native-02.xml",
+        "evidence/PS-04-05/20261013T051122Z-clr-exit-fix/guards-01.xml",
+        "evidence/PS-04-05/20261013T051122Z-clr-exit-fix/desktop-01.xml",
+        "evidence/PS-04-05/20261013T051122Z-clr-exit-fix/docs-check.json"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": "G3",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "optional_ai",
+      "verification_scope": "PS-04-05当前选定本地闭环及退出修复VERIFIED/PASS。synthetic当前21唯一PASS：AI闭环5、原生缓存/NO_REPLACE回归1、受影响守卫15（85 deselected）；首轮5PASS/1测试API错误FAIL/1可选联网SKIP，窄修正1PASS，保留分轮计数与失败。desktop-local完整1PASS exit0：9行为、3次实际目录导入、13普通Mod文件动作、7localhost HTTP/SSE、5截图，main0/自然进程exit0，workers/订阅/进程0，发送范围断言执行。修复固定ctypes ABI类型复用，500次压力原版缓存+6505、当前首次+2后24批0增长，句柄/字节保持；不跳过unload、不强退、不改保护规则。此前360秒超时、诊断失败及合成新测试错误保留。ai-live NOT_RUN（缺具体provider/发送授权），不阻断本卡本地完成；真实游戏/用户Mods/正式存档/人工DPI/发布未测；未开始PS-05-01。"
+    },
+    {
+      "id": "PS-05-01",
+      "title": "性能、可用性与回归收口",
+      "milestone": "M5",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-03-07"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-017",
+        "NFR-007",
+        "NFR-008"
+      ],
+      "estimate_hours": [
+        24,
+        36
+      ],
+      "card": "tasks/PS-05-01.md",
+      "verification_profiles": [
+        "synthetic",
+        "desktop-local"
+      ],
+      "cases": [
+        "CASE-045"
+      ],
+      "evidence": [
+        "evidence/PS-05-01/20261013T055632Z-core-usability/scope.md",
+        "evidence/PS-05-01/20261013T055632Z-core-usability/report.md",
+        "evidence/PS-05-01/20261013T055632Z-core-usability/summary.json",
+        "evidence/PS-05-01/20261013T055632Z-core-usability/commands.json",
+        "evidence/PS-05-01/20261013T055632Z-core-usability/changes.json",
+        "evidence/PS-05-01/20261013T055632Z-core-usability/current-inputs.json",
+        "evidence/PS-05-01/20261013T055632Z-core-usability/synthetic-03.xml",
+        "evidence/PS-05-01/20261013T055632Z-core-usability/import-regression-01.xml",
+        "evidence/PS-05-01/20261013T055632Z-core-usability/desktop-05.xml",
+        "evidence/PS-05-01/20261013T055632Z-core-usability/desktop-04-interrupted.json",
+        "evidence/PS-05-01/20261013T055632Z-core-usability/docs-check.json"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": "G4",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "on_demand_portable_delivery",
+      "previous_depends_on": [
+        "PS-04-05"
+      ]
+    },
+    {
+      "id": "PS-05-02",
+      "title": "Windows x64 便携包与构建清单",
+      "milestone": "M5",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-05-01"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-021",
+        "FR-001",
+        "NFR-008"
+      ],
+      "estimate_hours": [
+        24,
+        40
+      ],
+      "card": "tasks/PS-05-02.md",
+      "verification_profiles": [
+        "synthetic",
+        "release"
+      ],
+      "cases": [
+        "CASE-046"
+      ],
+      "evidence": [
+        "evidence/PS-05-02/20261014T035108Z-portable-x64/scope.md",
+        "evidence/PS-05-02/20261014T035108Z-portable-x64/report.md",
+        "evidence/PS-05-02/20261014T035108Z-portable-x64/summary.json",
+        "evidence/PS-05-02/20261014T035108Z-portable-x64/commands.json",
+        "evidence/PS-05-02/20261014T035108Z-portable-x64/changes.json",
+        "evidence/PS-05-02/20261014T035108Z-portable-x64/current-inputs.json",
+        "evidence/PS-05-02/20261014T035108Z-portable-x64/prerequisite.json",
+        "evidence/PS-05-02/20261014T035108Z-portable-x64/helper-static.xml",
+        "evidence/PS-05-02/20261014T035108Z-portable-x64/helper-probe.json",
+        "evidence/PS-05-02/20261014T035108Z-portable-x64/source-worker-01.xml",
+        "evidence/PS-05-02/20261014T035108Z-portable-x64/release-final.xml",
+        "evidence/PS-05-02/20261014T035108Z-portable-x64/desktop-16.xml",
+        "evidence/PS-05-02/20261014T035108Z-portable-x64/portable-launcher-summary.json",
+        "evidence/PS-05-02/20261014T035108Z-portable-x64/repeat-06-07.json",
+        "evidence/PS-05-02/20261014T035108Z-portable-x64/desktop-final.xml",
+        "evidence/PS-05-02/20261014T035108Z-portable-x64/docs-check.json"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": "G4",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "on_demand_portable_delivery",
+      "verification_scope": "CASE-046当前便携交付VERIFIED/PASS。最终包404文件/142636428bytes，ZIP68970123bytes；48 synthetic和10实际产物唯一pytest PASS，另helper预期exit0/2两检查。冻结GUI合成安装选择、DLL预览入库及重开两次自然exit0/Job0，程序与合成输入摘要未变；隐藏开发PATH不是干净机器。重复构建EXE/helper字节一致，清单时间/校验表、ZIP头排列、耗时日志差异可解释。早期构建和桌面失败保留，desktop-final曾有2个WebView残留，desktop-16自然归零但原残留根因未复现定位。干净机器/缺运行时新机器/真实游戏/外部AI/人工DPI未测；未开始PS-05-03。"
+    },
+    {
+      "id": "PS-05-03",
+      "title": "干净 Windows 环境与安装态验收",
+      "milestone": "M5",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-05-02"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-021",
+        "NFR-008",
+        "NFR-003"
+      ],
+      "estimate_hours": [
+        24,
+        40
+      ],
+      "card": "tasks/PS-05-03.md",
+      "verification_profiles": [
+        "release"
+      ],
+      "cases": [
+        "CASE-047",
+        "CASE-048"
+      ],
+      "evidence": [
+        "evidence/PS-05-03/20261014T052241Z-packaged-install/scope.md",
+        "evidence/PS-05-03/20261014T052241Z-packaged-install/report.md",
+        "evidence/PS-05-03/20261014T052241Z-packaged-install/summary.json",
+        "evidence/PS-05-03/20261014T052241Z-packaged-install/commands.json",
+        "evidence/PS-05-03/20261014T052241Z-packaged-install/changes.json",
+        "evidence/PS-05-03/20261014T052241Z-packaged-install/current-inputs.json",
+        "evidence/PS-05-03/20261014T052241Z-packaged-install/prerequisite.json",
+        "evidence/PS-05-03/20261014T052241Z-packaged-install/environment.json",
+        "evidence/PS-05-03/20261014T052241Z-packaged-install/release-01.xml",
+        "evidence/PS-05-03/20261014T052241Z-packaged-install/release-02.xml",
+        "evidence/PS-05-03/20261014T052241Z-packaged-install/acceptance-20261014T054402109638Z/first-result.json",
+        "evidence/PS-05-03/20261014T052241Z-packaged-install/acceptance-20261014T054402109638Z/reopen-result.json",
+        "evidence/PS-05-03/20261014T052241Z-packaged-install/acceptance-20261014T054402109638Z/missing/result.json",
+        "evidence/PS-05-03/20261014T052241Z-packaged-install/acceptance-20261014T054402109638Z/restored/result.json",
+        "evidence/PS-05-03/20261014T052241Z-packaged-install/acceptance-20261014T054402109638Z/migration-result.json",
+        "evidence/PS-05-03/20261014T052241Z-packaged-install/acceptance-20261014T054402109638Z/portable-removal.json",
+        "evidence/PS-05-03/20261014T052241Z-packaged-install/docs-check.json"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": "G4",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "on_demand_portable_delivery",
+      "verification_scope": "当前声明环境VERIFIED/PASS，release-02四项实际产物测试PASS/exit0，80.93秒。复用原ZIP、从新目录运行真实EXE；同用户非提升token（Medium/Admin deny-only/无admin privileges）下实际DLL导入、安装/停用/启用/卸载/再安装五文件动作及重开保持。当前进程空WebView选择器的真实错误提示、预期exit2无安装；其余三启动exit0，全部自然Job0。合成schema6旧payload及主题/未知字段升级至7，单份备份核验及复制到另一隔离根后真实GUI启动通过。删除仅测试便携副本后游戏/私有配置数据库/包库不变，原发行包保留，产品代码未改。首轮1PASS/1原生控件类型测试FAIL及token探针失败保留。干净VM/另一机器、独立标准账户、物理缺运行时机器、真实用户升级、真实游戏/AI/人工DPI NOT_RUN；未开始PS-05-04。"
+    },
+    {
+      "id": "PS-05-04",
+      "title": "使用文档、分发清单与首版总验收",
+      "milestone": "M5",
+      "status": "VERIFIED",
+      "verification": "PASS",
+      "depends_on": [
+        "PS-05-03"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-022",
+        "FR-021",
+        "NFR-008"
+      ],
+      "estimate_hours": [
+        16,
+        24
+      ],
+      "card": "tasks/PS-05-04.md",
+      "verification_profiles": [
+        "release"
+      ],
+      "cases": [
+        "CASE-048"
+      ],
+      "evidence": [
+        "evidence/PS-05-04/20261014T090037Z-local-delivery/report.md",
+        "evidence/PS-05-04/20261014T090037Z-local-delivery/summary.json",
+        "evidence/PS-05-04/20261014T090037Z-local-delivery/commands.json",
+        "evidence/PS-05-04/20261014T090037Z-local-delivery/changes.json",
+        "evidence/PS-05-04/20261014T090037Z-local-delivery/current-inputs.json",
+        "evidence/PS-05-04/20261014T090037Z-local-delivery/prerequisite.json",
+        "evidence/PS-05-04/20261014T090037Z-local-delivery/delivery.json",
+        "evidence/PS-05-04/20261014T090037Z-local-delivery/notices-materials.json",
+        "evidence/PS-05-04/20261014T090037Z-local-delivery/material-check.json",
+        "evidence/PS-05-04/20261014T090037Z-local-delivery/layout-01.xml",
+        "evidence/PS-05-04/20261014T090037Z-local-delivery/smoke-summary.json",
+        "evidence/PS-05-04/20261014T090037Z-local-delivery/smoke/result.json",
+        "evidence/PS-05-04/20261014T090037Z-local-delivery/docs-check.json"
+      ],
+      "blocked_reason": null,
+      "previous_required_gate": "G4",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "on_demand_portable_delivery",
+      "verification_scope": "当前本地交付范围VERIFIED/PASS：中文README/4份用户说明/分发及限制说明、项目MIT版权及66组件/76许可材料齐备。新ZIP439文件69037721bytes，SHA256 6b12cf27089b3248b9e4ab81adf0e063d44b6bd5c2eb9e1dffc4abdcb007403e；原401程序/资源/许可字节不变，仅入口TXT/manifest/SHA替换、新增35文本材料，无重编译。8实际布局pytest PASS、14 deselected、exit0；46本地链接和材料摘要匹配；最终ZIP新目录实际EXE启动3110ms，main0/自然Job0/无强制清理，439程序文件不变。复核PS-05-03的13输入及4真实用例/CASE048选定合成升级恢复结果，不重复记本轮业务重跑。许可获取失败/变换、原WebView残留等历史记录保留。干净机器/独立账户/物理缺运行时/真实迁移/真实游戏/外部AI/新人工DPI未测；未发布、未启动M6。"
+    },
+    {
+      "id": "PS-06-01",
+      "title": "可选只读游戏内观测模块",
+      "milestone": "M6",
+      "status": "DEFERRED",
+      "verification": "NOT_RUN",
+      "depends_on": [
+        "PS-05-04"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-023",
+        "NFR-005"
+      ],
+      "estimate_hours": [
+        32,
+        48
+      ],
+      "card": "tasks/PS-06-01.md",
+      "verification_profiles": [
+        "synthetic",
+        "real-game"
+      ],
+      "cases": [
+        "CASE-049"
+      ],
+      "evidence": [],
+      "blocked_reason": null,
+      "previous_required_gate": "G5",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "deferred"
+    },
+    {
+      "id": "PS-06-02",
+      "title": "可信在线源与更新提案",
+      "milestone": "M6",
+      "status": "DEFERRED",
+      "verification": "NOT_RUN",
+      "depends_on": [
+        "PS-05-04"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-024",
+        "NFR-005"
+      ],
+      "estimate_hours": [
+        32,
+        48
+      ],
+      "card": "tasks/PS-06-02.md",
+      "verification_profiles": [
+        "synthetic",
+        "release"
+      ],
+      "cases": [
+        "CASE-050"
+      ],
+      "evidence": [],
+      "blocked_reason": null,
+      "previous_required_gate": "G5",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "deferred"
+    },
+    {
+      "id": "PS-06-03",
+      "title": "存档发现与经实测的隔离实验",
+      "milestone": "M6",
+      "status": "DEFERRED",
+      "verification": "NOT_RUN",
+      "depends_on": [
+        "PS-05-04"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-025",
+        "NFR-001",
+        "NFR-003"
+      ],
+      "estimate_hours": [
+        32,
+        56
+      ],
+      "card": "tasks/PS-06-03.md",
+      "verification_profiles": [
+        "synthetic",
+        "real-game"
+      ],
+      "cases": [
+        "CASE-051"
+      ],
+      "evidence": [],
+      "blocked_reason": null,
+      "previous_required_gate": "G5",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "deferred"
+    },
+    {
+      "id": "PS-06-04",
+      "title": "独立应用更新渠道与失败恢复",
+      "milestone": "M6",
+      "status": "DEFERRED",
+      "verification": "NOT_RUN",
+      "depends_on": [
+        "PS-05-04"
+      ],
+      "required_gate": null,
+      "requirements": [
+        "FR-026",
+        "FR-021",
+        "NFR-003",
+        "NFR-008"
+      ],
+      "estimate_hours": [
+        32,
+        48
+      ],
+      "card": "tasks/PS-06-04.md",
+      "verification_profiles": [
+        "synthetic",
+        "release"
+      ],
+      "cases": [
+        "CASE-052"
+      ],
+      "evidence": [],
+      "blocked_reason": null,
+      "previous_required_gate": "G5",
+      "estimate_basis": "historical_void_for_current_schedule",
+      "delivery_role": "deferred"
+    }
+  ],
+  "updated_at": "2026-10-14",
+  "execution_policy": {
+    "gate_enforcement": "none",
+    "readiness": "check the actually reused capability; old manual or optional BLOCKED results do not gate independent work",
+    "core_next_task": null,
+    "core_actions": [
+      "install",
+      "enable",
+      "disable",
+      "uninstall"
+    ],
+    "optional_features": [
+      "profiles",
+      "configuration_editing",
+      "logs",
+      "game_launch",
+      "recent_backup",
+      "complex_history",
+      "ai"
+    ],
+    "estimate_policy": "legacy estimate_hours are historical and void for current scheduling",
+    "history_policy": "existing status, verification, evidence, blocked_reason and actual results are not rewritten",
+    "code_status": "Ordinary local Mod actions and optional AI implemented; PS-04-05 diagnostic loop and PS-05-01 selected core performance/usability verified through actual desktop consumers with natural shutdown; native file action costs retained, external provider not tested; PS-05-02 Windows x64 portable package and selected actual frozen consumers verified on current host; clean machine remains untested; PS-05-03 portable basic actions and selected synthetic restore verified under current non-elevated user token; clean/alternate machine untested; PS-05-04 user docs/notices and verified local portable materials prepared, executable/assets unchanged, not published",
+    "scope_document": "01-product-scope.md",
+    "change_record": "changes/20261012-scope-simplification/README.md"
+  }
+}

@@ -1,0 +1,245 @@
+<template>
+  <CommonModalShell
+    :show="dialog.visible"
+    :title="dialog.title"
+    :description="dialog.message"
+    size="compact"
+    :z-index="160"
+    accent="warn"
+    content-class="flex min-h-0 flex-col px-2 py-1"
+    footer-class="flex flex-wrap items-center justify-end gap-2"
+    @close="workspaceStore.closeStartupInventoryDialog"
+  >
+    <template #icon>
+      <CircleAlert class="size-5 text-accent-warn" />
+    </template>
+
+    <div class="max-h-[min(62vh,35rem)] min-h-0 overflow-y-auto py-1">
+      <div v-if="dialog.groups.length" class="space-y-3">
+        <section v-for="group in dialog.groups" :key="group.id" class="overflow-hidden rounded-xl border border-border-base/10 bg-bg-inset/60">
+          <div class="flex items-start justify-between gap-3 border-b border-border-base/10 bg-bg-elevated px-3 py-2">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <div class="text-sm font-black" :class="groupTitleClass(group.id)">{{ group.title }}</div>
+                <span class="rounded-md border bg-bg-overlay/5 px-1.5 py-0.5 text-[0.6rem]" :class="groupCountClass(group.id)">{{ t('common.count.items', '{count} 项', { count: group.items.length }) }}</span>
+              </div>
+              <div class="mt-1 text-xs leading-relaxed text-text-dim">{{ group.description }}</div>
+            </div>
+            <div class="flex shrink-0 flex-wrap justify-end gap-1">
+              <button v-for="action in groupActions(group)" :key="action.id" :disabled="isGroupActionDisabled(group, action.id)"
+                class="inventory-action" :class="actionClass(action.kind)"
+                @click="runGroupAction(group, action.id)" >
+                <Loader2 v-if="isGroupActionPending(group, action.id)" class="size-3.5 animate-spin" />
+                <span>{{ action.label }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="divide-y divide-border-base/10">
+            <div v-for="item in group.items" :key="item.id" class="flex items-start justify-between gap-3 px-3 py-2" >
+              <div class="min-w-0">
+                <div class="break-all text-sm font-bold text-text-main">{{ item.title }}</div>
+                <div v-if="item.description" class="mt-1 break-all text-xs leading-relaxed text-text-dim">{{ item.description }}</div>
+                <div v-if="item.meta.length" class="mt-1 flex flex-wrap gap-1">
+                  <span v-for="meta in item.meta" :key="meta" class="rounded-md border border-border-base/10 bg-bg-overlay/5 px-1.5 py-0.5 text-[0.6rem] text-text-dim" >
+                    {{ meta }}
+                  </span>
+                </div>
+              </div>
+              <button
+                v-if="itemAction(group.id, item)"
+                :disabled="isItemActionDisabled(group.id, item)"
+                class="inventory-action shrink-0"
+                :class="actionClass(itemAction(group.id, item).kind)"
+                @click="runItemAction(group, item)"
+              >
+                <Loader2 v-if="isPending(itemAction(group.id, item).id, item.id)" class="size-3.5 animate-spin" />
+                <span>{{ itemAction(group.id, item).label }}</span>
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div v-else class="rounded-xl border border-border-base/10 bg-bg-inset/60 px-3 py-4 text-sm text-text-dim">
+        {{ t('ui.workspace.startup.empty', '当前没有需要处理的库存项。') }}
+      </div>
+    </div>
+
+    <template #footer>
+      <button
+        v-if="hasDeletedItems"
+        :disabled="isBatchActionDisabled('cleanup_deleted', 'all:deleted')"
+        class="inventory-action px-4 py-1.5"
+        :class="actionClass('danger')"
+        @click="runAllAction('deleted', 'cleanup_deleted')"
+      >
+        <Loader2 v-if="isPending('cleanup_deleted', 'all:deleted')" class="size-3.5 animate-spin" />
+        <span>{{ t('ui.workspace.startup.action.cleanup_deleted_all', '清理删除项数据') }}</span>
+      </button>
+      <button
+        v-if="hasMissingItems"
+        :disabled="isBatchActionDisabled('download_missing', 'all:missing')"
+        class="inventory-action px-4 py-1.5"
+        :class="actionClass('primary')"
+        @click="runAllAction('missing', 'download_missing')"
+      >
+        <Loader2 v-if="isBatchActionPending('download_missing', 'all:missing')" class="size-3.5 animate-spin" />
+        <span>{{ t('ui.workspace.startup.action.download_missing_all', '重新下载缺失项') }}</span>
+      </button>
+      <button
+        v-if="hasUpdateItems"
+        :disabled="isBatchActionDisabled('download_update', 'all:update')"
+        class="inventory-action px-4 py-1.5"
+        :class="actionClass('primary')"
+        @click="runAllAction('update', 'download_update')"
+      >
+        <Loader2 v-if="isBatchActionPending('download_update', 'all:update')" class="size-3.5 animate-spin" />
+        <span>{{ t('ui.workspace.startup.action.download_update_all', '更新可更新项') }}</span>
+      </button>
+      <button
+        class="inventory-action px-4 py-1.5"
+        :class="actionClass('secondary')"
+        @click="workspaceStore.closeStartupInventoryDialog"
+      >
+        {{ t('common.action.confirm', '确认') }}
+      </button>
+    </template>
+  </CommonModalShell>
+</template>
+
+<script setup>
+import { computed } from 'vue'
+import { CircleAlert, Loader2 } from 'lucide-vue-next'
+import CommonModalShell from '../../../shared/components/modal/CommonModalShell.vue'
+import { useWorkspaceStore } from '../workspaceStore'
+import { t } from '../../../shared/i18n.js'
+
+const workspaceStore = useWorkspaceStore()
+const dialog = workspaceStore.startupInventoryDialog
+
+const pendingKey = (actionId, targetId) => `${actionId}:${targetId}`
+const isPending = (actionId, targetId) => dialog.pendingActions.includes(pendingKey(actionId, targetId))
+const hasPendingActions = computed(() => dialog.pendingActions.length > 0)
+const hasDeletedItems = computed(() => dialog.groups.some(group => group.id === 'deleted' && group.items.length > 0))
+const hasMissingItems = computed(() => dialog.groups.some(group => group.id === 'missing' && group.items.length > 0))
+const hasUpdateItems = computed(() => dialog.groups.some(group => group.id === 'update' && group.items.length > 0))
+const hasDownloadBatchPending = computed(() =>
+  isPending('download_missing', 'missing') || isPending('download_missing', 'all:missing')
+)
+const hasUpdateBatchPending = computed(() =>
+  isPending('download_update', 'update') || isPending('download_update', 'all:update')
+)
+const actionClass = (kind = 'secondary') => {
+  if (kind === 'danger') return 'bg-accent-danger/90 text-on-accent-danger shadow-lg shadow-accent-danger/20 hover:bg-accent-danger'
+  if (kind === 'primary') return 'bg-accent-primary text-on-accent-primary shadow-lg shadow-accent-primary/20 hover:bg-accent-primary/90'
+  return 'border border-border-base/10 text-text-dim hover:border-border-base/18 hover:bg-bg-overlay/10 hover:text-text-main'
+}
+const groupTitleClass = (groupId) => {
+  if (groupId === 'deleted') return 'text-accent-danger'
+  if (groupId === 'missing') return 'text-accent-warn'
+  if (groupId === 'changed') return 'text-accent-primary'
+  if (groupId === 'update') return 'text-accent-warn'
+  return 'text-text-main'
+}
+const groupCountClass = (groupId) => {
+  if (groupId === 'deleted') return 'border-accent-danger/20 text-accent-danger'
+  if (groupId === 'missing') return 'border-accent-warn/20 text-accent-warn'
+  if (groupId === 'changed') return 'border-accent-primary/20 text-accent-primary'
+  if (groupId === 'update') return 'border-accent-warn/20 text-accent-warn'
+  return 'border-border-base/10 text-text-dim'
+}
+
+const groupActions = (group) => {
+  const actions = []
+  if (group.id === 'deleted') actions.push({ id: 'cleanup_deleted', label: t('ui.workspace.startup.action.cleanup_deleted_count', '清理残留数据（{count}项）', { count: group.items.length }), kind: 'danger' })
+  if (group.id === 'missing') actions.push({ id: 'download_missing', label: t('ui.workspace.startup.action.download_missing_count', '重新下载（{count}项）', { count: group.items.length }), kind: 'primary' })
+  if (group.id === 'update') actions.push({ id: 'download_update', label: t('ui.workspace.startup.action.download_update_count', '重新下载/校验（{count}项）', { count: group.items.length }), kind: 'primary' })
+  actions.push({ id: 'details', label: t('ui.workspace.startup.action.details', '查看详情'), kind: 'secondary' })
+  return actions
+}
+
+const itemAction = (groupId, item) => {
+  if (groupId === 'deleted') return { id: 'cleanup_deleted', label: t('ui.workspace.startup.action.cleanup_deleted', '清理数据'), kind: 'danger' }
+  if (groupId === 'missing' && item.workshopId) return { id: 'download_missing', label: t('ui.workspace.startup.action.download_missing', '重新下载'), kind: 'primary' }
+  if (groupId === 'update' && item.workshopId) return { id: 'download_update', label: t('ui.workspace.startup.action.download_update', '重新下载/校验'), kind: 'primary' }
+  return null
+}
+
+const isItemDownloadPending = (item) => isPending('download_missing', item.id)
+const isItemUpdatePending = (item) => isPending('download_update', item.id)
+const isItemActionDisabled = (groupId, item) => {
+  const action = itemAction(groupId, item)
+  if (!action) return true
+  if (action.id === 'download_missing') return hasDownloadBatchPending.value || isItemDownloadPending(item)
+  if (action.id === 'download_update') return hasUpdateBatchPending.value || isItemUpdatePending(item)
+  return isPending(action.id, item.id)
+}
+const isBatchActionPending = (actionId, targetId) => {
+  if (actionId === 'download_missing') return hasDownloadBatchPending.value
+  if (actionId === 'download_update') return hasUpdateBatchPending.value
+  return isPending(actionId, targetId)
+}
+const isBatchActionDisabled = (actionId, targetId) => {
+  if (actionId === 'download_missing') return hasDownloadBatchPending.value
+  if (actionId === 'download_update') return hasUpdateBatchPending.value
+  return isPending(actionId, targetId)
+}
+const isGroupActionPending = (group, actionId) => isBatchActionPending(actionId, group.id)
+const isGroupActionDisabled = (group, actionId) => {
+  if (!group.items.length) return true
+  if (actionId === 'details') return hasPendingActions.value
+  return isBatchActionDisabled(actionId, group.id)
+}
+const filterRunnableItems = (actionId, items = []) => {
+  if (actionId === 'download_update') return items.filter(item => !isItemUpdatePending(item))
+  if (actionId !== 'download_missing') return items
+  return items.filter(item => !isItemDownloadPending(item))
+}
+
+const runItemAction = async (group, item) => {
+  const action = itemAction(group.id, item)
+  if (!action) return
+  await workspaceStore.runStartupInventoryDialogAction(action.id, [item], { pendingTarget: item.id })
+}
+
+const runGroupAction = async (group, actionId) => {
+  if (actionId === 'details') {
+    await workspaceStore.openStartupInventoryDialogDetails(group.id)
+    return
+  }
+  const items = filterRunnableItems(actionId, group.items)
+  if (!items.length) return
+  await workspaceStore.runStartupInventoryDialogAction(actionId, items, { pendingTarget: group.id })
+}
+
+const runAllAction = async (groupId, actionId) => {
+  const group = dialog.groups.find(candidate => candidate.id === groupId)
+  if (!group?.items.length) return
+  const items = filterRunnableItems(actionId, group.items)
+  if (!items.length) return
+  const ok = await workspaceStore.runStartupInventoryDialogAction(actionId, items, { pendingTarget: `all:${groupId}`, closeAfterSubmit: true })
+  if (ok && dialog.visible) workspaceStore.closeStartupInventoryDialog({ saveAck: false })
+}
+</script>
+
+<style scoped>
+.inventory-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 1.75rem;
+  border-radius: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1;
+  transition: color 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
+}
+
+.inventory-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+</style>

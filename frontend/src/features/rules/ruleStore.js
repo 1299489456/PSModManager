@@ -1,0 +1,511 @@
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import { useModStore } from '../mod/stores/modStore'
+import { useAppStore } from '../../app/stores/appStore'
+import { deepClone, toast, checkResult, showUserErrorToast } from '../../shared/lib/common'
+import { normalizePackageId } from '../mod/lib/modIdentity'
+import { t } from '../../shared/i18n.js'
+
+// 动态规则支持属性映射
+const getDynamicRuleProps = () => ({
+  package_id: t('common.field.package_id', '包名'),
+  name: t('common.field.name', '名称'),
+  alias_name: t('common.field.alias_name', '别名'),
+  author: t('common.field.author', '作者'),
+  tags: t('common.field.tags', '标签'),
+  groups: t('common.field.groups', '分组'),
+  mod_type: t('common.field.type', '类型'),
+})
+// 动态规则动作映射
+const getDynamicRuleActions = () => ({
+  weight_shift: t('ui.rule.dynamic.action.weight_shift', '权重偏移 (Shift)'),
+  weight_set: t('ui.rule.dynamic.action.weight_set', '设定权重 (Set)'),
+  load_after: t('ui.rule.dynamic.action.load_after', '必须在某ID后'),
+  load_before: t('ui.rule.dynamic.action.load_before', '必须在某ID前'),
+  top: t('ui.rule.dynamic.action.top', '强制置顶'),
+  bottom: t('ui.rule.dynamic.action.bottom', '强制置底'),
+})
+// 动态规则支持运算符映射
+const getDynamicRuleOperators = () => ({
+  equals: t('ui.rule.dynamic.operator.equals', '等于'),
+  not_equals: t('ui.rule.dynamic.operator.not_equals', '不等于'),
+  contains: t('ui.rule.dynamic.operator.contains', '包含'),
+  not_contains: t('ui.rule.dynamic.operator.not_contains', '不包含'),
+  starts_with: t('ui.rule.dynamic.operator.starts_with', '以...开头'),
+  ends_with: t('ui.rule.dynamic.operator.ends_with', '以...结尾'),
+  regex: t('ui.rule.dynamic.operator.regex', '正则匹配'),
+})
+
+
+
+export const useRuleStore = defineStore('rules', () => {
+  const modStore = useModStore()
+  const appStore = useAppStore()
+
+
+  // --- State ---
+  const communityModRules = ref({}) // { pkg_id: { loadAfter: ... } }
+  const communityRulesUpdateTime = ref(0)
+  const workshopRulesUpdateTime = ref(0)
+  const userModRules = ref({})   // { pkg_id: { loadAfter: ... } }
+  const workshopModRules = ref({}) // { pkg_id: [dep_pid1, dep_pid2, ...] }
+  const userDynamicRules = ref([])
+  const settings = ref({
+    community_mod_rules_enabled: true,    // 全局社区规则总开关
+    user_mod_rules_enabled: true,         // 全局用户单项规则总开关
+    dynamic_rules_enabled: true,          // 全局动态规则总开关
+    workshop_mod_rules_enabled: true,     // 工坊外置规则总开关
+    workshop_rules_as_dependency: false,  // True: 作为强依赖(触发自动补全) | False: 作为普通前置依赖
+    excluded_community_mods: [],          // 被禁用的社区 Mod ID 列表 (黑名单)
+    excluded_user_mods: [],               // 被禁用的用户 Mod ID 列表 (黑名单)
+    excluded_workshop_mods: [],           // 被禁用的工坊 Mod ID 列表 (黑名单)
+    // 规则优先级配置：索引越小，优先级越高 (默认: 用户 > 原生 > 社区 > 动态)
+    rule_source_priority: ["user", "native", "community", "dynamic", "workshop"]
+  })
+
+  const currentId = ref(null)
+  const isLoading = ref(false)
+  const hasLoaded = ref(false)
+  const DYNAMIC_RULE_PROPS = computed(getDynamicRuleProps)
+  const DYNAMIC_RULE_ACTIONS = computed(getDynamicRuleActions)
+  const DYNAMIC_RULE_OPERATORS = computed(getDynamicRuleOperators)
+  let rulesRequest = null
+  const refreshRuleState = async () => {
+    await fetchRules()
+    await appStore.refreshModCoreData(t('check.rules.refresh_mod_state_after_change', '规则变更后同步模组状态'), {
+      preserveListState: true,
+      refreshRules: false,
+      refreshBackups: false,
+      refreshWorkspaceLibraries: false,
+    })
+  }
+
+  // 当前正在检视的目标 Mod ID
+  const targetId = computed(() => modStore.lastSelectedMod?.package_id || null)
+
+  // --- Actions ---
+
+  // 初始化加载 (在 App 启动或 refreshModList 时调用)
+  const fetchRules = async ({ silent = false } = {}) => {
+    if (!window.pywebview) return false
+    if (rulesRequest) return rulesRequest
+
+    rulesRequest = (async () => {
+      try {
+        const res = await window.pywebview.api.rules_get_all()
+        if (checkResult(res, t('check.rules.fetch', '获取规则'), false, { silent })) {
+          const data = res?.data && typeof res.data === 'object' ? res.data : {}
+          const asRecord = value => value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+          communityModRules.value = asRecord(data.community_rules)
+          communityRulesUpdateTime.value = data.community_rules_update_time || 0
+          workshopRulesUpdateTime.value = data.workshop_rules_update_time || 0
+          userModRules.value = asRecord(data.user_mod_rules)
+          workshopModRules.value = asRecord(data.workshop_rules)
+          userDynamicRules.value = Array.isArray(data.user_dynamic_rules) ? data.user_dynamic_rules : []
+          settings.value = { ...settings.value, ...asRecord(data.settings) }
+          hasLoaded.value = true
+          return true
+        }
+      } catch (e) {
+        console.error("获取规则失败:", e)
+        if (!silent) showUserErrorToast(e, t('errors.rules.fetch_failed_retry', '获取规则失败。请稍后重试。'))
+      }
+      return false
+    })()
+
+    try {
+      return await rulesRequest
+    } finally {
+      rulesRequest = null
+    }
+  }
+
+  const ensureRulesLoaded = async () => hasLoaded.value || fetchRules({ silent: true })
+
+  // --- 核心：计算当前 Mod 的所有约束视图 ---
+  // 将分散的数据聚合为： { loadAfter: [{id, source, note}], loadBefore: [...], incompatible: [...] }
+  const currentConstraints = computed(() => {
+    // currentId 可能带 `_steam`；它只负责选择实际文件，规则表和目标匹配仍使用规范包名。
+    const selectedToken = currentId.value || modStore.lastSelectedMod?.active_package_token || targetId.value
+    const pid = normalizePackageId(selectedToken)
+    const result = { loadAfter: [], loadBefore: [], incompatible: [] }
+    if (!pid) return result
+
+    // 1. Native (About.xml) - 从 modStore 获取
+    const mod = modStore.takeModById(selectedToken)
+    if (mod) {
+      mod.load_after_mods?.forEach(d => result.loadAfter.push({ id: d.package_id, source: 'native' }))
+      mod.dependencies_mods?.forEach(d => result.loadAfter.push({ id: d.package_id, source: 'native' }))
+      mod.load_before_mods?.forEach(d => result.loadBefore.push({ id: d.package_id, source: 'native' }))
+      mod.incompatible_mods?.forEach(d => result.incompatible.push({ id: d.package_id, source: 'native' }))
+    }
+
+    // 2. Community Rules
+    const comm = communityModRules.value[pid]
+    if (comm) {
+      Object.entries(comm.loadAfter || {}).forEach(([id, info]) =>
+        result.loadAfter.push({ id, source: 'community', note: formatNote(info) }))
+      Object.entries(comm.loadBefore || {}).forEach(([id, info]) =>
+        result.loadBefore.push({ id, source: 'community', note: formatNote(info) }))
+      Object.entries(comm.incompatibleWith || {}).forEach(([id, info]) =>
+        result.incompatible.push({ id, source: 'community', note: formatNote(info) }))
+    }
+
+    // 3. User Single Rules
+    const user = userModRules.value[pid]
+    if (user) {
+      Object.keys(user.loadAfter || {}).forEach(id =>
+        result.loadAfter.push({ id, source: 'user' }))
+      Object.keys(user.loadBefore || {}).forEach(id =>
+        result.loadBefore.push({ id, source: 'user' }))
+      Object.keys(user.incompatibleWith || {}).forEach(id =>
+        result.incompatible.push({ id, source: 'user' }))
+    }
+
+    // 4. Workshop Rules
+    const workshop = workshopModRules.value[pid]
+    if (workshop) {
+      // 强依赖模式由后端放在 dependencies；编辑器仍将它展示为“前置”关系，
+      // 这样规则来源视图与实际排序/补齐判定保持一致。
+      const workshopAfter = { ...(workshop.loadAfter || {}), ...(workshop.dependencies || {}) }
+      Object.keys(workshopAfter).forEach(id =>
+        result.loadAfter.push({ id, source: 'workshop' }))
+    }
+
+    // (动态规则比较复杂，暂不在此展示，以免混淆“手动编辑”的概念)
+
+    return result
+  })
+
+  // 辅助：格式化社区备注
+  const formatNote = (info) => {
+    if (!info) return ''
+    const lines = Array.isArray(info.comment) ? info.comment : [info.comment]
+    return lines.filter(Boolean).join('\n')
+  }
+
+  // --- 单项规则操作 ---
+  // 添加单项规则 (Drag & Drop 调用)
+  const addUserModRule = async (targetModId, type, otherModId) => {
+    if (!window.pywebview) return
+    // type: 'loadAfter' | 'loadBefore' | 'incompatibleWith'
+    if (!targetModId || !otherModId) return
+    const pid = targetModId.toLowerCase()
+    const other = otherModId.toLowerCase()
+    // 获取或初始化当前规则对象
+    // 注意：需要深拷贝，不能直接改 ref
+    const rule = deepClone(userModRules.value[pid] || {})
+    // 初始化子对象
+    if (!rule[type]) rule[type] = {}
+    // 如果已存在，跳过
+    if (rule[type][other]) return
+    // 写入
+    const otherMod = modStore.takeModById(other)
+    rule[type][other] = {name: [otherMod.name||''], comment:[] }
+    // 乐观更新本地 State
+    if (!userModRules.value[pid]) userModRules.value[pid] = {}
+    if (!userModRules.value[pid][type]) userModRules.value[pid][type] = {}
+    userModRules.value[pid][type][other] = rule[type][other]
+
+    // 发送后端
+    const res = await window.pywebview.api.rule_update_user_mod(pid, rule)
+    if (!checkResult(res, t('check.rules.add_user_rule', '添加用户规则'))) {
+      showUserErrorToast(res, t('errors.rules.add_user_rule_failed', '添加用户规则失败。可能是规则内容无效或本地规则文件暂时无法写入，已尝试重新加载规则。'))
+      await fetchRules({ silent: true })
+      return false
+    }
+    await refreshRuleState()
+    return true
+  }
+  // 移除单项规则中的mod
+  const removeUserModRuleItem = async (targetModId, type, otherModId) => {
+    const pid = targetModId.toLowerCase()
+    const other = otherModId.toLowerCase()
+    if (userModRules.value[pid]?.[type]?.[other] === undefined) return
+    const rule = deepClone(userModRules.value[pid])
+    delete rule[type][other]
+    // 乐观更新
+    delete userModRules.value[pid][type][other]
+    // 清理空对象
+    if (Object.keys(rule[type]).length === 0) {
+        delete rule[type]
+        delete userModRules.value[pid][type]
+    }
+    // console.log(rule)
+    if (Object.keys(rule).length === 0) {
+        return deleteUserModRule(pid) // 清理空对象
+    }
+    const res = await window.pywebview.api.rule_update_user_mod(pid, rule)
+    if (!checkResult(res, t('check.rules.remove_user_rule', '移除用户规则'))) {
+      await fetchRules({ silent: true })
+      return false
+    }
+    await refreshRuleState()
+    return true
+  }
+  // 修改单项规则说明
+  const updateComment = async (targetModId, type, otherModId, comment) => {
+    if (!window.pywebview) return
+    const pid = targetModId.toLowerCase()
+    const other = otherModId.toLowerCase()
+    if (userModRules.value[pid]?.[type]?.[other] === undefined) return
+    const rule = deepClone(userModRules.value[pid])
+    rule[type][other].comment = comment
+    // 乐观更新
+    userModRules.value[pid][type][other] = rule[type][other]
+    const res = await window.pywebview.api.rule_update_user_mod(pid, rule)
+    if (!checkResult(res, t('check.rules.update_comment', '更新用户规则说明'))) {
+      await fetchRules({ silent: true })
+      return false
+    }
+    await refreshRuleState()
+    return true
+  }
+  // 删除用户单项规则
+  const deleteUserModRule = async (id) => {
+    if (!window.pywebview) return
+    const res = await window.pywebview.api.rule_delete_user_mod(id)
+    if (checkResult(res, t('check.rules.delete_user_rule', '删除用户规则'), true)) {
+      await refreshRuleState()
+      return true
+    }
+    await fetchRules({ silent: true })
+    return false
+  }
+  // 获取某个 Mod 当前的绝对位置状态
+  const getAbsolutePosition = (modId) => {
+    const pid = modId?.toLowerCase()
+    if (!pid) return { pos: 'none', source: null }
+    // 优先看用户规则
+    const user = userModRules.value[pid]
+    if (user) {
+      if (user.loadTop?.value) return { pos: 'top', source: 'user', comment: user.loadTop.comment }
+      if (user.loadBottom?.value) return { pos: 'bottom', source: 'user', comment: user.loadBottom.comment }
+    }
+    // 次优先看社区规则
+    const comm = communityModRules.value[pid]
+    if (comm) {
+      if (comm.loadTop?.value) return { pos: 'top', source: 'community', comment: comm.loadTop.comment }
+      if (comm.loadBottom?.value) return { pos: 'bottom', source: 'community', comment: comm.loadBottom.comment }
+    }
+    return { pos: 'none', source: null }
+  }
+
+  const getLanguagePackOwnerOverride = (modId) => {
+    const pid = modId?.toLowerCase()
+    if (!pid) return { ownerIds: [], replace: false }
+    const rule = userModRules.value[pid] || {}
+    const rawConfig = rule.languagePackOwners
+    const rawOwnerIds = typeof rawConfig === 'object' && rawConfig !== null && !Array.isArray(rawConfig)
+      ? (rawConfig.owners ?? [])
+      : []
+    const rawReplace = typeof rawConfig === 'object' && rawConfig !== null && !Array.isArray(rawConfig)
+      ? !!rawConfig.replace
+      : false
+    const ownerIds = [...new Set(
+      (Array.isArray(rawOwnerIds) ? rawOwnerIds : [rawOwnerIds])
+        .map(id => String(id || '').trim().toLowerCase())
+        .filter(Boolean)
+    )]
+    const replace = ownerIds.length > 0 && !!rawReplace
+    return { ownerIds, replace }
+  }
+
+  const setLanguagePackOwnerOverride = async (modId, ownerIds = [], replace = false) => {
+    if (!window.pywebview || !modId) return false
+    const pid = String(modId || '').trim().toLowerCase()
+    if (!pid) return false
+
+    const normalizedOwnerIds = [...new Set(
+      (Array.isArray(ownerIds) ? ownerIds : [ownerIds])
+        .map(id => String(id || '').trim().toLowerCase())
+        .filter(Boolean)
+    )]
+    const normalizedReplace = normalizedOwnerIds.length > 0 && !!replace
+
+    const previousRule = deepClone(userModRules.value[pid] || {})
+    const nextRule = deepClone(previousRule)
+    if (normalizedOwnerIds.length > 0) {
+      nextRule.languagePackOwners = {
+        owners: normalizedOwnerIds,
+        replace: normalizedReplace,
+      }
+    } else {
+      delete nextRule.languagePackOwners
+    }
+
+    if (Object.keys(nextRule).length > 0) userModRules.value[pid] = nextRule
+    else delete userModRules.value[pid]
+
+    const res = await window.pywebview.api.rule_set_language_pack_owner_override(pid, normalizedOwnerIds, normalizedReplace)
+    if (!checkResult(res, t('check.rules.set_language_owner_override', '设置语言包所属覆盖'))) {
+      if (Object.keys(previousRule).length > 0) userModRules.value[pid] = previousRule
+      else delete userModRules.value[pid]
+      await fetchRules({ silent: true })
+      return false
+    }
+    await refreshRuleState()
+    return true
+  }
+
+  // 设置绝对位置
+  const setAbsolutePosition = async (modId, position, comment = '') => {
+    if (!window.pywebview) return
+    const res = await window.pywebview.api.rule_set_user_mod_absolute_position(modId, position, comment)
+    if (checkResult(res, t('check.rules.set_absolute_position', '设置绝对排序位置'))) {
+      await refreshRuleState()
+    }
+  }
+
+  // 改变规则来源的优先级
+  const changeRuleSourcePriority = async (rules_sources) => {
+    if (!window.pywebview) return
+    const res = await window.pywebview.api.change_rule_source_priority(rules_sources)
+    if (checkResult(res, t('check.rules.change_source_priority', '改变规则优先级'), true)) {
+      await refreshRuleState()
+      return true
+    }
+    return false
+  }
+  // 设置全局规则开关
+  const setGlobalEnable = async (key, enabled) => {
+    // key: 'community_mod_rules_enabled' | 'user_mod_rules_enabled' | 'dynamic_rules_enabled'
+    const type = {
+      'community':'community_mod_rules_enabled',
+      'user':'user_mod_rules_enabled',
+      'dynamic':'dynamic_rules_enabled',
+      'workshop':'workshop_mod_rules_enabled',
+      'workshop_dependencies':'workshop_rules_as_dependency',
+    }
+    if (!window.pywebview) return
+    settings.value[type[key]] = enabled
+    const res = await window.pywebview.api.rule_global_enable(type[key], enabled)
+    if (!checkResult(res, t('check.rules.global_switch', '全局规则开关'))) {
+      await fetchRules({ silent: true })
+      return false
+    }
+    await refreshRuleState()
+    return true
+  }
+  // 切换规则开关
+  const toggleModRule = async (rule_type, package_id, exclude = null) => {
+    if (!window.pywebview) return false
+    const pid = package_id.toLowerCase()
+    let excludedMods = []
+    if (rule_type === 'user') {
+      excludedMods = settings.value.excluded_user_mods
+    } else if (rule_type === 'community') {
+      excludedMods = settings.value.excluded_community_mods
+    } else if (rule_type === 'workshop') {
+      excludedMods = settings.value.excluded_workshop_mods
+    } else {
+      return false
+    }
+    // 乐观更新
+    const excludedSet = new Set(excludedMods);
+    const shouldExclude = exclude === null ? !excludedSet.has(pid) : !!exclude
+    shouldExclude ? excludedSet.add(pid) : excludedSet.delete(pid)
+    // 转回数组赋值（保持数据结构一致）
+    if (rule_type === 'user') {
+      settings.value.excluded_user_mods = Array.from(excludedSet);
+    } else if (rule_type === 'community') {
+      settings.value.excluded_community_mods = Array.from(excludedSet);
+    } else if (rule_type === 'workshop') {
+      settings.value.excluded_workshop_mods = Array.from(excludedSet);
+    }
+    const res = await window.pywebview.api.rule_toggle_mod(rule_type, pid, shouldExclude)
+    if (!checkResult(res, t('check.rules.rule_switch', '用户规则开关'))) {
+      await fetchRules({ silent: true })
+      return false
+    }
+    await refreshRuleState()
+    return true
+  }
+
+  // --- 动态规则操作 ---
+  // 切换动态规则状态
+  const toggleDynamicRule = async (rule, enabled = !rule.enabled) => {
+    if (!window.pywebview) return false
+    // 乐观更新 UI
+    rule.enabled = enabled
+    const res = await window.pywebview.api.rule_toggle_dynamic(rule.rule_id, enabled)
+    if(!checkResult(res, t('check.rules.toggle_rule', '切换规则'))) {
+      await fetchRules({ silent: true })
+      return false
+    }
+    await refreshRuleState()
+    return true
+  }
+  // 保存动态规则
+  const saveDynamicRules = async (rule) => {
+    if (!window.pywebview) return
+    const res = await window.pywebview.api.rule_update_dynamic(rule)
+    if (checkResult(res, t('check.rules.save_rule', '保存规则'), true)) {
+      await refreshRuleState()
+      return true
+    }
+  }
+  // 删除动态规则
+  const deleteDynamicRule = async (rule) => {
+    if (!window.pywebview) return
+    const res = await window.pywebview.api.rule_delete_dynamic(rule.rule_id)
+    if(checkResult(res, t('check.rules.delete_rule', '删除规则'), true)) {
+      await refreshRuleState()
+    }
+  }
+  // --- 导入导出 ---
+  // 更新社区库
+  const updateCommunity = async () => {
+    isLoading.value = true
+    try {
+        await appStore.updateExternalDB('community_rules')
+    } catch (error) {
+        showUserErrorToast(error, t('errors.rules.update_community_failed', '更新社区规则库失败。请检查网络连接、代理设置和本地文件写入权限。'))
+    } finally {
+      isLoading.value = false
+    }
+  }
+  // 更新创意工坊库
+  const updateWorkshop = async () => {
+    isLoading.value = true
+    try {
+      await appStore.updateExternalDB('workshop_db')
+    } finally {
+      isLoading.value = false
+    }
+  }
+  // 导出规则
+  const handleExport = async () => {
+    const ids = userDynamicRules.value.map(r => r.rule_id)
+    const res = await window.pywebview.api.rule_export_bundle(ids)
+    if(!checkResult(res, t('check.rules.export_bundle', '导出规则'), true)) {
+      return
+    }
+  }
+  // 导入规则
+  const handleImport = async () => {
+    const res = await window.pywebview.api.rule_import_bundle()
+    if(checkResult(res, t('check.rules.import_bundle', '导入规则'), true)) {
+      if (res.data?.warnings?.length) {
+        toast.warning(res.data.warnings.join('\n'), { timeout: 8000 })
+      }
+      await refreshRuleState()
+    }
+  }
+
+  return {
+    // 规则状态
+    communityModRules, communityRulesUpdateTime, workshopRulesUpdateTime, workshopModRules, userModRules, userDynamicRules, currentId, isLoading, hasLoaded,
+    targetId, currentConstraints, settings, DYNAMIC_RULE_PROPS, DYNAMIC_RULE_ACTIONS, DYNAMIC_RULE_OPERATORS,
+    // 规则读取与用户规则
+    fetchRules, ensureRulesLoaded, addUserModRule, removeUserModRuleItem, deleteUserModRule, updateComment,
+    // 规则定位与语言包覆盖
+    getAbsolutePosition, setAbsolutePosition,
+    getLanguagePackOwnerOverride, setLanguagePackOwnerOverride,
+    // 动态规则与导入导出
+    toggleDynamicRule, deleteDynamicRule, updateCommunity, updateWorkshop, handleExport, handleImport,
+    saveDynamicRules, changeRuleSourcePriority,
+    // 全局开关
+    setGlobalEnable, toggleModRule,
+  }
+})

@@ -1,0 +1,858 @@
+import json
+import mimetypes
+import os
+import queue
+import threading
+import time
+import uuid
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any
+from urllib.parse import parse_qs, quote, unquote, urljoin, urlparse
+
+from bs4 import BeautifulSoup
+import html
+
+from backend.managers.mgr_network import PROXY_ENV_KEYS, build_retry_session, merge_headers, network_mgr
+from backend.static_page import (
+    build_sub_browser_helper_html,
+    build_workshop_error_html,
+    build_workshop_page_html,
+)
+from backend.i18n.messages import tr
+from backend.utils.error_contract import build_error_payload, build_stack_detail, coerce_error_envelope
+from backend.utils.logger import logger
+from validate_environment import DEV_SERVER_HOST, DEV_SERVER_PORT, DEV_SERVER_URL, is_port_available
+
+
+SESSION_TTL_SECONDS = 30.0
+PRIMARY_CLOSE_GRACE_SECONDS = 3.0
+REMOTE_FETCH_TIMEOUT_SECONDS = 20
+REMOTE_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/135.0.0.0 Safari/537.36"
+)
+
+
+def build_sub_browser_target_url(base_url: str, url: str = "", title: str = "RimCrow") -> str:
+    normalized_url = str(url or "").strip()
+    if not normalized_url: return ""
+
+    normalized_base_url = str(base_url or "").rstrip("/")
+    if not normalized_base_url: return normalized_url
+
+    parsed = urlparse(normalized_url)
+    if parsed.scheme in {"http", "https"} and parsed.netloc.lower().endswith("steamcommunity.com"):
+        return f"{normalized_base_url}/workshop-view?url={quote(normalized_url, safe='')}"
+
+    helper_title = str(title or "RimCrow").strip() or "RimCrow"
+    return (
+        f"{normalized_base_url}/sub-browser-helper"
+        f"?url={quote(normalized_url, safe='')}"
+        f"&title={quote(helper_title, safe='')}"
+    )
+
+
+class WorkshopPageRenderer:
+    def __init__(self, navigation_mode: str = "browser", browser_base_url: str = ""):
+        self.navigation_mode = str(navigation_mode or "browser").strip().lower() or "browser"
+        self.browser_base_url = str(browser_base_url or "").rstrip("/")
+
+    @staticmethod
+    def is_steamcommunity_url(target_url: str):
+        try:
+            parsed = urlparse(str(target_url or "").strip())
+        except Exception:
+            return False
+        return parsed.scheme in {"http", "https"} and parsed.netloc.lower().endswith("steamcommunity.com")
+
+    @staticmethod
+    def extract_workshop_id(target_url: str):
+        parsed = urlparse(str(target_url or "").strip())
+        return str(parse_qs(parsed.query).get("id", [""])[0] or "").strip()
+
+    def render(self, target_url: str):
+        normalized_url = str(target_url or "").strip()
+        if not normalized_url:
+            return build_workshop_error_html(tr("browser.workshop.error.missing_url", "未提供目标工坊页面地址"), "")
+        if not self.is_steamcommunity_url(normalized_url):
+            return build_workshop_error_html(tr("browser.workshop.error.unsupported_url", "当前仅代理 Steam 创意工坊相关页面"), normalized_url)
+
+        parsed = urlparse(normalized_url)
+        workshop_id = self.extract_workshop_id(normalized_url)
+        proxy_url = network_mgr.get_proxy_url()
+        request_kwargs = {
+            "timeout": REMOTE_FETCH_TIMEOUT_SECONDS,
+            "headers": merge_headers(user_agent=REMOTE_USER_AGENT),
+        }
+        if proxy_url:
+            request_kwargs["proxies"] = {"http": proxy_url, "https": proxy_url}
+
+        try:
+            with build_retry_session(total=2, connect=2, read=2, status_forcelist=(500, 502, 503, 504), allowed_methods=("GET", "HEAD")) as session:
+                response = session.get(normalized_url, **request_kwargs)
+                response.raise_for_status()
+        except Exception as exc:
+            status_code = int(getattr(getattr(exc, "response", None), "status_code", 0) or 0)
+            proxy_context = {
+                "app_proxy_enabled": bool(proxy_url),
+                "env_proxy_available": any(bool(os.environ.get(key)) for key in PROXY_ENV_KEYS),
+                "proxy_type": "",
+                "proxy_host": "",
+                "proxy_port": 0,
+            }
+            if proxy_url:
+                parsed_proxy = urlparse(proxy_url)
+                proxy_context.update({
+                    "proxy_type": parsed_proxy.scheme,
+                    "proxy_host": parsed_proxy.hostname or "",
+                    "proxy_port": parsed_proxy.port or 0,
+                })
+            logger.warning(
+                "创意工坊代理请求失败: host=%s path=%s workshop_id=%s app_proxy_enabled=%s env_proxy_available=%s status_code=%s error_type=%s",
+                parsed.netloc,
+                parsed.path,
+                workshop_id,
+                bool(proxy_url),
+                proxy_context["env_proxy_available"],
+                status_code,
+                type(exc).__name__,
+                exc_info=True,
+                extra={
+                    "error_code": "STEAM.WORKSHOP_PROXY_FAILED",
+                    "extra_context": {"host": parsed.netloc, "path": parsed.path, "workshop_id": workshop_id, "status_code": status_code, "error_type": type(exc).__name__, **proxy_context},
+                },
+            )
+            if self.navigation_mode == "webview":
+                return self._build_direct_load_html(normalized_url)
+            return build_workshop_error_html(tr("browser.workshop.error.load_failed", "加载页面失败。请检查网络连接、代理设置、加速工具证书或稍后重试。"), normalized_url)
+
+        final_url = response.url or normalized_url
+        soup = BeautifulSoup(response.text, "html.parser")
+        self._sanitize_remote_soup(soup, final_url)
+        page_title = str(soup.title.string).strip() if soup.title and soup.title.string else "Steam Workshop"
+
+        head_html = soup.head.decode_contents() if soup.head else ""
+        remote_body_html = soup.body.decode_contents() if soup.body else str(soup)
+        bridge_script = self._build_bridge_script(final_url)
+        combined_body = f"{self._build_toolbar_html(page_title, final_url)}<main class=\"rimcrow-proxy-page\">{remote_body_html}</main>"
+        return build_workshop_page_html(page_title, final_url, head_html, combined_body, bridge_script)
+
+    @staticmethod
+    def _build_direct_load_html(target_url: str):
+        safe_url = html.escape(target_url or "", quote=True)
+        js_url = json.dumps(target_url or "", ensure_ascii=False).replace("</", "<\\/")
+        title = html.escape(tr("browser.workshop.direct_load.title", "正在打开 Steam 工坊页面"))
+        message = html.escape(tr("browser.workshop.direct_load.message", "代理加载暂时不可用，正在切换为内置浏览器直接打开原网页。"))
+        open_original = html.escape(tr("browser.workshop.toolbar.open_original", "打开原网页"))
+        return f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0;url={safe_url}">
+  <title>{title}</title>
+  <style>
+    body {{ margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0f172a; color: #e5e7eb; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }}
+    main {{ width: min(560px, calc(100vw - 48px)); }}
+    h1 {{ margin: 0 0 12px; font-size: 22px; font-weight: 700; }}
+    p {{ margin: 0 0 18px; color: #cbd5e1; line-height: 1.7; }}
+    a {{ color: #38bdf8; text-decoration: none; overflow-wrap: anywhere; }}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>{title}</h1>
+    <p>{message}</p>
+    <a href="{safe_url}">{open_original}</a>
+  </main>
+  <script>
+    window.location.replace({js_url});
+  </script>
+</body>
+</html>"""
+
+    def _sanitize_remote_soup(self, soup: BeautifulSoup, base_url: str):
+        for tag in soup.find_all("script"):
+            tag.decompose()
+        for tag in soup.find_all("noscript"):
+            tag.decompose()
+        for tag in soup.find_all("base"):
+            tag.decompose()
+        for tag in soup.find_all("meta"):
+            http_equiv = str(tag.get("http-equiv") or "").strip().lower()
+            if http_equiv in {"content-security-policy", "x-frame-options"}:
+                tag.decompose()
+
+        for tag in soup.find_all(True):
+            for attr_name in list(tag.attrs.keys()):
+                if str(attr_name).lower().startswith("on"):
+                    tag.attrs.pop(attr_name, None)
+
+        for tag in soup.find_all("a", href=True):
+            href = str(tag.get("href") or "").strip()
+            if not href or href.startswith(("#", "javascript:", "mailto:", "steam://")):
+                continue
+            absolute_url = urljoin(base_url, href)
+            if self.is_steamcommunity_url(absolute_url):
+                tag["href"] = absolute_url
+                tag["data-rimcrow-proxy-url"] = absolute_url
+            else:
+                tag["href"] = absolute_url
+                tag["target"] = "_blank"
+                tag["rel"] = "noopener noreferrer"
+
+        for tag_name, attr_name in (
+            ("img", "src"),
+            ("img", "data-src"),
+            ("source", "src"),
+            ("video", "src"),
+            ("video", "poster"),
+            ("audio", "src"),
+            ("link", "href"),
+            ("button", "formaction"),
+            ("input", "formaction"),
+            ("iframe", "src"),
+        ):
+            for tag in soup.find_all(tag_name):
+                self._rewrite_resource_attr(tag, attr_name, base_url)
+
+        for form in soup.find_all("form"):
+            absolute_action = urljoin(base_url, str(form.get("action") or "").strip() or base_url)
+            form["action"] = absolute_action
+            if self.is_steamcommunity_url(absolute_action):
+                form["data-rimcrow-proxy-form"] = absolute_action
+                form["data-rimcrow-proxy-method"] = str(form.get("method") or "get").strip().lower() or "get"
+
+        for tag in soup.find_all(["img", "source"]):
+            self._rewrite_srcset(tag, "srcset", base_url)
+
+    @staticmethod
+    def _rewrite_resource_attr(tag, attr_name: str, base_url: str):
+        attr_value = str(tag.get(attr_name) or "").strip()
+        if not attr_value or attr_value.startswith(("data:", "javascript:", "#")): return
+        tag[attr_name] = urljoin(base_url, attr_value)
+
+    @staticmethod
+    def _rewrite_srcset(tag, attr_name: str, base_url: str):
+        raw_value = str(tag.get(attr_name) or "").strip()
+        if not raw_value: return
+        rewritten_parts = []
+        for candidate in raw_value.split(","):
+            token = candidate.strip()
+            if not token:
+                continue
+            pieces = token.split()
+            if not pieces:
+                continue
+            pieces[0] = urljoin(base_url, pieces[0])
+            rewritten_parts.append(" ".join(pieces))
+        if rewritten_parts:
+            tag[attr_name] = ", ".join(rewritten_parts)
+
+    def _build_toolbar_html(self, page_title: str, target_url: str):
+        workshop_id = self.extract_workshop_id(target_url)
+        safe_title = html.escape(page_title or "Steam Workshop")
+        safe_url = html.escape(target_url or "")
+        safe_workshop_id_label = html.escape(tr("common.field.workshop_id", "工坊 ID"))
+        safe_workshop_id = html.escape(workshop_id or tr("browser.workshop.toolbar.unknown_id", "未识别"))
+        open_original_text = html.escape(tr("browser.workshop.toolbar.open_original", "打开原网页"))
+        open_in_steam_text = html.escape(tr("browser.workshop.toolbar.open_in_steam", "在 Steam 打开"))
+        subscribe_text = html.escape(tr("browser.workshop.toolbar.subscribe", "订阅"))
+        unsubscribe_text = html.escape(tr("browser.workshop.toolbar.unsubscribe", "取消订阅"))
+        download_text = html.escape(tr("browser.workshop.toolbar.download", "SteamCMD 下载"))
+        return f"""
+<section class="rimcrow-workshop-toolbar">
+  <div class="rimcrow-toolbar-left">
+    <div class="rimcrow-toolbar-badge">Workshop Browser</div>
+    <div class="rimcrow-toolbar-title">{safe_title}</div>
+    <div class="rimcrow-toolbar-url">{safe_url}</div>
+  </div>
+  <div class="rimcrow-toolbar-right">
+    <div class="rimcrow-toolbar-id">{safe_workshop_id_label}: <strong>{safe_workshop_id}</strong></div>
+    <div class="rimcrow-toolbar-actions">
+      <button id="rimcrow-open-original" class="ghost">{open_original_text}</button>
+      <button id="rimcrow-open-in-steam" class="ghost">{open_in_steam_text}</button>
+      <button id="rimcrow-subscribe">{subscribe_text}</button>
+      <button id="rimcrow-unsubscribe" class="warn">{unsubscribe_text}</button>
+      <button id="rimcrow-download" class="secondary">{download_text}</button>
+    </div>
+    <div id="rimcrow-toolbar-status" class="rimcrow-toolbar-status"></div>
+  </div>
+</section>"""
+
+    def _build_bridge_script(self, target_url: str):
+        workshop_id = self.extract_workshop_id(target_url)
+        js_target_url = json.dumps(target_url, ensure_ascii=False)
+        js_workshop_id = json.dumps(workshop_id, ensure_ascii=False)
+        js_navigation_mode = json.dumps(self.navigation_mode, ensure_ascii=False)
+        js_proxy_base_url = json.dumps(self.browser_base_url, ensure_ascii=False)
+        js_messages = json.dumps({
+            "bridge_not_ready": tr("browser.workshop.script.bridge_not_ready", "页面桥接尚未就绪，请稍后重试。"),
+            "request_unfinished": tr("browser.workshop.script.request_unfinished", "请求未完成，状态码：{status}。请检查网络连接或稍后重试。", status="{status}"),
+            "action_done": tr("browser.workshop.script.action_done", "操作已完成"),
+            "action_failed": tr("browser.workshop.script.action_failed", "操作失败"),
+            "id_missing": tr("browser.workshop.script.id_missing", "当前页面未识别到 Workshop ID，可继续浏览其它工坊页面。"),
+            "opening_steam": tr("browser.workshop.script.opening_steam", "正在尝试在 Steam 中打开当前页面..."),
+            "subscribing": tr("browser.workshop.script.subscribing", "正在发送订阅请求..."),
+            "unsubscribing": tr("browser.workshop.script.unsubscribing", "正在发送取消订阅请求..."),
+            "downloading": tr("browser.workshop.script.downloading", "正在启动 SteamCMD 下载..."),
+            "navigation_failed": tr("browser.workshop.script.navigation_failed", "页面跳转失败"),
+            "get_form_only": tr("browser.workshop.script.get_form_only", "当前仅接管 GET 导航表单，已保留原页面行为。"),
+        }, ensure_ascii=False)
+        return f"""<script>
+(() => {{
+  const targetUrl = {js_target_url};
+  const workshopId = {js_workshop_id};
+  const navigationMode = {js_navigation_mode};
+  const proxyBaseUrl = {js_proxy_base_url};
+  const messages = {js_messages};
+  const statusEl = document.getElementById('rimcrow-toolbar-status');
+  const subscribeBtn = document.getElementById('rimcrow-subscribe');
+  const unsubscribeBtn = document.getElementById('rimcrow-unsubscribe');
+  const downloadBtn = document.getElementById('rimcrow-download');
+  const openInSteamBtn = document.getElementById('rimcrow-open-in-steam');
+  const openOriginalBtn = document.getElementById('rimcrow-open-original');
+
+  const setStatus = (message, isError = false) => {{
+    statusEl.textContent = message || '';
+    statusEl.dataset.error = isError ? '1' : '0';
+  }};
+
+  const buildProxyUrl = (url) => {{
+    if (!proxyBaseUrl) return url;
+    return `${{proxyBaseUrl}}/workshop-view?url=${{encodeURIComponent(url)}}`;
+  }};
+
+  const buildBridgeError = (payload, fallback) => {{
+    const message = payload?.user_message || payload?.message || fallback;
+    const error = new Error(message);
+    if (payload && typeof payload === 'object') {{
+      error.error_id = payload.error_id || '';
+      error.message_key = payload.message_key || '';
+      error.message_params = payload.message_params || {{}};
+      error.detail = payload.detail || null;
+    }}
+    return error;
+  }};
+
+  const waitForWebviewApi = async () => {{
+    if (navigationMode !== 'webview') return null;
+    const currentApi = window.pywebview?.api;
+    if (currentApi) return currentApi;
+
+    return await new Promise((resolve, reject) => {{
+      const onReady = () => {{
+        const readyApi = window.pywebview?.api;
+        if (!readyApi) return;
+        cleanup();
+        resolve(readyApi);
+      }};
+      const cleanup = () => {{
+        window.removeEventListener('pywebviewready', onReady);
+        window.clearTimeout(timer);
+      }};
+      const timer = window.setTimeout(() => {{
+        cleanup();
+        reject(new Error(messages.bridge_not_ready));
+      }}, 2000);
+
+      window.addEventListener('pywebviewready', onReady, {{ once: true }});
+    }});
+  }};
+
+  const navigateTo = async (url) => {{
+    if (!url) return;
+    if (navigationMode === 'webview') {{
+      const api = await waitForWebviewApi();
+      if (!api?.workshop_browser_navigate) {{
+        throw new Error(messages.bridge_not_ready);
+      }}
+      await api.workshop_browser_navigate(url);
+      return;
+    }}
+    window.location.href = buildProxyUrl(url);
+  }};
+
+  const buildFormNavigation = (form, submitter) => {{
+    const rawAction =
+      submitter?.getAttribute('formaction') ||
+      form.getAttribute('action') ||
+      targetUrl ||
+      window.location.href;
+    const rawMethod =
+      submitter?.getAttribute('formmethod') ||
+      form.dataset.rimcrowProxyMethod ||
+      form.getAttribute('method') ||
+      'get';
+
+    const method = String(rawMethod || 'get').trim().toLowerCase() || 'get';
+    const nextUrl = new URL(rawAction, targetUrl || window.location.href);
+    const formData = new FormData(form);
+
+    if (submitter?.name) {{
+      formData.append(submitter.name, submitter.value || '');
+    }}
+
+    if (method !== 'get') {{
+      return {{ url: nextUrl.toString(), method }};
+    }}
+
+    for (const [key, value] of formData.entries()) {{
+      if (value instanceof File) continue;
+      nextUrl.searchParams.append(key, typeof value === 'string' ? value : String(value || ''));
+    }}
+
+    return {{ url: nextUrl.toString(), method }};
+  }};
+
+  const callAction = async (action) => {{
+    if (navigationMode === 'webview') {{
+      const api = await waitForWebviewApi();
+      if (!api?.workshop_browser_action) {{
+        throw new Error(messages.bridge_not_ready);
+      }}
+      return await api.workshop_browser_action(action, workshopId, targetUrl);
+    }}
+
+    const response = await fetch('/api/call/workshop_browser_action', {{
+      method: 'POST',
+      headers: {{ 'Content-Type': 'application/json' }},
+      body: JSON.stringify({{ args: [action, workshopId, targetUrl], kwargs: {{}} }}),
+    }});
+    const payload = await response.json();
+    if (!response.ok || payload?.status === 'error') {{
+      throw buildBridgeError(payload, messages.request_unfinished.replace('{{status}}', response.status));
+    }}
+    return payload;
+  }};
+
+  const withAction = async (pendingMessage, action) => {{
+    try {{
+      setStatus(pendingMessage);
+      const payload = await callAction(action);
+      setStatus(payload?.user_message || payload?.message || messages.action_done);
+    }} catch (error) {{
+      setStatus(error?.message || error?.user_message || messages.action_failed, true);
+    }}
+  }};
+
+  if (!workshopId) {{
+    subscribeBtn.disabled = true;
+    unsubscribeBtn.disabled = true;
+    downloadBtn.disabled = true;
+    openInSteamBtn.disabled = true;
+    setStatus(messages.id_missing);
+  }}
+
+  openOriginalBtn.addEventListener('click', () => {{
+    if (!targetUrl) return;
+    window.open(targetUrl, '_blank', 'noopener,noreferrer');
+  }});
+  openInSteamBtn.addEventListener('click', () => withAction(messages.opening_steam, 'open_in_steam'));
+  subscribeBtn.addEventListener('click', () => withAction(messages.subscribing, 'subscribe'));
+  unsubscribeBtn.addEventListener('click', () => withAction(messages.unsubscribing, 'unsubscribe'));
+  downloadBtn.addEventListener('click', () => withAction(messages.downloading, 'download'));
+
+  document.addEventListener('click', (event) => {{
+    const anchor = event.target.closest('a[data-rimcrow-proxy-url]');
+    if (!anchor) return;
+    const nextUrl = anchor.dataset.rimcrowProxyUrl || '';
+    if (!nextUrl) return;
+    event.preventDefault();
+    void navigateTo(nextUrl).catch((error) => {{
+      setStatus(error?.message || messages.navigation_failed, true);
+    }});
+  }}, true);
+
+  document.addEventListener('submit', (event) => {{
+    const form = event.target.closest('form[data-rimcrow-proxy-form]');
+    if (!form) return;
+
+    const navigation = buildFormNavigation(form, event.submitter || null);
+    if (!navigation?.url) return;
+    if (navigation.method !== 'get') {{
+      setStatus(messages.get_form_only);
+      return;
+    }}
+
+    event.preventDefault();
+    void navigateTo(navigation.url).catch((error) => {{
+      setStatus(error?.message || messages.navigation_failed, true);
+    }});
+  }}, true);
+}})();
+</script>"""
+
+
+class BrowserSessionManager:
+    def __init__(self, on_shutdown):
+        self._on_shutdown = on_shutdown
+        self._lock = threading.Lock()
+        self._sessions: dict[str, dict[str, Any]] = {}
+        self._primary_session_id: str | None = None
+        self._shutdown_deadline = 0.0
+        self._stop_event = threading.Event()
+        self._monitor_thread: threading.Thread | None = None
+
+    def start(self):
+        if self._monitor_thread and self._monitor_thread.is_alive(): return
+        self._monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
+        self._monitor_thread.start()
+
+    def stop(self):
+        self._stop_event.set()
+
+    def open_session(self):
+        session_id = str(uuid.uuid4())
+        now = time.time()
+        with self._lock:
+            self._sessions[session_id] = {"last_seen": now, "streams": set()}
+            is_primary = False
+            if self._primary_session_id is None or self._shutdown_deadline > 0:
+                self._primary_session_id = session_id
+                self._shutdown_deadline = 0.0
+                is_primary = True
+        return session_id, is_primary
+
+    def heartbeat(self, session_id: str):
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if not session: return False
+            session["last_seen"] = time.time()
+            return True
+
+    def close_session(self, session_id: str):
+        should_schedule_shutdown = False
+        with self._lock:
+            session = self._sessions.pop(session_id, None)
+            if not session: return False
+            if session_id == self._primary_session_id:
+                should_schedule_shutdown = True
+                self._shutdown_deadline = time.time() + PRIMARY_CLOSE_GRACE_SECONDS
+        if should_schedule_shutdown:
+            logger.info("浏览器主会话已关闭，等待宽限期结束后再关闭应用")
+        return True
+
+    def register_stream(self, session_id: str, stream_queue: queue.Queue):
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if not session: return False
+            session["streams"].add(stream_queue)
+            return True
+
+    def unregister_stream(self, session_id: str, stream_queue: queue.Queue):
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if session:
+                session["streams"].discard(stream_queue)
+
+    def broadcast(self, event_name: str, data: Any = None):
+        with self._lock:
+            queues = [stream_queue for session in self._sessions.values() for stream_queue in session["streams"]]
+
+        payload = {"event": event_name, "data": data}
+        for stream_queue in queues:
+            try:
+                stream_queue.put_nowait(payload)
+            except Exception:
+                pass
+
+    def _monitor_loop(self):
+        while not self._stop_event.wait(1.0):
+            should_shutdown = False
+            now = time.time()
+            with self._lock:
+                expired_ids = [
+                    session_id
+                    for session_id, session in self._sessions.items()
+                    if now - float(session["last_seen"]) > SESSION_TTL_SECONDS
+                ]
+                for session_id in expired_ids:
+                    self._sessions.pop(session_id, None)
+                    if session_id == self._primary_session_id:
+                        self._shutdown_deadline = now + PRIMARY_CLOSE_GRACE_SECONDS
+
+                if self._shutdown_deadline > 0 and now >= self._shutdown_deadline:
+                    should_shutdown = True
+                    self._shutdown_deadline = 0.0
+
+            if should_shutdown:
+                logger.info("浏览器主会话已过期，正在请求关闭应用")
+                try:
+                    self._on_shutdown()
+                except Exception:
+                    logger.error("浏览器会话关闭回调执行失败", exc_info=True)
+                return
+
+
+class BrowserAppServer:
+    def __init__(self, api, static_root: Path | None, use_dev_server: bool = False):
+        self.api = api
+        self.static_root = static_root
+        self.use_dev_server = use_dev_server
+        self._shutdown_event = threading.Event()
+        self._serve_thread: threading.Thread | None = None
+        self._session_manager = BrowserSessionManager(self.request_shutdown)
+        self._httpd = ThreadingHTTPServer(("127.0.0.1", 0), self._create_handler())
+        self.base_url = f"http://127.0.0.1:{self._httpd.server_address[1]}"
+
+    @staticmethod
+    def resolve_static_root():
+        candidates = [Path(os.getcwd()) / "frontend" / "dist", Path(os.getcwd())]
+        for root in candidates:
+            if (root / "index.html").exists(): return root
+        return None
+
+    @staticmethod
+    def should_use_dev_server():
+        return not getattr(__import__("sys"), "frozen", False) and is_port_available(DEV_SERVER_HOST, DEV_SERVER_PORT)
+
+    def get_launch_url(self):
+        api_base = quote(self.base_url, safe="")
+        if self.use_dev_server:
+            separator = "&" if "?" in DEV_SERVER_URL else "?"
+            return f"{DEV_SERVER_URL}{separator}api_base={api_base}"
+        return f"{self.base_url}/?api_base={api_base}"
+
+    def get_available_methods(self):
+        blocked = {"cleanup", "get_window", "set_window"}
+        return sorted(
+            name
+            for name in dir(self.api)
+            if not name.startswith("_") and name not in blocked and callable(getattr(self.api, name))
+        )
+
+    def start(self):
+        self._session_manager.start()
+        self._serve_thread = threading.Thread(target=self._httpd.serve_forever, daemon=True)
+        self._serve_thread.start()
+        logger.info(f"浏览器服务已启动：{self.base_url}")
+
+    def stop(self):
+        self._shutdown_event.set()
+        self._session_manager.stop()
+        try:
+            self._httpd.shutdown()
+        except Exception:
+            pass
+        try:
+            self._httpd.server_close()
+        except Exception:
+            pass
+
+    def wait_for_shutdown(self):
+        self._shutdown_event.wait()
+
+    def request_shutdown(self):
+        self._shutdown_event.set()
+
+    def broadcast(self, event_name: str, data: Any = None):
+        self._session_manager.broadcast(event_name, data)
+
+    @staticmethod
+    def is_steamcommunity_url(target_url: str):
+        return WorkshopPageRenderer.is_steamcommunity_url(target_url)
+
+    def _create_handler(self):
+        outer = self
+
+        class BrowserRequestHandler(BaseHTTPRequestHandler):
+            server_version = "RimCrowBrowser/1.0"
+
+            def do_OPTIONS(self):
+                self.send_response(204)
+                self._send_common_headers()
+                self.end_headers()
+
+            def do_GET(self):
+                parsed = urlparse(self.path)
+                if parsed.path == "/api/meta":
+                    return self._send_json({
+                        "status": "success",
+                        "data": {"runtime_mode": "browser", "available_methods": outer.get_available_methods()},
+                    })
+                if parsed.path == "/workshop-view":
+                    return self._serve_workshop_view(parsed)
+                if parsed.path == "/sub-browser-helper":
+                    return self._serve_sub_browser_helper(parsed)
+                if parsed.path == "/events":
+                    return self._handle_events(parsed)
+                return self._serve_static(parsed)
+
+            def do_POST(self):
+                parsed = urlparse(self.path)
+                if parsed.path == "/api/session/open":
+                    session_id, is_primary = outer._session_manager.open_session()
+                    return self._send_json({"status": "success", "data": {"client_id": session_id, "is_primary": is_primary}})
+                if parsed.path == "/api/session/heartbeat":
+                    payload = self._read_json_body()
+                    session_id = str(payload.get("client_id", "")).strip()
+                    ok = outer._session_manager.heartbeat(session_id)
+                    return self._send_json({"status": "success" if ok else "warning", "message": "" if ok else tr("browser.session.expired", "浏览器会话已失效，请刷新页面或重启软件。")})
+                if parsed.path == "/api/session/close":
+                    payload = self._read_json_body()
+                    session_id = str(payload.get("client_id", "")).strip()
+                    outer._session_manager.close_session(session_id)
+                    return self._send_json({"status": "success"})
+                if parsed.path.startswith("/api/call/"):
+                    method_name = unquote(parsed.path.removeprefix("/api/call/")).strip()
+                    return self._handle_api_call(method_name)
+                self.send_error(404, "Not Found")
+
+            def log_message(self, format, *args): return
+
+            def _handle_api_call(self, method_name: str):
+                if method_name not in outer.get_available_methods():
+                    return self._send_json({"status": "error", "message": tr("browser.api.method_missing", "请求的后端接口不存在，请刷新页面或重启软件后重试。")}, status_code=404)
+
+                payload = self._read_json_body()
+                args = payload.get("args", [])
+                kwargs = payload.get("kwargs", {})
+                method = getattr(outer.api, method_name)
+                try:
+                    result = method(*args, **kwargs)
+                except Exception as exc:
+                    error_id = uuid.uuid4().hex[:10]
+                    user_message = tr("browser.api.call_failed", "后端接口执行失败。可能是运行环境、路径权限或内部状态暂时不可用。")
+                    envelope = coerce_error_envelope(
+                        exc,
+                        code="BROWSER.API.CALL_FAILED",
+                        user_message=user_message,
+                        message=user_message,
+                        context={"api": method_name},
+                        message_key="browser.api.call_failed",
+                    )
+                    envelope.error_id = error_id
+                    envelope.detail = build_stack_detail(exc, context={"api": method_name}, error_id=error_id)
+                    logger.error(
+                        "浏览器模式 API 调用失败：%s",
+                        method_name,
+                        exc_info=True,
+                        extra={
+                            "error_type": envelope.error_type,
+                            "error_code": envelope.error_code or "BROWSER.API.CALL_FAILED",
+                            "error_id": error_id,
+                            "user_message": user_message,
+                            "message_key": "browser.api.call_failed",
+                            "extra_context": {"api": method_name},
+                        },
+                    )
+                    return self._send_json(build_error_payload(envelope, status="error"), status_code=500)
+
+                if not isinstance(result, dict) or "status" not in result:
+                    result = {"status": "success", "data": result}
+                return self._send_json(result)
+
+            def _handle_events(self, parsed):
+                query = parse_qs(parsed.query)
+                session_id = str(query.get("client_id", [""])[0]).strip()
+                if not session_id:
+                    return self._send_json({"status": "error", "message": tr("browser.session.missing_param", "浏览器会话参数缺失，请刷新页面后重试。")}, status_code=400)
+
+                stream_queue: queue.Queue = queue.Queue()
+                if not outer._session_manager.register_stream(session_id, stream_queue):
+                    return self._send_json({"status": "error", "message": tr("browser.session.expired", "浏览器会话已失效，请刷新页面或重启软件。")}, status_code=404)
+
+                self.send_response(200)
+                self._send_common_headers(content_type="text/event-stream; charset=utf-8")
+                self.send_header("Cache-Control", "no-cache")
+                self.send_header("Connection", "keep-alive")
+                self.end_headers()
+
+                try:
+                    while not outer._shutdown_event.is_set():
+                        try:
+                            payload = stream_queue.get(timeout=1.0)
+                            chunk = f"data: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+                        except queue.Empty:
+                            chunk = b": keep-alive\n\n"
+                        self.wfile.write(chunk)
+                        self.wfile.flush()
+                        outer._session_manager.heartbeat(session_id)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
+                finally:
+                    outer._session_manager.unregister_stream(session_id, stream_queue)
+
+            def _serve_static(self, parsed):
+                if outer.use_dev_server:
+                    return self._send_json(
+                        {"status": "error", "message": tr("browser.static.dev_server_missing", "浏览器模式下静态资源由前端开发服务提供，请确认前端开发服务仍在运行。")},
+                        status_code=404,
+                    )
+
+                if not outer.static_root:
+                    return self._send_json({"status": "error", "message": tr("browser.static.frontend_missing", "未找到前端页面资源，请重新构建前端或检查安装包完整性。")}, status_code=500)
+
+                request_path = parsed.path or "/"
+                relative_path = request_path.lstrip("/")
+                candidate = (outer.static_root / relative_path).resolve()
+                root_resolved = outer.static_root.resolve()
+
+                if request_path == "/" or not relative_path:
+                    candidate = root_resolved / "index.html"
+
+                if not str(candidate).startswith(str(root_resolved)):
+                    self.send_error(403, "Forbidden")
+                    return
+
+                if candidate.is_dir():
+                    candidate = candidate / "index.html"
+                if not candidate.exists() or not candidate.is_file():
+                    candidate = root_resolved / "index.html"
+
+                content_type = mimetypes.guess_type(str(candidate))[0] or "application/octet-stream"
+                with open(candidate, "rb") as file_handle:
+                    content = file_handle.read()
+
+                self.send_response(200)
+                self._send_common_headers(content_type=content_type)
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                self.wfile.write(content)
+
+            def _serve_sub_browser_helper(self, parsed):
+                query = parse_qs(parsed.query)
+                target_url = str(query.get("url", [""])[0] or "").strip()
+                title = str(query.get("title", ["RimCrow"])[0] or "RimCrow").strip() or "RimCrow"
+                body = build_sub_browser_helper_html(target_url, title).encode("utf-8")
+                self.send_response(200)
+                self._send_common_headers(content_type="text/html; charset=utf-8")
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                self.wfile.write(body)
+
+            def _serve_workshop_view(self, parsed):
+                query = parse_qs(parsed.query)
+                target_url = str(query.get("url", [""])[0] or "").strip()
+                renderer = WorkshopPageRenderer(navigation_mode="browser", browser_base_url=outer.base_url)
+                body = renderer.render(target_url).encode("utf-8")
+                self.send_response(200)
+                self._send_common_headers(content_type="text/html; charset=utf-8")
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                self.wfile.write(body)
+
+            def _read_json_body(self):
+                content_length = int(self.headers.get("Content-Length", "0") or "0")
+                if content_length <= 0: return {}
+                raw_body = self.rfile.read(content_length)
+                if not raw_body: return {}
+                try: return json.loads(raw_body.decode("utf-8"))
+                except Exception: return {}
+
+            def _send_common_headers(self, content_type="application/json; charset=utf-8"):
+                self.send_header("Content-Type", content_type)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type")
+                self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+
+            def _send_json(self, payload, status_code=200):
+                body = json.dumps(payload, ensure_ascii=False, default=str).encode("utf-8")
+                self.send_response(status_code)
+                self._send_common_headers()
+                self.end_headers()
+                self.wfile.write(body)
+
+        return BrowserRequestHandler

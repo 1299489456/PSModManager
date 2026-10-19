@@ -1,0 +1,1016 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>PSModManager · 界面原型 · 赛博动漫</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* ===== 赛博动漫 · 驾驶舱：每个面板都是数据终端，每条边框都是机甲框线 ===== */
+:root{
+  --dark:#0f0f1a; --deep:#0a0a14; --panel:rgba(15,15,26,.9);
+  --purple:#7c3aed; --purple-hi:#8f55ff; --cyan:#06d6a0; --pink:#ff006e; --blue:#38bdf8; --amber:#fbbf24;
+  --text:#e0e0ff; --text-2:rgba(224,224,255,.78); --text-3:rgba(224,224,255,.48);
+  --line:rgba(124,58,237,.32); --line-hi:rgba(124,58,237,.6);
+  --glow:0 0 10px rgba(124,58,237,.3),0 0 20px rgba(124,58,237,.15),0 0 40px rgba(124,58,237,.05);
+  --font:"Inter","Segoe UI","Microsoft YaHei UI","Microsoft YaHei",system-ui,sans-serif;
+  --mono:"JetBrains Mono","Cascadia Mono",Consolas,"Microsoft YaHei UI",monospace;
+  --cut:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));
+  --hex:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
+  --fast:.2s cubic-bezier(.2,.8,.2,1);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--dark)}
+body{font:14.5px/1.5 var(--font);color:var(--text);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+code,.mono{font-family:var(--mono)}
+.ic{flex:none;display:inline-block;vertical-align:-.18em}
+.spin{animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+::selection{background:rgba(6,214,160,.35);color:#fff}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:rgba(124,58,237,.5)}::-webkit-scrollbar-track{background:rgba(124,58,237,.05)}
+
+.cockpit{position:fixed;inset:0;min-width:1100px;overflow:clip;display:grid;grid-template-rows:30px 56px 1fr auto;background-color:var(--dark);
+  background-image:radial-gradient(900px circle at 100% 0%,rgba(124,58,237,.16),transparent 60%),radial-gradient(700px circle at 0% 100%,rgba(6,214,160,.06),transparent 60%),
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52'%3E%3Cpath d='M30 0 L60 15 L60 37 L30 52 L0 37 L0 15 Z' fill='none' stroke='%237c3aed' stroke-width='0.5' opacity='0.13'/%3E%3C/svg%3E")}
+.scanlines{position:fixed;inset:0;pointer-events:none;z-index:90;background:repeating-linear-gradient(90deg,transparent 0,transparent 2px,rgba(255,255,255,.017) 2px,rgba(255,255,255,.017) 3px)}
+.sweep{position:fixed;left:0;right:0;height:120px;top:-120px;pointer-events:none;z-index:89;background:linear-gradient(180deg,transparent,rgba(6,214,160,.035),transparent);animation:sweep 7s linear infinite}
+@keyframes sweep{to{top:100%}}
+
+/* HUD panel with corner frames */
+.hud{position:relative;background:var(--panel);border:1px solid var(--line);box-shadow:0 0 20px rgba(124,58,237,.18)}
+.hud::before,.hud::after{content:"";position:absolute;width:14px;height:14px;border-color:rgba(6,214,160,.75);pointer-events:none;z-index:3}
+.hud::before{top:-1px;left:-1px;border-left:2px solid;border-top:2px solid}
+.hud::after{bottom:-1px;right:-1px;border-right:2px solid;border-bottom:2px solid}
+.tag{font:600 10.5px/1 var(--mono);letter-spacing:.24em;color:var(--cyan);text-transform:uppercase;text-shadow:0 0 8px rgba(6,214,160,.55)}
+
+/* titlebar + command bar */
+.titlebar{display:flex;align-items:center;gap:10px;padding-left:14px;background:#0a0a12;border-bottom:1px solid rgba(124,58,237,.25);font:11px var(--mono);letter-spacing:.14em;color:var(--text-3);text-transform:uppercase;user-select:none}
+.titlebar .hexm{width:13px;height:13px;clip-path:var(--hex);background:linear-gradient(135deg,var(--purple),var(--cyan))}
+.demo{margin-left:auto;display:flex;align-items:center;gap:6px;padding:1px 4px 1px 8px;border:1px solid rgba(251,191,36,.5);color:var(--amber);text-transform:none;letter-spacing:.04em}
+.demo select{border:0;background:transparent;color:inherit;font:11px var(--mono);outline:none;cursor:pointer}.demo option{background:#14142a}
+.wc{display:flex}.wc span{width:44px;height:30px;display:grid;place-items:center}
+.cmd{display:flex;align-items:stretch;gap:0;padding:0 16px 0 14px;background:rgba(10,10,20,.92);border-bottom:1px solid var(--line-hi);box-shadow:0 2px 18px rgba(124,58,237,.18)}
+.brand{display:flex;align-items:center;gap:10px;padding-right:22px;margin-right:8px;border-right:1px solid var(--line)}
+.brand .logo{width:34px;height:34px;clip-path:var(--hex);background:linear-gradient(135deg,var(--purple),var(--blue) 60%,var(--cyan));display:grid;place-items:center;font:700 12px var(--mono);color:#fff}
+.brand b{display:block;font:700 14px var(--mono);letter-spacing:.12em}.brand small{display:block;font:10px var(--mono);letter-spacing:.2em;color:var(--text-3)}
+.tabs{display:flex}
+.tab{position:relative;display:flex;align-items:center;gap:10px;padding:0 20px;border:0;background:transparent;cursor:pointer;color:var(--text-2);font-weight:600;letter-spacing:.06em;transition:color var(--fast),background var(--fast)}
+.tab .k{font:600 10.5px var(--mono);color:var(--text-3);letter-spacing:.1em}
+.tab .en{font:10px var(--mono);letter-spacing:.2em;color:var(--text-3)}
+.tab:hover{color:#fff;background:rgba(124,58,237,.1)}
+.tab.on{color:#fff;background:linear-gradient(180deg,rgba(124,58,237,.05),rgba(124,58,237,.22))}
+.tab.on::after{content:"";position:absolute;left:10px;right:10px;bottom:0;height:2px;background:var(--cyan);box-shadow:0 0 12px var(--cyan)}
+.tab.on .k{color:var(--cyan)}
+.tab:disabled{opacity:.3;pointer-events:none}
+.tab .bdg{font:700 10.5px var(--mono);padding:1px 5px;background:rgba(255,0,110,.2);color:#ff5ca4;border:1px solid rgba(255,0,110,.5);box-shadow:0 0 8px rgba(255,0,110,.35)}
+.tab .bdg.q{background:rgba(251,191,36,.15);color:var(--amber);border-color:rgba(251,191,36,.5);box-shadow:none}
+.cmd .right{margin-left:auto;display:flex;align-items:center;gap:14px}
+.target{display:flex;align-items:center;gap:10px;height:38px;padding:0 12px;border:1px solid rgba(255,0,110,.4);background:rgba(255,0,110,.06);cursor:pointer;box-shadow:0 0 12px rgba(255,0,110,.12);transition:all var(--fast)}
+.target:hover{border-color:var(--pink);box-shadow:0 0 18px rgba(255,0,110,.3)}
+.target .lbl{font:10px var(--mono);letter-spacing:.2em;color:#ff5ca4}
+.target b{font:600 13px var(--mono);letter-spacing:.06em}
+.clock{font:12px var(--mono);letter-spacing:.14em;color:var(--text-3)}
+.clock b{color:var(--cyan);font-weight:500}
+
+/* body */
+.body{display:grid;grid-template-columns:240px 1fr;min-height:0}
+.rail{display:flex;flex-direction:column;gap:12px;padding:16px 12px 16px 16px;border-right:1px solid rgba(124,58,237,.25);background:rgba(10,10,20,.55);overflow:auto}
+.gauge{padding:12px 14px}
+.gauge .tag{display:block;margin-bottom:8px}
+.gauge .big{font:700 34px/1 var(--mono);letter-spacing:.02em;color:#fff}
+.gauge .big small{font-size:14px;color:var(--text-3);margin-left:4px}
+.gauge .sub{font-size:12px;color:var(--text-3);margin-top:4px}
+.meter{display:grid;grid-template-columns:repeat(10,1fr);gap:3px;margin-top:10px}
+.meter i{height:10px;background:rgba(224,224,255,.08);transition:background var(--fast),box-shadow var(--fast)}
+.meter i.on{background:var(--cyan);box-shadow:0 0 6px rgba(6,214,160,.7)}
+.meter i.pend{background:var(--amber);animation:blinkq .8s steps(2) infinite}
+@keyframes blinkq{50%{opacity:.35}}
+.link-row{display:flex;align-items:center;gap:8px;font-size:13px}
+.dia{width:8px;height:8px;transform:rotate(45deg);flex:none;background:var(--text-3)}
+.dia.ok{background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:pulse 2s infinite}
+.dia.bad{background:var(--pink);box-shadow:0 0 8px var(--pink);animation:blinkq .7s steps(2) infinite}
+.dia.amb{background:var(--amber);box-shadow:0 0 8px var(--amber)}
+@keyframes pulse{50%{box-shadow:0 0 2px var(--cyan)}}
+.st{font:600 10.5px var(--mono);letter-spacing:.14em;padding:1px 6px;border:1px solid}
+.st.ok{color:var(--cyan);border-color:rgba(6,214,160,.5)}.st.bad{color:#ff5ca4;border-color:rgba(255,0,110,.55)}.st.amb{color:var(--amber);border-color:rgba(251,191,36,.5)}
+.gauge.alert{cursor:pointer;border-color:rgba(255,0,110,.4)}.gauge.alert:hover{box-shadow:0 0 18px rgba(255,0,110,.25)}
+.gauge.alert .big{color:#ff5ca4;text-shadow:0 0 12px rgba(255,0,110,.6)}
+.gauge.qg .big{color:var(--amber)}
+.launch{width:100%;margin-top:auto;position:relative;height:64px;border:1px solid rgba(6,214,160,.6);background:linear-gradient(90deg,rgba(124,58,237,.9),rgba(56,189,248,.85),rgba(6,214,160,.85));clip-path:var(--cut);cursor:pointer;color:#fff;font-weight:700;letter-spacing:.16em;font-size:16px;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 0 18px rgba(124,58,237,.5);overflow:hidden;transition:filter var(--fast),transform var(--fast)}
+.launch small{display:block;font:600 10px var(--mono);letter-spacing:.3em;opacity:.8}
+.launch::after{content:"";position:absolute;top:0;bottom:0;left:-40%;width:30%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);transform:skewX(-20deg);transition:left .45s}
+.launch:hover{filter:brightness(1.12);transform:translateY(-1px)}
+.launch:hover::after{left:120%}
+.launch:active{transform:translateY(1px)}
+.launch:disabled{filter:grayscale(1) brightness(.5);pointer-events:none}
+.launch.running{background:rgba(6,214,160,.08);border-color:var(--cyan);color:var(--cyan);text-shadow:0 0 8px var(--cyan)}
+.run-row{display:flex;justify-content:space-between;font:11px var(--mono);letter-spacing:.1em;color:var(--text-3);margin-top:6px}
+
+.view{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;padding:18px 20px 14px}
+.view.glitch{animation:glitch .26s steps(2) both}
+@keyframes glitch{0%{clip-path:inset(10% 0 60% 0);transform:translateX(-6px);filter:hue-rotate(40deg)}25%{clip-path:inset(50% 0 20% 0);transform:translateX(6px)}50%{clip-path:inset(30% 0 40% 0);transform:translateX(-3px);filter:hue-rotate(-40deg)}75%{clip-path:inset(0 0 80% 0);transform:translateX(3px)}100%{clip-path:inset(0 0 100% 0);opacity:0}}
+.view.wipe>*{animation:wipe .32s steps(8) both}
+@keyframes wipe{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+.vhead{display:flex;align-items:flex-end;gap:14px;margin-bottom:14px}
+.vhead h1{margin:2px 0 0;font-size:26px;font-weight:700;letter-spacing:.14em}
+.vhead .acts{margin-left:auto;display:flex;gap:10px;align-items:center}
+
+/* controls */
+.btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:7px;height:36px;padding:0 16px;border:1px solid rgba(124,58,237,.55);background:rgba(15,15,26,.7);color:var(--text);font-weight:600;font-size:13.5px;letter-spacing:.06em;cursor:pointer;white-space:nowrap;transition:all var(--fast)}
+.btn .en{font:600 10px var(--mono);letter-spacing:.2em;opacity:.7}
+.btn:hover{border-color:var(--cyan);color:#fff;box-shadow:0 0 14px rgba(6,214,160,.35),0 0 30px rgba(6,214,160,.1);transform:translateY(-1px)}
+.btn:active{transform:translateY(1px)}
+.btn.pri{background:var(--purple);border-color:rgba(6,214,160,.55);color:#fff;box-shadow:var(--glow);clip-path:var(--cut)}
+.btn.pri:hover{background:var(--purple-hi);box-shadow:0 0 20px rgba(124,58,237,.6),0 0 40px rgba(124,58,237,.25)}
+.btn.cy{color:var(--cyan);border-color:var(--cyan);box-shadow:0 0 10px rgba(6,214,160,.25)}
+.btn.pk{color:#ff5ca4;border-color:rgba(255,0,110,.6)}
+.btn.pk:hover{border-color:var(--pink);box-shadow:0 0 14px rgba(255,0,110,.45)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--text-2)}
+.btn.ghost:hover{border-color:var(--line)}
+.btn.sm{height:28px;padding:0 10px;font-size:12.5px}
+.btn:disabled{opacity:.35;pointer-events:none}
+.btn:focus-visible,.tr:focus-visible,.tab:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.link{border:0;background:none;padding:0;cursor:pointer;color:var(--cyan);font:600 12.5px var(--mono);letter-spacing:.06em}
+.link:hover{text-shadow:0 0 8px var(--cyan)}
+.prompt{display:flex;align-items:center;gap:8px;height:36px;width:300px;padding:0 12px;border:1px solid rgba(124,58,237,.45);background:rgba(10,10,20,.85);font-family:var(--mono);color:var(--cyan);transition:border-color var(--fast),box-shadow var(--fast)}
+.prompt:focus-within{border-color:var(--cyan);box-shadow:0 0 12px rgba(6,214,160,.3)}
+.prompt input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:13px var(--mono);color:var(--text);caret-color:var(--cyan)}
+.prompt input::placeholder{color:var(--text-3)}
+.filters{display:flex;gap:6px;margin-bottom:12px}
+.filters button{height:30px;padding:0 12px;border:1px solid rgba(124,58,237,.35);background:transparent;color:var(--text-2);font:600 12px var(--mono);letter-spacing:.12em;cursor:pointer;transition:all var(--fast)}
+.filters button::before{content:"[ ";color:var(--text-3)}.filters button::after{content:" ]";color:var(--text-3)}
+.filters button:hover{color:#fff;border-color:var(--line-hi)}
+.filters button.on{color:#fff;background:rgba(124,58,237,.25);border-color:var(--cyan);box-shadow:0 0 10px rgba(124,58,237,.35)}
+.filters button.on::before,.filters button.on::after{color:var(--cyan)}
+.filters .a{color:#ff5ca4}
+/* hardware toggle */
+.hw{position:relative;display:inline-flex;align-items:center;width:58px;height:24px;flex:none;cursor:pointer;border:1px solid rgba(124,58,237,.55);background:rgba(224,224,255,.05);font:700 9.5px var(--mono);letter-spacing:.12em}
+.hw input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer;z-index:2}
+.hw::before{content:"OFF";position:absolute;right:7px;color:var(--text-3)}
+.hw::after{content:"";position:absolute;left:2px;top:2px;width:20px;height:18px;background:var(--text-3);transition:transform .16s steps(4),background .16s}
+.hw:has(input:checked){border-color:var(--cyan);background:rgba(124,58,237,.35);box-shadow:0 0 10px rgba(124,58,237,.5)}
+.hw:has(input:checked)::before{content:"ON";left:8px;right:auto;color:#fff}
+.hw:has(input:checked)::after{transform:translateX(32px);background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.hw:has(input:disabled){opacity:.4}
+.hw:has(input:focus-visible){outline:2px solid var(--cyan);outline-offset:2px}
+.hw.big{width:110px;height:34px;font-size:11px}
+.hw.big::after{width:30px;height:28px}
+.hw.big:has(input:checked)::after{transform:translateX(74px)}
+.hw.big::before{content:"SAFE 停用";right:10px}.hw.big:has(input:checked)::before{content:"ARM 启用";left:10px}
+
+/* data grid */
+.split{flex:1;min-height:0;display:flex;gap:14px}
+.grid{flex:1;min-width:0;display:flex;flex-direction:column}
+.th,.tr{display:grid;grid-template-columns:44px 70px minmax(0,1fr) 80px 92px 64px 132px;align-items:center;gap:0 10px;padding:0 14px}
+.th{height:34px;border-bottom:1px solid var(--line);font:600 10.5px var(--mono);letter-spacing:.2em;color:var(--text-3);background:rgba(124,58,237,.06)}
+.tbody{position:relative;flex:1;overflow:auto}
+.grp{padding:10px 14px 4px;font:600 10.5px var(--mono);letter-spacing:.24em;color:var(--cyan)}
+.tr{height:50px;border-bottom:1px solid rgba(124,58,237,.12);cursor:pointer;outline:none;position:relative;transition:background var(--fast)}
+.tr:hover{background:rgba(124,58,237,.08)}
+.tr:hover::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,transparent,rgba(6,214,160,.07),transparent);animation:rowscan .5s linear}
+@keyframes rowscan{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+.tr.sel{background:linear-gradient(90deg,rgba(124,58,237,.24),rgba(124,58,237,.04))}
+.tr.off .nm b{color:var(--text-2)}
+.tr.arrive{animation:arrive 1.2s steps(6)}
+@keyframes arrive{0%,40%{background:rgba(6,214,160,.25)}}
+.idx{font:12px var(--mono);color:var(--text-3)}
+.tr.sel .idx{color:var(--cyan)}
+.nm{min-width:0}.nm b{display:block;font-weight:600;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nm small{display:block;font:11.5px var(--mono);color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell{font:12px var(--mono);color:var(--text-2);white-space:nowrap}
+.slot{font:600 10.5px var(--mono);letter-spacing:.12em;padding:2px 6px;border:1px solid}
+.slot.mod{color:var(--cyan);border-color:rgba(6,214,160,.45)}.slot.plugin{color:#ff5ca4;border-color:rgba(255,0,110,.45)}.slot.lib{color:var(--blue);border-color:rgba(56,189,248,.45)}
+.flags{display:flex;gap:6px;justify-content:flex-end}
+.flag{font:600 10.5px var(--mono);letter-spacing:.1em;padding:2px 6px;border:1px solid;white-space:nowrap}
+.flag.q{color:var(--amber);border-color:rgba(251,191,36,.55)}.flag.a{color:#ff5ca4;border-color:rgba(255,0,110,.55);box-shadow:0 0 8px rgba(255,0,110,.3)}.flag.n{color:var(--blue);border-color:rgba(56,189,248,.5)}.flag.ok{color:var(--cyan);border-color:rgba(6,214,160,.4)}.flag.off{color:var(--text-3);border-color:rgba(224,224,255,.2)}
+.reticle{position:absolute;left:4px;right:4px;top:0;height:50px;pointer-events:none;z-index:2;opacity:0}
+.reticle i{position:absolute;width:12px;height:12px;border-color:var(--cyan);filter:drop-shadow(0 0 4px var(--cyan))}
+.reticle i:nth-child(1){left:0;top:0;border-left:2px solid;border-top:2px solid}.reticle i:nth-child(2){right:0;top:0;border-right:2px solid;border-top:2px solid}
+.reticle i:nth-child(3){left:0;bottom:0;border-left:2px solid;border-bottom:2px solid}.reticle i:nth-child(4){right:0;bottom:0;border-right:2px solid;border-bottom:2px solid}
+.reticle.lock{opacity:1;animation:lock .24s cubic-bezier(.2,.8,.2,1)}
+@keyframes lock{from{transform:scale(1.06,1.6);opacity:0}60%{opacity:1}to{transform:none}}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:40px;text-align:center;color:var(--text-3);font-size:13px}
+.empty b{font:700 16px var(--mono);letter-spacing:.14em;color:var(--text)}
+
+/* target panel */
+.tgt{width:360px;flex:none;display:flex;flex-direction:column}
+.tgt-h{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.tgt-h .tag{flex:1}
+.tgt-b{flex:1;overflow:auto;padding:16px}
+.tgt-name{font:700 21px var(--mono);letter-spacing:.04em;line-height:1.25;margin:2px 0 4px;word-break:break-word;text-shadow:0 0 12px rgba(124,58,237,.6)}
+.tgt-sub{font:12px var(--mono);color:var(--text-3);margin-bottom:14px}
+.arm{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);background:rgba(124,58,237,.06);margin-bottom:12px}
+.arm .grow{flex:1}.arm b{display:block;font-size:13.5px}.arm small{display:block;font:11.5px var(--mono);color:var(--text-3)}.arm small.q{color:var(--amber)}
+.brief{padding:12px 14px;margin-bottom:12px;clip-path:var(--cut);font-size:13px}
+.brief.crit{background:rgba(255,0,110,.08);border:1px solid rgba(255,0,110,.5);color:#ffb3d3;box-shadow:inset 0 0 20px rgba(255,0,110,.08)}
+.brief.warn{background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.5);color:#fde7a6}
+.brief .t{font:700 11px var(--mono);letter-spacing:.2em;margin-bottom:4px;display:flex;gap:6px;align-items:center}
+.brief.crit .t{color:#ff5ca4;text-shadow:0 0 8px rgba(255,0,110,.6)}.brief.warn .t{color:var(--amber)}
+.brief .acts{display:flex;gap:14px;margin-top:8px}
+.read{display:grid;grid-template-columns:60px 1fr;gap:6px 10px;font:12.5px var(--mono);margin-bottom:14px}
+.read dt{color:var(--text-3);letter-spacing:.14em;font-size:10.5px;padding-top:2px}.read dd{margin:0;word-break:break-all}
+.files{border-left:2px solid rgba(124,58,237,.45);padding:6px 0 6px 10px;font:12px var(--mono);color:var(--text-2);background:linear-gradient(180deg,rgba(124,58,237,.07),transparent 30%)}
+.files div{display:flex;gap:8px;padding:2px 0;white-space:nowrap}.files .sz{margin-left:auto;color:var(--text-3)}
+.tgt-f{padding:12px 14px;border-top:1px solid var(--line);display:flex;align-items:center;gap:10px;font:11px var(--mono);color:var(--text-3)}
+.tgt-f span{flex:1}
+.hold{position:relative;overflow:hidden}
+.hold::before{content:"";position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(255,0,110,.4)}
+.hold.holding::before{width:100%;transition:width 1.2s linear}
+.tgt-none{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text-3);font:12px var(--mono);letter-spacing:.14em}
+.tgt-none .ic{color:rgba(124,58,237,.6);animation:spin 8s linear infinite}
+
+/* mission queue */
+.queue{position:relative;margin-top:14px;padding:0;border:1px solid rgba(251,191,36,.55);border-left-width:3px;background:rgba(10,10,20,.95);box-shadow:0 0 18px rgba(251,191,36,.12)}
+.queue.enter{animation:qin .24s steps(4)}
+@keyframes qin{from{opacity:0;transform:translateY(10px)}}
+.queue.exec{border-color:rgba(6,214,160,.6);box-shadow:0 0 18px rgba(6,214,160,.15)}
+.q-h{display:flex;align-items:center;gap:12px;padding:8px 14px;border-bottom:1px solid rgba(251,191,36,.3);font:700 11px var(--mono);letter-spacing:.2em;color:var(--amber)}
+.queue.exec .q-h{color:var(--cyan);border-bottom-color:rgba(6,214,160,.3)}
+.q-h .grow{flex:1}
+.q-b{max-height:120px;overflow:auto;padding:8px 14px;font:12.5px/1.7 var(--mono)}
+.q-b .on{color:var(--cyan)}.q-b .off{color:#ff5ca4}.q-b .ok{color:var(--cyan)}.q-b .dim{color:var(--text-3)}
+.q-b div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-b .cur::after{content:"█";animation:blinkq .7s steps(2) infinite;margin-left:4px;color:var(--cyan)}
+.q-f{display:flex;align-items:center;gap:8px;padding:8px 14px 10px;border-top:1px solid rgba(251,191,36,.2)}
+.q-f .grow{flex:1;font:11.5px var(--mono);color:var(--amber)}
+.blocks{font:13px var(--mono);letter-spacing:1px;color:var(--cyan);text-shadow:0 0 6px var(--cyan)}
+
+/* console footer */
+.console{border-top:1px solid var(--line-hi);background:rgba(8,8,16,.96);font:12px/1.6 var(--mono);cursor:pointer;box-shadow:0 -2px 16px rgba(124,58,237,.15)}
+.console .lines{max-height:22px;overflow:hidden;padding:3px 16px;transition:max-height .2s steps(5)}
+.console.open .lines{max-height:150px;overflow:auto}
+.console .l{display:flex;gap:10px;white-space:nowrap}
+.console .l .ts{color:var(--text-3)}.console .l .p{color:var(--purple-hi)}
+.console .l.ok .m{color:var(--cyan)}.console .l.info .m{color:var(--text-2)}.console .l.warn .m{color:var(--amber)}
+.console .l:not(:last-child){opacity:.55}
+.console .l:last-child .m::after{content:"_";animation:blinkq .8s steps(2) infinite;color:var(--cyan)}
+.console .hint{float:right;color:var(--text-3);letter-spacing:.14em;font-size:10.5px;padding:3px 16px 0 0}
+
+/* logs */
+.logs{flex:1;min-height:0;display:flex;gap:14px}
+.stream{flex:1.25;min-width:0;display:flex;flex-direction:column}
+.navi{flex:1;min-width:380px;display:flex;flex-direction:column}
+.p-h{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.p-h .grow{flex:1}
+.srcs{display:flex;gap:6px}
+.srcs button{height:28px;padding:0 10px;border:1px solid rgba(124,58,237,.35);background:transparent;color:var(--text-2);font:600 11.5px var(--mono);letter-spacing:.1em;cursor:pointer}
+.srcs button.on{color:#fff;border-color:var(--cyan);background:rgba(124,58,237,.25);box-shadow:0 0 10px rgba(124,58,237,.35)}
+.l-tools{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid rgba(124,58,237,.18)}
+.l-tools .prompt{flex:1;width:auto;height:32px}
+.chk{display:flex;align-items:center;gap:7px;font:600 11.5px var(--mono);letter-spacing:.08em;color:var(--text-2);cursor:pointer;white-space:nowrap}
+.chk input{accent-color:var(--pink)}
+.scanres{margin:10px 14px 0;padding:8px 12px;font-size:12.5px;display:flex;align-items:center;gap:10px}
+.scanres .grow{flex:1}
+.data{flex:1;overflow:auto;padding:8px 0;font:12.5px/1.85 var(--mono);border-left:2px solid rgba(124,58,237,.45);margin:10px 0 0;background:linear-gradient(180deg,rgba(124,58,237,.08) 0%,transparent 15%,transparent 85%,rgba(124,58,237,.08) 100%),var(--deep)}
+.dl{position:relative;display:flex;padding-right:14px}
+.dl:hover{background:rgba(124,58,237,.09)}
+.dl i{position:relative;font-style:normal;width:56px;flex:none;text-align:right;padding-right:12px;color:rgba(143,85,255,.75);user-select:none}
+.dl span{flex:1;white-space:pre-wrap;word-break:break-all;color:var(--text-2)}
+.dl.e{background:rgba(255,0,110,.08)}.dl.e i{color:var(--pink)}.dl.e span{color:#ff6fae;text-shadow:0 0 6px rgba(255,0,110,.35)}
+.dl.e i::before{content:"!!";position:absolute;left:8px;color:var(--pink)}
+.dl.w span{color:var(--amber)}
+.dl mark{background:rgba(6,214,160,.35);color:#fff}
+.dl.hit{animation:hit 1.4s steps(7)}
+@keyframes hit{0%,60%{background:rgba(6,214,160,.25);box-shadow:inset 3px 0 0 var(--cyan)}}
+.dl .ask{position:absolute;right:10px;top:2px;opacity:0;height:22px;padding:0 8px;border:1px solid var(--cyan);background:var(--deep);color:var(--cyan);font:600 10.5px var(--mono);letter-spacing:.12em;cursor:pointer}
+.dl:hover .ask{opacity:1}
+.l-f{padding:8px 14px;font:11px var(--mono);letter-spacing:.06em;color:var(--text-3);border-top:1px solid rgba(124,58,237,.18)}
+.avatar{position:relative;width:44px;height:44px;flex:none}
+.avatar .hx{position:absolute;inset:0;clip-path:var(--hex);background:linear-gradient(135deg,var(--purple),var(--pink) 50%,var(--blue))}
+.avatar .hx2{position:absolute;inset:3px;clip-path:var(--hex);background:var(--deep);display:grid;place-items:center}
+.avatar .eye{width:18px;height:4px;background:var(--cyan);box-shadow:0 0 10px var(--cyan);animation:eye 4s infinite}
+@keyframes eye{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+.avatar .orbit{position:absolute;inset:-5px;border:1px dashed rgba(6,214,160,.5);border-radius:50%;animation:spin 10s linear infinite}
+.avatar.off .hx{background:rgba(224,224,255,.2)}.avatar.off .eye{background:var(--text-3);box-shadow:none;animation:none}.avatar.off .orbit{display:none}
+.navi-h b{display:block;font-weight:700;letter-spacing:.08em}.navi-h small{display:block;font:10.5px var(--mono);letter-spacing:.16em;color:var(--cyan)}
+.navi-h small.off{color:var(--text-3)}
+.n-body{flex:1;overflow:auto;padding:16px}
+.n-you{display:flex;gap:8px;margin-bottom:14px;font-size:13.5px}
+.n-you .who{font:700 11px var(--mono);letter-spacing:.14em;color:var(--purple-hi);padding-top:2px;white-space:nowrap}
+.n-you small{display:block;font:11px var(--mono);color:var(--text-3)}
+.n-ai{margin-bottom:16px;padding:12px 14px;border-left:2px solid var(--cyan);background:linear-gradient(90deg,rgba(6,214,160,.06),transparent);font-size:13.5px;color:var(--text-2)}
+.n-ai .who{font:700 11px var(--mono);letter-spacing:.14em;color:var(--cyan);margin-bottom:6px}
+.n-ai h4{margin:0 0 6px;color:#fff;font-size:15px;letter-spacing:.04em}
+.n-ai p{margin:0 0 8px}.n-ai ol{margin:0 0 10px;padding-left:18px}.n-ai code{color:var(--cyan)}
+.n-ai .rv{animation:rv .25s steps(4) both}
+@keyframes rv{from{clip-path:inset(0 100% 0 0)}}
+.cite{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 8px;border:1px solid rgba(6,214,160,.5);background:transparent;color:var(--cyan);font:600 11px var(--mono);letter-spacing:.08em;cursor:pointer;margin-bottom:8px}
+.cite:hover{box-shadow:0 0 10px rgba(6,214,160,.4)}
+.opt{display:flex;align-items:center;gap:12px;padding:10px 12px;margin-top:8px;border:1px solid var(--line);background:rgba(15,15,26,.8);transition:all var(--fast)}
+.opt:hover{border-color:var(--line-hi);box-shadow:0 0 12px rgba(124,58,237,.3)}
+.opt .key{width:26px;height:26px;display:grid;place-items:center;font:700 12px var(--mono);color:var(--cyan);border:1px solid var(--cyan);flex:none}
+.opt .grow{flex:1;min-width:0}.opt b{display:block;color:#fff;font-size:13.5px}.opt small{display:block;font:11px var(--mono);color:var(--text-3)}
+.opt .done{font:600 11px var(--mono);letter-spacing:.08em;color:var(--cyan)}
+.typing{font:12px var(--mono);color:var(--cyan);letter-spacing:.1em}
+.typing::after{content:"█";animation:blinkq .6s steps(2) infinite;margin-left:4px}
+.cmds{display:flex;flex-direction:column;gap:6px;margin-top:16px}
+.cmds button{display:flex;gap:10px;align-items:center;padding:9px 12px;border:1px solid var(--line);background:rgba(15,15,26,.7);color:var(--text);font-size:13px;text-align:left;cursor:pointer;transition:all var(--fast)}
+.cmds button span{font:600 11.5px var(--mono);color:var(--cyan);letter-spacing:.04em}
+.cmds button:hover{border-color:var(--cyan);box-shadow:0 0 12px rgba(6,214,160,.25);transform:translateX(3px)}
+.n-in{border-top:1px solid var(--line);padding:10px 14px}
+.atts{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 4px 0 8px;border:1px solid rgba(124,58,237,.45);font:11px var(--mono);color:var(--text-2)}
+.chip button{border:0;background:transparent;color:var(--text-3);cursor:pointer;display:grid;place-items:center}
+.chip.add{border-style:dashed;cursor:pointer;padding:0 8px;background:transparent}
+.term{display:flex;align-items:flex-end;gap:8px;border:1px solid rgba(124,58,237,.45);background:var(--deep);padding:6px 6px 6px 10px}
+.term:focus-within{border-color:var(--cyan);box-shadow:0 0 12px rgba(6,214,160,.25)}
+.term::before{content:">";font:700 14px var(--mono);color:var(--cyan);padding-bottom:9px}
+.term textarea{flex:1;border:0;outline:0;resize:none;background:transparent;min-height:40px;max-height:110px;font:13px var(--mono);caret-color:var(--cyan);padding-top:8px}
+.term textarea::placeholder{color:var(--text-3)}
+.hint{display:flex;justify-content:space-between;margin-top:6px;font:10.5px var(--mono);letter-spacing:.08em;color:var(--text-3)}
+.offline{padding:18px;text-align:center;font-size:13px;color:var(--text-2)}
+.offline b{display:block;font:700 15px var(--mono);letter-spacing:.14em;color:#fff;margin:6px 0}
+
+/* loadout + sys */
+.slots{display:flex;flex-direction:column;gap:10px;max-width:980px}
+.slotrow{display:grid;grid-template-columns:110px 1fr auto;gap:16px;align-items:center;padding:14px 16px}
+.slotrow .sid{font:700 12px var(--mono);letter-spacing:.2em;color:var(--text-3)}
+.slotrow.eq{border-color:rgba(6,214,160,.5);box-shadow:0 0 18px rgba(6,214,160,.12)}
+.slotrow.eq .sid{color:var(--cyan)}
+.slotrow b{font-size:15px;letter-spacing:.06em}
+.mini{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.mini span{font:10.5px var(--mono);padding:1px 6px;border:1px solid rgba(124,58,237,.35);color:var(--text-2)}
+.sys{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:1100px;overflow:auto}
+.sys .hud{padding:16px}
+.sys .hud.wide{grid-column:1/-1}
+.fld{display:grid;grid-template-columns:120px 1fr;gap:8px 14px;align-items:center;margin-top:12px;font-size:13px}
+.fld label{font:600 10.5px var(--mono);letter-spacing:.16em;color:var(--text-3)}
+.tin{height:34px;border:1px solid rgba(124,58,237,.45);background:var(--deep);padding:0 10px;font:13px var(--mono);outline:none;caret-color:var(--cyan);width:100%}
+.tin:focus{border-color:var(--cyan);box-shadow:0 0 10px rgba(6,214,160,.25)}
+
+/* boot / first run */
+.bootlayer{position:fixed;inset:30px 0 0 0;z-index:80;background:var(--dark);display:flex;align-items:center;justify-content:center;font:13px/1.9 var(--mono);transition:opacity .3s}
+.bootlayer.gone{opacity:0;pointer-events:none}
+.bootlayer .box{width:560px}
+.bootlayer .t{font:700 22px var(--mono);letter-spacing:.2em;margin-bottom:12px;text-shadow:0 0 14px rgba(124,58,237,.8)}
+.bl{opacity:0;animation:bl .01s forwards;white-space:nowrap}
+.bl .ok{color:var(--cyan)}.bl .bad{color:#ff5ca4}.bl .dim{color:var(--text-3)}
+@keyframes bl{to{opacity:1}}
+.notarget{margin:auto;width:640px;padding:28px 30px}
+.notarget .big{font:700 32px var(--mono);letter-spacing:.2em;color:#ff5ca4;text-shadow:0 0 18px rgba(255,0,110,.6);margin:8px 0}
+.notarget .ln{font:13px/1.9 var(--mono);color:var(--text-2)}
+.notarget .acts{display:flex;gap:10px;margin-top:20px}
+
+/* modal */
+.veil{position:fixed;inset:0;z-index:60;background:rgba(5,5,12,.78) repeating-linear-gradient(0deg,transparent 0,transparent 2px,rgba(124,58,237,.035) 2px,rgba(124,58,237,.035) 4px);display:grid;place-items:center;animation:fd .15s steps(3)}
+@keyframes fd{from{opacity:0}}
+.modal{width:600px;max-width:calc(100vw - 40px);max-height:calc(100vh - 80px);display:flex;flex-direction:column;background:rgba(14,14,25,.98);animation:mopen .24s steps(6)}
+@keyframes mopen{from{clip-path:inset(50% 0 50% 0)}to{clip-path:inset(0 0 0 0)}}
+.m-h{display:flex;align-items:flex-start;gap:12px;padding:16px 18px 10px;border-bottom:1px solid var(--line)}
+.m-h h2{margin:2px 0 0;font-size:18px;letter-spacing:.1em}.m-h p{margin:4px 0 0;font-size:12.5px;color:var(--text-3)}
+.m-h .btn{margin-left:auto}
+.m-b{padding:16px 18px;overflow:auto}
+.m-f{display:flex;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid var(--line)}
+.m-f .grow{flex:1;font:11px var(--mono);color:var(--text-3);letter-spacing:.06em}
+.bays{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.bay{display:flex;flex-direction:column;align-items:center;gap:10px;padding:22px 10px;border:1px solid var(--line);background:rgba(124,58,237,.05);cursor:pointer;clip-path:var(--cut);transition:all var(--fast);color:var(--text)}
+.bay:hover{border-color:var(--cyan);background:rgba(6,214,160,.06);box-shadow:inset 0 0 20px rgba(6,214,160,.12)}
+.bay .hexi{width:52px;height:52px;clip-path:var(--hex);background:rgba(124,58,237,.35);display:grid;place-items:center;color:#fff}
+.bay b{font:700 13px var(--mono);letter-spacing:.2em}.bay small{font-size:12px;color:var(--text-3)}
+.fine{font-size:12px;color:var(--text-3);line-height:1.7;margin:12px 0 0}
+.scanlist{border:1px solid var(--line);font:12.5px var(--mono)}
+.sl{position:relative;display:flex;gap:10px;padding:8px 12px;border-bottom:1px solid rgba(124,58,237,.15);overflow:hidden}
+.sl:last-child{border-bottom:0}
+.sl span{flex:1}.sl em{font-style:normal;color:var(--text-3);width:110px}.sl b{width:64px;text-align:right;font-weight:600;letter-spacing:.1em}
+.sl b.wait{color:var(--text-3)}.sl b.scan{color:var(--amber)}.sl b.ok{color:var(--cyan)}
+.sl.scanning::after{content:"";position:absolute;top:0;bottom:0;left:-30%;width:30%;background:linear-gradient(90deg,transparent,rgba(6,214,160,.3),transparent);animation:sls .45s linear}
+@keyframes sls{to{left:100%}}
+.chks{border:1px solid var(--line)}
+.chks div{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(124,58,237,.15);font-size:13px}
+.chks div:last-child{border-bottom:0}
+.chks small{margin-left:auto;font:11px var(--mono);color:var(--text-3)}
+.tlist .opt{cursor:default}
+
+/* drag */
+.bay-open{position:fixed;inset:30px 0 0 0;z-index:70;display:none;place-items:center;background:rgba(10,10,20,.88);text-align:center}
+.cockpit.dragging~.bay-open{display:grid}
+.bay-open .ring{width:240px;height:240px;margin:0 auto 18px;clip-path:var(--hex);background:conic-gradient(from 0deg,var(--purple),var(--cyan),var(--blue),var(--pink),var(--purple));animation:spin 4s linear infinite;display:grid;place-items:center}
+.bay-open .ring div{width:228px;height:228px;clip-path:var(--hex);background:var(--dark);display:grid;place-items:center;animation:spin 4s linear infinite reverse;color:var(--cyan)}
+.bay-open b{font:700 22px var(--mono);letter-spacing:.24em;text-shadow:0 0 14px var(--cyan)}
+.bay-open small{display:block;margin-top:6px;color:var(--text-2)}
+</style>
+</head>
+<body>
+<div class="cockpit" id="cockpit">
+  <div class="titlebar"><span class="hexm"></span>PSModManager // cockpit<label class="demo" title="仅用于预览不同情况，正式界面没有此控件">原型演示 <select id="demoSel" onchange="setDemo(this.value)"></select></label><div class="wc"><span>&#x2013;</span><span>&#x25A1;</span><span>&#x2715;</span></div></div>
+  <header class="cmd" id="cmd"></header>
+  <div class="body"><aside class="rail" id="rail"></aside><main class="view" id="view"></main></div>
+  <footer class="console" id="console" onclick="this.classList.toggle('open')" title="点击展开系统记录"><span class="hint">SYS LOG ▾</span><div class="lines" id="clines"></div></footer>
+</div>
+<div class="bay-open" aria-hidden="true"><div><div class="ring"><div><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg></div></div><b>UPLOAD BAY OPEN</b><small>松开即可导入 · DLL / 文件夹 / ZIP</small></div></div>
+<div id="modalHost"></div>
+<div class="bootlayer gone" id="boot"><div class="box" id="bootBox"></div></div>
+<div class="scanlines" aria-hidden="true"></div><div class="sweep" aria-hidden="true"></div>
+<script>
+'use strict';
+/* ===== Shared prototype core: synthetic data, state and actions. Each style supplies its own UI. ===== */
+const ICONS = {
+  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  package:'<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  plug:'<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>',
+  lib:'<path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/>',
+  play:'<polygon points="6 3 20 12 6 21 6 3"/>',
+  file:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
+  logs:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+  folder:'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  zip:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 6h1"/><path d="M10 10h1"/><path d="M10 14h1"/><path d="M9 18h2v-2H9z"/>',
+  gear:'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  okc:'<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  down:'<path d="m6 9 6 6 6-6"/>', right:'<path d="m9 18 6-6-6-6"/>', left:'<path d="m15 18-6-6 6-6"/>', updown:'<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+  refresh:'<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+  trash:'<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
+  undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>',
+  upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+  spark:'<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>',
+  layers:'<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+  send:'<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+  ext:'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  loader:'<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
+  game:'<line x1="6" x2="10" y1="11" y2="11"/><line x1="8" x2="8" y1="9" y2="13"/><line x1="15" x2="15.01" y1="12" y2="12"/><line x1="18" x2="18.01" y1="10" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/>',
+  edit:'<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/>',
+  link:'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  clip:'<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
+  shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  leaf:'<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+  sprout:'<path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/>',
+  terminal:'<polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/>',
+  target:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  power:'<path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/>',
+  sliders:'<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>'
+};
+const I = (n, s = 18, c = '') => `<svg class="ic ${c}" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ''}</svg>`;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- synthetic sample data ---------- */
+const KIND = { mod:{label:'Mod', icon:'package', slot:'Mods'}, plugin:{label:'插件', icon:'plug', slot:'Plugins'}, lib:{label:'依赖库', icon:'lib', slot:'UserLibs'} };
+const SEED = [
+  { id:'workshop', name:'Workshop Decorations', version:'1.4.2', kind:'mod', path:'Mods/WorkshopDecorations.dll', files:12, size:'2.3 MB', source:'imported', imported:'10 月 14 日', on:true,
+    issue:{ title:'上次运行加载失败', text:'缺少依赖 SharedAssets 2.0.0（当前安装 1.8.0）', line:4 },
+    tree:[['Mods/WorkshopDecorations.dll','1.1 MB'],['Mods/WorkshopDecorations/','—'],['  textures/ (9 个文件)','1.2 MB'],['  decorations.json','8 KB']] },
+  { id:'pswallpaper', name:'PSWallpaper', version:'1.2.0', kind:'mod', path:'Mods/PSWallpaper.dll', files:3, size:'184 KB', source:'imported', imported:'10 月 12 日', on:true, config:'UserData/PSWallpaper.cfg',
+    tree:[['Mods/PSWallpaper.dll','164 KB'],['UserData/PSWallpaper.cfg','2 KB'],['UserData/Wallpapers/','18 KB']] },
+  { id:'brewing', name:'Brewing Expansion', version:'0.9.1', kind:'mod', path:'Mods/BrewingExpansion/', files:1036, size:'14.8 MB', source:'imported', imported:'10 月 10 日', on:false,
+    tree:[['Mods/BrewingExpansion.dll','420 KB'],['Mods/BrewingExpansion/','—'],['  textures/ (1034 个文件)','14.3 MB'],['  recipes.json','36 KB']] },
+  { id:'fasttravel', name:'Fast Travel', version:'2.0.0', kind:'mod', path:'Mods/FastTravel.dll', files:1, size:'88 KB', source:'game', on:true, tree:[['Mods/FastTravel.dll','88 KB']] },
+  { id:'betterinv', name:'Better Inventory', version:'1.1.3', kind:'mod', path:'Mods/BetterInventory.dll', files:2, size:'240 KB', source:'game', on:true, tree:[['Mods/BetterInventory.dll','236 KB'],['UserData/BetterInventory.json','4 KB']] },
+  { id:'localtheme', name:'LocalTheme', version:null, kind:'mod', path:'Mods/LocalTheme/', files:4, size:'1.6 MB', source:'imported', imported:'9 月 29 日', on:true, tree:[['Mods/LocalTheme.dll','52 KB'],['Mods/LocalTheme/preview.png','1.4 MB'],['Mods/LocalTheme/theme.json','3 KB'],['Mods/LocalTheme/README.txt','1 KB']] },
+  { id:'stealcounter', name:'Steal Counter', version:'0.3.0', kind:'mod', path:'Mods/StealCounter.dll', files:1, size:'46 KB', source:'imported', imported:'10 月 2 日', on:false, tree:[['Mods/StealCounter.dll','46 KB']] },
+  { id:'unityexplorer', name:'UnityExplorer', version:'4.12.8', kind:'mod', path:'Mods/UnityExplorer.ML.IL2CPP.dll', files:2, size:'3.1 MB', source:'game', on:false, tree:[['Mods/UnityExplorer.ML.IL2CPP.dll','1.9 MB'],['UserLibs/UniverseLib.ML.IL2CPP.dll','1.2 MB']] },
+  { id:'loaderfix', name:'Loader Startup Fix', version:'1.0.1', kind:'plugin', path:'Plugins/LoaderStartupFix.dll', files:1, size:'22 KB', source:'game', on:true, tree:[['Plugins/LoaderStartupFix.dll','22 KB']] },
+  { id:'sharedassets', name:'SharedAssets', version:'1.8.0', kind:'lib', path:'UserLibs/SharedAssets.dll', files:1, size:'96 KB', source:'game', on:true, tree:[['UserLibs/SharedAssets.dll','96 KB']] },
+];
+const LOG = [
+  '[12:03:08] MelonLoader v0.7.3 Open-Beta',
+  '[12:03:08] Game: Probably Stolen',
+  '[12:03:09] Loading Mod: Workshop Decorations v1.4.2',
+  '[12:03:09] ERROR Could not load dependency SharedAssets, Version=2.0.0',
+  '[12:03:09]   at WorkshopDecorations.Initialize()',
+  '[12:03:09]   at MelonLoader.MelonEvent.Invoke()',
+  '[12:03:09] Loading Mod: PSWallpaper v1.2.0',
+  '[12:03:09] WARNING PSWallpaper: wallpaper folder is empty, using defaults',
+  '[12:03:10] Loading Mod: Fast Travel v2.0.0',
+  '[12:03:10] Loading Mod: Better Inventory v1.1.3',
+  '[12:03:10] Other Mods loaded successfully.',
+];
+const MGR_LOG = [
+  '2026-10-16 12:01:40 INFO  已选择安装 Probably Stolen (Steam)',
+  '2026-10-16 12:01:41 INFO  已读取 10 个 Mod，3 个来自包库',
+  '2026-10-16 12:02:55 INFO  保存：启用 Workshop Decorations（3 个文件操作）',
+  '2026-10-16 12:02:56 INFO  保存完成',
+  '2026-10-16 12:03:02 INFO  已启动游戏（PID 18244）',
+];
+const lineKind = t => /ERROR|Exception|  at /.test(t) ? 'e' : /WARN/.test(t) ? 'w' : '';
+const AI_REPLY = {
+  title:'Workshop Decorations 没能加载',
+  lead:'它需要 <code>SharedAssets 2.0.0</code>，但游戏里装的是 <b>1.8.0</b>，初始化时找不到所需版本。',
+  cite:4,
+  after:'第 11 行显示其余 Mod 都正常加载，问题只影响 Workshop Decorations；第 8 行 PSWallpaper 的警告不影响运行。',
+  steps:['从 Mod 作者处获取 SharedAssets 2.0.0，导入后替换旧版本','在此之前，可以先停用 Workshop Decorations'],
+};
+const PROFILES = [ { id:'p1', name:'日常', ids:null }, { id:'p2', name:'联机精简', ids:['fasttravel','betterinv','sharedassets','loaderfix'] }, { id:'p3', name:'测试新 Mod', ids:['workshop','brewing','unityexplorer','sharedassets','loaderfix','pswallpaper'] } ];
+const DEMOS = [['normal','正常使用'],['dirty','有未保存更改'],['firstrun','首次启动（未选游戏）'],['noloader','未安装 MelonLoader'],['running','游戏运行中'],['noai','未配置 AI'],['empty','还没有 Mod']];
+
+/* ---------- state ---------- */
+const S = {};
+const mod = id => S.mods.find(m => m.id === id);
+const changes = () => S.mods.filter(m => m.on !== m.saved);
+const dirty = () => changes().length > 0;
+const enabledCount = () => S.mods.filter(m => m.on).length;
+const issueCount = () => S.mods.filter(m => m.issue && m.on).length;
+const runTime = () => { const s = Math.max(0, Math.floor((Date.now() - S.runStart) / 1000)); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
+function filtered() {
+  const q = S.query.trim().toLowerCase();
+  return S.mods.filter(m => {
+    if (S.filter === 'on' && !m.on) return false;
+    if (S.filter === 'off' && m.on) return false;
+    if (S.filter === 'issue' && !m.issue) return false;
+    return !q || `${m.name} ${m.version || ''} ${m.path}`.toLowerCase().includes(q);
+  });
+}
+function reset(demo) {
+  clearInterval(S._t); clearInterval(S._lt);
+  Object.assign(S, {
+    demo, page:'mods', filter:'all', query:'', selected:'workshop', history:[], saving:null,
+    mods: SEED.map(m => ({ ...m, saved:m.on })),
+    gameSet: demo !== 'firstrun', finding:false, loader: demo === 'noloader' ? 'missing' : 'ready', loaderPct:0,
+    running: demo === 'running', runStart: Date.now() - 192000,
+    ai:{ configured: demo !== 'noai', msgs:[], busy:false, atts:['Latest.log'] },
+    log:{ src:'ml', errorsOnly:false, q:'', focus:null },
+    profiles: PROFILES.map(p => ({ ...p, cur:p.id === 'p1' })),
+  });
+  if (!S.gameSet) S.page = 'onboard';
+  if (demo === 'empty') { S.mods = []; S.selected = null; }
+  if (demo === 'dirty') {
+    [['brewing', true], ['stealcounter', true], ['betterinv', false]].forEach(([id, v]) => { mod(id).on = v; S.history.push({ id, prev:!v }); });
+    S.selected = 'brewing';
+  }
+}
+
+/* ---------- actions; every state change reports to the style's UI hooks ---------- */
+const UI_DEFAULTS = {
+  render() {}, onToggle() { this.render(); }, onBulk() { this.render(); }, onSave() { this.render(); }, onRun() { this.render(); },
+  onImported() { this.render(); }, onUninstalled() { this.render(); }, onLoader() { this.render(); }, onGame() { this.render(); },
+  onAi() { this.render(); }, notify() {}, escape() { return false; }, focusSearch() {}, onDrag() {}, onDrop() {}, hotkey() {}, boot() { this.render(); },
+};
+let UI = UI_DEFAULTS;
+function defineUI(o) { UI = Object.assign({}, UI_DEFAULTS, o); }
+
+const Core = {
+  setOn(id, v) {
+    const m = mod(id); if (!m || m.on === v || S.saving) return false;
+    S.history.push({ id, prev:m.on }); m.on = v; UI.onToggle(id, v); return true;
+  },
+  toggle(id) { const m = mod(id); return m && this.setOn(id, !m.on); },
+  undoLast() { if (S.saving) return; const h = S.history.pop(); const m = h && mod(h.id); if (!m) return; m.on = h.prev; UI.onToggle(h.id, m.on, true); },
+  undoAll() { if (S.saving || !dirty()) return; S.mods.forEach(m => m.on = m.saved); S.history = []; UI.onBulk('undo'); UI.notify('已撤销全部更改', 'info'); },
+  save(launch) {
+    if (!dirty() || S.running || S.saving) return;
+    const plan = changes().map(m => ({ id:m.id, name:m.name, on:m.on, files:m.tree.map(t => t[0].trim()).filter(p => !p.endsWith('/') && !p.includes('个文件')) }));
+    const ops = [];
+    plan.forEach(p => { (p.files.length ? p.files : [p.name]).slice(0, 4).forEach(f => ops.push({ verb:p.on ? '放入' : '移出', path:f, name:p.name })); });
+    ops.push({ verb:'记录', path:'安装记录', name:'' });
+    S.saving = { done:0, total:ops.length, ops, launch:!!launch };
+    UI.onSave('start');
+    S._t = setInterval(() => {
+      S.saving.done++; UI.onSave('tick');
+      if (S.saving.done >= S.saving.total) {
+        clearInterval(S._t); const n = S.saving.total; S.saving = null;
+        S.mods.forEach(m => m.saved = m.on); S.history = [];
+        UI.onSave('done', n);
+        if (launch) setTimeout(() => Core.launch(), 300);
+      }
+    }, 170);
+  },
+  cancelSave() { if (!S.saving) return; clearInterval(S._t); S.saving = null; UI.onSave('cancel'); },
+  launch() {
+    if (!S.gameSet || S.running || S.saving) return;
+    if (dirty()) return Core.save(true);
+    S.running = true; S.runStart = Date.now(); UI.onRun(true);
+  },
+  stopGame() { S.running = false; UI.onRun(false); },
+  importMod(name, on) {
+    const id = 'imp' + Date.now(), slug = name.replace(/\s+/g, '') || 'NewMod';
+    S.mods.forEach(m => m.fresh = false);
+    S.mods.push({ id, name, version:'1.0.3', kind:'mod', path:`Mods/${slug}.dll`, files:2, size:'382 KB', source:'imported', imported:'刚刚', on:false, saved:false, fresh:true,
+      tree:[[`Mods/${slug}.dll`, '380 KB'], [`UserData/${slug}.cfg`, '2 KB']] });
+    if (on) { mod(id).on = true; S.history.push({ id, prev:false }); }
+    S.filter = 'all'; S.query = ''; S.selected = id;
+    UI.onImported(id, on); return id;
+  },
+  uninstall(id) {
+    const m = mod(id); if (!m || dirty() || S.running || S.saving) return;
+    S.mods = S.mods.filter(x => x.id !== id);
+    if (S.selected === id) S.selected = null;
+    UI.onUninstalled(m);
+  },
+  installLoader() {
+    if (S.loader === 'installing') return;
+    S.loader = 'installing'; S.loaderPct = 0; UI.onLoader('start');
+    S._lt = setInterval(() => {
+      S.loaderPct = Math.min(100, S.loaderPct + 6); UI.onLoader('tick');
+      if (S.loaderPct >= 100) { clearInterval(S._lt); S.loader = 'ready'; UI.onLoader('done'); }
+    }, 110);
+  },
+  loaderStep() { return ['正在下载官方安装包', '正在核对安装包摘要', '正在解压到游戏目录', '正在检查结果'][Math.min(3, Math.floor(S.loaderPct / 26))]; },
+  findGame() {
+    if (S.finding) return;
+    S.finding = true; UI.onGame('finding');
+    setTimeout(() => { S.finding = false; S.gameSet = true; S.page = 'mods'; UI.onGame('found'); }, 1300);
+  },
+  ask(text, att) {
+    if (!S.ai.configured || S.ai.busy || !text) return;
+    S.ai.msgs.push({ role:'user', text, att: att ?? (S.ai.atts.join('、') || null) }); S.ai.busy = true; UI.onAi('ask');
+    setTimeout(() => { S.ai.busy = false; S.ai.msgs.push({ role:'ai' }); UI.onAi('reply'); }, 1400);
+  },
+  applyProfile(id) {
+    const p = S.profiles.find(x => x.id === id); if (!p || S.saving) return;
+    S.mods.forEach(m => { const v = p.ids.includes(m.id); if (m.on !== v) { S.history.push({ id:m.id, prev:m.on }); m.on = v; } });
+    S.profiles.forEach(x => x.cur = x.id === id);
+    UI.onBulk('profile', p);
+  },
+};
+
+/* ---------- global input: keyboard, window drag & drop, boot ---------- */
+const typing = () => { const e = document.activeElement; return !!e && (e.tagName === 'TEXTAREA' || e.tagName === 'SELECT' || (e.tagName === 'INPUT' && !/^(checkbox|radio|button)$/.test(e.type))); };
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { if (UI.escape()) e.preventDefault(); return; }
+  if (e.ctrlKey && !e.altKey) {
+    const k = e.key.toLowerCase();
+    if (k === 's') { e.preventDefault(); Core.save(); }
+    else if (k === 'f') { e.preventDefault(); UI.focusSearch(); }
+    else if (k === 'z' && !typing()) { e.preventDefault(); Core.undoLast(); }
+    return;
+  }
+  if (!typing() && !e.altKey && !e.metaKey) UI.hotkey(e);
+});
+let dragDepth = 0;
+addEventListener('dragenter', e => { e.preventDefault(); if (!S.gameSet) return; if (++dragDepth === 1) UI.onDrag(true); });
+addEventListener('dragleave', () => { if (dragDepth > 0 && --dragDepth === 0) UI.onDrag(false); });
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => {
+  e.preventDefault(); dragDepth = 0; UI.onDrag(false);
+  const f = e.dataTransfer.files[0]; if (f && S.gameSet) UI.onDrop(f.name);
+});
+function demoOptions() { return DEMOS.map(([v, l]) => `<option value="${v}" ${S.demo === v ? 'selected' : ''}>${l}</option>`).join(''); }
+function setDemo(d) { reset(d); UI.boot({}); }
+/* #demo=dirty&page=logs&dialog=import&ask=1&select=brewing opens a state directly (used for screenshots) */
+function bootPrototype() {
+  const p = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+  reset(p.demo || 'normal');
+  if (p.select && mod(p.select)) S.selected = p.select;
+  if (p.page && S.gameSet) S.page = p.page;
+  if (p.ask && S.ai.configured) S.ai.msgs.push({ role:'user', text:'分析这次运行的日志', att:'Latest.log' }, { role:'ai' });
+  UI.boot(p);
+}
+
+
+/* ===================== Cyber UI ===================== */
+const C = { log:[], booted:false, holdT:0 };
+const TABS = [['mods', '模组', 'MODS'], ['logs', '日志', 'LOGS'], ['profiles', '方案', 'LOADOUT'], ['settings', '系统', 'SYS']];
+const pad = (n, w = 2) => String(n).padStart(w, '0');
+const now = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
+const SCR = 'ABCDEFGHJKLMNPQRSTUVWXYZ0123456789#$%&@<>/';
+function decode(el, text) {
+  if (!el) return; if (reduceMotion) { el.textContent = text; return; }
+  const t0 = performance.now(), D = 380;
+  const f = t => { const p = Math.min(1, (t - t0) / D), n = Math.floor(p * text.length);
+    el.textContent = text.split('').map((c, i) => i < n || c === ' ' ? c : SCR[Math.random() * SCR.length | 0]).join('');
+    if (p < 1) requestAnimationFrame(f); };
+  requestAnimationFrame(f);
+}
+
+/* ---------- console: notifications print as terminal lines ---------- */
+function notify(text, kind = 'ok') {
+  C.log.push({ ts:now(), text, kind }); if (C.log.length > 30) C.log.shift();
+  const el = $('#clines'); if (!el) return;
+  el.innerHTML = C.log.map(l => `<div class="l ${l.kind}"><span class="ts">[${l.ts}]</span><span class="p">&gt;</span><span class="m">${esc(l.text)}</span></div>`).join('');
+  const last = el.lastElementChild?.querySelector('.m');
+  if (last && !reduceMotion) { let i = 0; last.textContent = ''; const t = setInterval(() => { last.textContent = text.slice(0, ++i); if (i >= text.length) clearInterval(t); }, 14); }
+  el.scrollTop = el.scrollHeight;
+}
+
+/* ---------- command bar + rail ---------- */
+function renderCmd() {
+  const off = !S.gameSet, errs = issueCount(), q = changes().length;
+  $('#cmd').innerHTML = `<div class="brand"><div class="logo">PS</div><div><b>PSMM</b><small>COCKPIT v0.1.0</small></div></div>
+    <nav class="tabs">${TABS.map(([p, zh, en], i) => `<button class="tab ${S.page === p ? 'on' : ''}" ${off && p !== 'settings' ? 'disabled' : ''} onclick="go('${p}')"><span class="k">0${i + 1}</span>${zh}<span class="en">${en}</span>${p === 'mods' && q ? `<span class="bdg q">${pad(q)}</span>` : ''}${p === 'logs' && errs && !off ? `<span class="bdg">${pad(errs)}</span>` : ''}</button>`).join('')}</nav>
+    <div class="right"><button class="target" onclick="openTargets()"><span class="lbl">TARGET</span><b>${S.gameSet ? 'PROBABLY STOLEN / STEAM' : 'NO TARGET'}</b>${I('updown', 14)}</button><span class="clock">SYS <b id="clk">${now()}</b></span></div>`;
+}
+setInterval(() => { const c = $('#clk'); if (c) c.textContent = now(); const r = $('#runT'); if (r) r.textContent = runTime(); }, 1000);
+function renderRail() {
+  const off = !S.gameSet, on = enabledCount(), total = S.mods.length, q = changes(), errs = issueCount();
+  const ld = S.loader === 'ready' ? `<span class="dia ok"></span>MelonLoader 0.7.3<span class="st ok" style="margin-left:auto">ONLINE</span>`
+    : S.loader === 'installing' ? `<span class="dia amb"></span>部署中 ${S.loaderPct}%<span class="st amb" style="margin-left:auto">SYNC</span>`
+    : `<span class="dia bad"></span>MelonLoader<span class="st bad" style="margin-left:auto">OFFLINE</span>`;
+  const cells = Array.from({ length:10 }, (_, i) => { const m = S.mods[i]; return `<i class="${m ? (m.on !== m.saved ? 'pend' : m.on ? 'on' : '') : ''}"></i>`; }).join('');
+  $('#rail').innerHTML = off ? `<div class="hud gauge"><span class="tag">LINK</span><div class="link-row"><span class="dia bad"></span>未选择游戏</div></div>` : `
+    <div class="hud gauge"><span class="tag">LOADER LINK</span><div class="link-row">${ld}</div>${S.loader === 'missing' ? `<div class="sub">游戏不会加载 Mod</div><button class="btn sm pk" style="margin-top:8px;width:100%" onclick="openLoader(true)">部署 DEPLOY</button>` : `<button class="link" style="margin-top:8px" onclick="openLoader()">诊断 ›</button>`}</div>
+    <div class="hud gauge"><span class="tag">ACTIVE MODS</span><div class="big">${pad(on)}<small>/ ${pad(total)}</small></div><div class="meter">${cells}</div></div>
+    ${errs ? `<div class="hud gauge alert" onclick="go('logs')"><span class="tag" style="color:#ff5ca4;text-shadow:0 0 8px rgba(255,0,110,.6)">ALERTS</span><div class="big">${pad(errs)}</div><div class="sub">上次运行加载失败 · 查看 ›</div></div>` : ''}
+    ${q.length ? `<div class="hud gauge qg"><span class="tag" style="color:var(--amber);text-shadow:none">QUEUE</span><div class="big">${pad(q.length)}</div><div class="sub">项更改待执行</div></div>` : ''}
+    <div style="margin-top:auto">${S.running
+      ? `<button class="launch running" disabled style="pointer-events:none;filter:none">${I('target', 20)}<span>任务进行中<small>IN MISSION</small></span></button><div class="run-row"><span>T+ <b id="runT" style="color:var(--cyan)">${runTime()}</b></span><button class="link" onclick="Core.stopGame()">刷新状态</button></div>`
+      : `<button class="launch" ${S.saving ? 'disabled' : ''} onclick="Core.launch()">${I('play', 20)}<span>${dirty() ? '执行并出击' : '出击'}<small>${dirty() ? 'EXECUTE + LAUNCH' : 'LAUNCH GAME'}</small></span></button>`}</div>`;
+}
+
+/* ---------- views ---------- */
+function go(page) {
+  if (!S.gameSet && page !== 'settings') page = 'onboard';
+  if (S.page === page && $('#view').childElementCount) return;
+  S.page = page; renderCmd();
+  const v = $('#view');
+  if (!reduceMotion && v.childElementCount) { v.classList.add('glitch'); setTimeout(() => { v.classList.remove('glitch'); renderView(true); }, 240); }
+  else renderView(true);
+}
+function renderView(fx) {
+  const v = $('#view');
+  v.innerHTML = ({ mods:modsHtml, logs:logsHtml, profiles:loadoutHtml, settings:sysHtml, onboard:noTargetHtml })[S.page]();
+  if (fx && !reduceMotion) { v.classList.remove('wipe'); void v.offsetWidth; v.classList.add('wipe'); setTimeout(() => v.classList.remove('wipe'), 400); }
+  const h = $('#view h1[data-t]'); if (fx && h) decode(h, h.dataset.t);
+  if (S.page === 'mods') { renderGrid(); renderTarget(false); renderQueue(); }
+  if (S.page === 'logs') { renderStream(); renderNavi(); }
+}
+const vhead = (tag, title, acts = '') => `<div class="vhead"><div><span class="tag">// ${tag}</span><h1 data-t="${title}">${title}</h1></div><div class="acts">${acts}</div></div>`;
+function modsHtml() {
+  return vhead('MOD INVENTORY', '模组', `<label class="prompt">&gt;<input id="q" placeholder="grep 名称 / 版本 / 文件" value="${esc(S.query)}" oninput="S.query=this.value;renderGrid()"></label><button class="btn" onclick="notify('已重新扫描游戏目录 · 无变化','info')">${I('refresh', 15)}<span class="en">RESCAN</span></button><button class="btn pri" onclick="openImport()">${I('upload', 15)}导入<span class="en">IMPORT</span></button>`)
+    + `<div class="filters" id="filters"></div>
+    <div class="split"><section class="hud grid"><div class="th"><span>#</span><span>ARM</span><span>名称 NAME</span><span>VER</span><span>SLOT</span><span>FILES</span><span style="text-align:right">STATUS</span></div><div class="tbody" id="tbody"><div class="reticle" id="ret"><i></i><i></i><i></i><i></i></div><div id="trs"></div></div></section>
+      <aside class="hud tgt" id="tgt"></aside></div><div id="queue"></div>`;
+}
+function renderFilters() {
+  const n = { all:S.mods.length, on:enabledCount(), off:S.mods.length - enabledCount(), issue:S.mods.filter(m => m.issue).length };
+  const b = (k, l) => `<button class="${S.filter === k ? 'on' : ''} ${k === 'issue' ? 'a' : ''}" onclick="S.filter='${k}';renderGrid()">${l} ${pad(n[k])}</button>`;
+  $('#filters').innerHTML = b('all', 'ALL 全部') + b('on', 'ON 启用') + b('off', 'OFF 停用') + (n.issue ? b('issue', 'ALERT 警报') : '');
+}
+function flagsHtml(m) {
+  const f = [];
+  if (m.on !== m.saved) f.push(`<span class="flag q">QUEUED</span>`);
+  if (m.issue) f.push(`<span class="flag a">!! ALERT</span>`);
+  if (m.fresh) f.push(`<span class="flag n">NEW</span>`);
+  if (!f.length) f.push(m.on ? `<span class="flag ok">READY</span>` : `<span class="flag off">STANDBY</span>`);
+  return f.join('');
+}
+function trHtml(m, i) {
+  return `<div class="tr ${S.selected === m.id ? 'sel' : ''} ${m.on ? '' : 'off'}" data-id="${m.id}" tabindex="0" onclick="lockOn('${m.id}')" onkeydown="rowKey(event,'${m.id}')">
+    <span class="idx">${pad(i + 1)}</span>
+    <label class="hw" onclick="event.stopPropagation()"><input type="checkbox" ${m.on ? 'checked' : ''} ${S.saving ? 'disabled' : ''} aria-label="启用 ${esc(m.name)}" onchange="Core.setOn('${m.id}',this.checked)"></label>
+    <div class="nm"><b>${esc(m.name)}</b><small>${esc(m.path)}</small></div>
+    <span class="cell">${m.version || 'LOCAL'}</span>
+    <span><span class="slot ${m.kind}">${KIND[m.kind].slot.toUpperCase()}</span></span>
+    <span class="cell">${m.files}</span>
+    <span class="flags">${flagsHtml(m)}</span></div>`;
+}
+function renderGrid() {
+  const el = $('#trs'); if (!el) return;
+  renderFilters(); renderRail(); renderCmd();
+  const list = filtered();
+  if (!S.mods.length) el.innerHTML = `<div class="empty" style="min-height:360px">${I('upload', 34)}<b>INVENTORY EMPTY</b>把 DLL、文件夹或 ZIP 拖进窗口，或点击“导入”。<br>游戏 Mods 目录中已有的 Mod 会自动出现。</div>`;
+  else if (!list.length) el.innerHTML = `<div class="empty" style="min-height:260px"><b>NO MATCH</b><button class="link" onclick="S.query='';S.filter='all';$('#q').value='';renderGrid()">清除筛选</button></div>`;
+  else {
+    let i = 0; const libs = list.filter(m => m.kind !== 'mod'), mods = list.filter(m => m.kind === 'mod');
+    el.innerHTML = (libs.length ? `<div class="grp">// 依赖库与插件 LIBS &amp; PLUGINS</div>${libs.map(m => trHtml(m, i++)).join('')}` : '') + (mods.length ? `<div class="grp">// MOD</div>${mods.map(m => trHtml(m, i++)).join('')}` : '');
+  }
+  placeReticle(false);
+}
+function placeReticle(anim) {
+  const r = $('#ret'), row = S.selected && $(`.tr[data-id="${S.selected}"]`); if (!r) return;
+  if (!row) { r.classList.remove('lock'); return; }
+  r.style.top = row.offsetTop + 'px'; r.style.height = row.offsetHeight + 'px';
+  if (anim) { r.classList.remove('lock'); void r.offsetWidth; } r.classList.add('lock');
+}
+function lockOn(id) {
+  if (S.selected === id) return;
+  S.selected = id; $$('.tr').forEach(r => r.classList.toggle('sel', r.dataset.id === id));
+  placeReticle(true); renderTarget(true);
+}
+function rowKey(e, id) {
+  const rows = $$('.tr'), i = rows.findIndex(r => r.dataset.id === id);
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const n = rows[i + (e.key === 'ArrowDown' ? 1 : -1)]; if (n) { n.focus(); lockOn(n.dataset.id); } }
+  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); Core.toggle(id); }
+}
+function updateTr(id) {
+  const m = mod(id), r = $(`.tr[data-id="${id}"]`); if (!m || !r) return;
+  r.querySelector('input').checked = m.on; r.classList.toggle('off', !m.on); r.querySelector('.flags').innerHTML = flagsHtml(m);
+}
+function renderTarget(anim) {
+  const el = $('#tgt'); if (!el) return;
+  const m = mod(S.selected);
+  if (!m) { el.innerHTML = `<div class="tgt-h"><span class="tag">TARGET</span></div><div class="tgt-none">${I('target', 38)}NO TARGET LOCKED<span style="letter-spacing:0;font-family:var(--font)">选择一行查看详情</span></div>`; return; }
+  const k = KIND[m.kind], pend = m.on !== m.saved, idx = S.mods.indexOf(m) + 1;
+  el.innerHTML = `<div class="tgt-h"><span class="tag">TARGET LOCKED // MOD-${pad(idx)}</span><button class="btn sm ghost" onclick="S.selected=null;$$('.tr').forEach(r=>r.classList.remove('sel'));placeReticle();renderTarget()" aria-label="解除锁定">${I('x', 14)}</button></div>
+    <div class="tgt-b"><div class="tgt-name" id="tgtName">${esc(m.name)}</div><div class="tgt-sub">${m.version ? 'v' + m.version : 'LOCAL BUILD'} · ${k.label} · ${k.slot}</div>
+      <div class="arm"><div class="grow"><b>${m.on ? '已启用' : '已停用'}</b>${pend ? `<small class="q">QUEUED · 执行后写入游戏</small>` : `<small>${m.on ? 'READY · 启动时加载' : 'STANDBY · 文件不在游戏目录'}</small>`}</div><label class="hw big"><input type="checkbox" ${m.on ? 'checked' : ''} ${S.saving ? 'disabled' : ''} onchange="Core.setOn('${m.id}',this.checked)"></label></div>
+      ${m.issue ? `<div class="brief crit"><div class="t">${I('alert', 13)}!! ALERT · ${m.issue.title}</div>${m.issue.text}<div class="acts"><button class="link" onclick="go('logs');setTimeout(()=>hitLine(${m.issue.line}),520)">查看日志 ›</button><button class="link" onclick="go('logs');setTimeout(()=>Core.ask('为什么 ${esc(m.name)} 没有加载？'),520)">呼叫 NAVI ›</button></div></div>` : ''}
+      <dl class="read"><dt>PATH</dt><dd>${esc(m.path)}</dd><dt>SIZE</dt><dd>${m.files} FILES · ${m.size}</dd><dt>SOURCE</dt><dd>${m.source === 'game' ? '游戏目录已有' : '本地导入 · ' + (m.imported || '刚刚')}</dd></dl>
+      ${m.config ? `<button class="btn sm cy" style="width:100%;margin-bottom:14px" onclick="openConfig()">${I('sliders', 14)}编辑配置 <span class="en">PSWALLPAPER.CFG</span></button>` : ''}
+      <span class="tag" style="display:block;margin-bottom:6px">MANIFEST · ${m.files}</span>
+      <div class="files">${m.tree.map(([p, s]) => `<div><span>${esc(p)}</span><span class="sz">${s}</span></div>`).join('')}</div></div>
+    <div class="tgt-f"><span>${m.source === 'game' ? 'NOT IN LIBRARY · 卸载后需重新导入' : 'LIBRARY COPY KEPT'}</span><button class="btn sm pk hold" id="holdBtn" ${dirty() || S.saving || S.running ? 'disabled' : ''} title="按住 1.2 秒卸载">${I('trash', 13)}长按卸载</button></div>`;
+  if (anim) decode($('#tgtName'), m.name);
+  const hb = $('#holdBtn');
+  if (hb) {
+    const stop = () => { clearTimeout(C.holdT); hb.classList.remove('holding'); };
+    hb.addEventListener('pointerdown', () => { hb.classList.add('holding'); C.holdT = setTimeout(() => { stop(); Core.uninstall(m.id); }, 1200); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => hb.addEventListener(ev, () => { if (hb.classList.contains('holding')) { stop(); notify('长按 1.2 秒才会卸载', 'info'); } }));
+  }
+}
+function renderQueue() {
+  const el = $('#queue'); if (!el) return;
+  const enter = el.firstElementChild ? '' : 'enter';
+  if (S.saving) {
+    const sv = S.saving, p = sv.done / sv.total, blocks = '▰'.repeat(Math.round(p * 16)) + '▱'.repeat(16 - Math.round(p * 16));
+    el.innerHTML = `<div class="queue exec ${enter}"><div class="q-h">${I('terminal', 14)}EXECUTING<span class="grow"></span><span class="blocks">${blocks}</span><span>${Math.round(p * 100)}%</span></div>
+      <div class="q-b" id="qb">${sv.ops.slice(0, sv.done).map(o => `<div><span class="ok">[ OK ]</span> ${o.verb} ${esc(o.path)}</div>`).join('')}<div class="cur dim">${sv.done < sv.total ? `${sv.ops[sv.done].verb} ${esc(sv.ops[sv.done].path)}` : ''}</div></div>
+      <div class="q-f"><span class="grow">${sv.done} / ${sv.total} OPS${sv.launch ? ' · 完成后出击' : ''}</span><button class="btn sm" onclick="Core.cancelSave()">中止 ABORT</button></div></div>`;
+    const qb = $('#qb'); qb.scrollTop = qb.scrollHeight; return;
+  }
+  const ch = changes();
+  if (!ch.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="queue ${enter}"><div class="q-h">${I('terminal', 14)}MISSION QUEUE · ${pad(ch.length)} 待执行<span class="grow"></span>${S.running ? '<span style="color:#ff5ca4">游戏运行中 · 退出后才能执行</span>' : ''}</div>
+    <div class="q-b">${ch.map(m => `<div><span class="dim">&gt;</span> <span class="${m.on ? 'on' : 'off'}">${m.on ? 'ENABLE ' : 'DISABLE'}</span>  ${esc(m.name)}</div>`).join('')}</div>
+    <div class="q-f"><span class="grow">执行后才会改动游戏文件</span><button class="btn sm ghost" onclick="Core.undoAll()">${I('undo', 13)}撤销 UNDO</button><button class="btn sm" ${S.running ? 'disabled' : ''} onclick="Core.save()">执行 EXECUTE <span class="en">CTRL+S</span></button><button class="btn sm pri" ${S.running ? 'disabled' : ''} onclick="Core.save(true)">${I('play', 12)}执行并出击</button></div></div>`;
+}
+
+/* ---------- logs + NAVI ---------- */
+function logsHtml() {
+  return vhead('LOG ANALYSIS', '日志', `<div class="srcs" id="srcs"></div>`) + `<div class="logs"><section class="hud stream" id="stream"></section><section class="hud navi" id="navi"></section></div>`;
+}
+function renderStream() {
+  const el = $('#stream'); if (!el) return;
+  $('#srcs').innerHTML = `<button class="${S.log.src === 'ml' ? 'on' : ''}" onclick="S.log.src='ml';renderStream()">GAME / LATEST.LOG</button><button class="${S.log.src === 'mgr' ? 'on' : ''}" onclick="S.log.src='mgr';renderStream()">MANAGER.LOG</button>`;
+  const lines = S.log.src === 'ml' ? LOG : MGR_LOG, q = S.log.q.trim();
+  const rows = lines.map((t, i) => ({ t, n:i + 1, c:lineKind(t) })).filter(r => (!S.log.errorsOnly || r.c) && (!q || r.t.toLowerCase().includes(q.toLowerCase())));
+  const hi = t => { let h = esc(t); if (q) h = h.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), x => `<mark>${x}</mark>`); return h; };
+  const f = document.activeElement?.id === 'lq';
+  el.innerHTML = `<div class="p-h"><span class="tag">DATA STREAM</span><span class="grow"></span><button class="btn sm ghost" onclick="notify('已重新读取日志','info')">${I('refresh', 13)}</button></div>
+    <div class="l-tools"><label class="prompt">&gt;<input id="lq" placeholder="grep" value="${esc(S.log.q)}" oninput="S.log.q=this.value;renderStream()"></label><label class="chk"><input type="checkbox" ${S.log.errorsOnly ? 'checked' : ''} onchange="S.log.errorsOnly=this.checked;renderStream()">只看警报 ALERTS</label></div>
+    ${S.log.src === 'ml' ? `<div class="brief crit scanres"><span class="t" style="margin:0">LOCAL SCAN</span><span class="grow">Workshop Decorations 缺少依赖 SharedAssets 2.0.0</span><button class="link" onclick="hitLine(4)">L04 ›</button></div>` : ''}
+    <div class="data" id="data">${rows.map(r => `<div class="dl ${r.c}" id="dl-${r.n}"><i>${pad(r.n)}</i><span>${hi(r.t)}</span>${r.c && S.log.src === 'ml' ? `<button class="ask" onclick="askLine(${r.n})">ASK NAVI</button>` : ''}</div>`).join('') || '<div class="empty"><b>NO MATCH</b></div>'}</div>
+    <div class="l-f">${lines.length} LINES · RUN 12:03 · 个人信息已隐去</div>`;
+  if (f) { const i = $('#lq'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+}
+function hitLine(n) {
+  if (S.log.src !== 'ml' || S.log.errorsOnly || S.log.q) { S.log.src = 'ml'; S.log.errorsOnly = false; S.log.q = ''; renderStream(); }
+  const el = $('#dl-' + n); if (!el) return; el.scrollIntoView({ block:'center' }); el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit');
+}
+function askLine(n) { if (!S.ai.configured) return notify('NAVI 未连接 · 请在系统页配置 AI 服务', 'warn'); Core.ask(`解释第 ${n} 行：${LOG[n - 1].replace(/^\[[^\]]+\]\s*/, '')}`, `Latest.log L${pad(n)}`); }
+function naviReply(last) {
+  const w = mod('workshop'), R = AI_REPLY, d = i => last ? `style="animation-delay:${i * .12}s"` : 'style="animation:none"';
+  return `<div class="n-ai"><div class="who">NAVI &gt;</div><h4 class="rv" ${d(0)}>${R.title}</h4><p class="rv" ${d(1)}>${R.lead}</p>
+    <button class="cite rv" ${d(2)} onclick="hitLine(${R.cite})">${I('link', 11)}LATEST.LOG · L${pad(R.cite)}</button>
+    <p class="rv" ${d(3)}>${R.after}</p><ol class="rv" ${d(4)}>${R.steps.map(s => `<li>${s}</li>`).join('')}</ol>
+    <span class="tag rv" ${d(5)} style="display:block;margin-top:10px">TACTICAL OPTIONS</span>
+    ${w ? `<div class="opt rv" ${d(6)}><span class="key">A</span><div class="grow"><b>停用 Workshop Decorations</b><small>先让游戏正常启动</small></div>${!w.on ? `<span class="done">DONE${w.on !== w.saved ? ' · QUEUED' : ''}</span>` : `<button class="btn sm" onclick="optA()">执行</button>`}</div>` : ''}
+    <div class="opt rv" ${d(7)}><span class="key">B</span><div class="grow"><b>查看 SharedAssets · v1.8.0</b><small>当前安装的依赖库</small></div><button class="btn sm" onclick="optB()">查看</button></div></div>`;
+}
+function optA() { if (Core.setOn('workshop', false)) notify('已加入任务队列：DISABLE Workshop Decorations', 'warn'); renderNavi(); }
+function optB() { S.selected = 'sharedassets'; go('mods'); }
+function renderNavi() {
+  const el = $('#navi'); if (!el) return; const A = S.ai;
+  const head = `<div class="p-h navi-h"><div class="avatar ${A.configured ? '' : 'off'}"><span class="orbit"></span><span class="hx"></span><span class="hx2"><span class="eye"></span></span></div><div><b>NAVI · 排错副官</b><small class="${A.configured ? '' : 'off'}">${A.configured ? 'ONLINE · local-diagnostic-model' : 'OFFLINE'}</small></div><span class="grow"></span>${A.msgs.length ? `<button class="btn sm ghost" onclick="S.ai.msgs=[];renderNavi()">RESET</button>` : ''}</div>`;
+  let body;
+  if (!A.configured) body = `<div class="offline"><b>NAVI 未连接</b>日志查看和本地扫描不受影响。<div style="margin-top:14px"><button class="btn pri" onclick="go('settings')">配置 AI 服务</button></div></div>
+    <div class="brief crit" style="margin:0 16px"><div class="t">LOCAL SCAN · 不联网</div>Workshop Decorations 没能加载：第 4 行找不到 SharedAssets 2.0.0，当前安装 1.8.0。<div class="acts"><button class="link" onclick="hitLine(4)">L04 ›</button><button class="link" onclick="optB()">查看依赖 ›</button></div></div>`;
+  else if (!A.msgs.length) body = `<div style="color:var(--text-2);font-size:13.5px">NAVI 会引用日志原文说明原因，并给出可以直接执行的战术选项。</div>
+    <div class="cmds"><button onclick="Core.ask('分析这次运行的日志')"><span>/analyze</span>分析这次运行的日志</button><button onclick="Core.ask('为什么 Workshop Decorations 没有加载？')"><span>/why</span>为什么 Workshop Decorations 没有加载？</button><button onclick="Core.ask('游戏一启动就崩溃，可能是哪个 Mod？')"><span>/crash</span>游戏一启动就崩溃，可能是哪个 Mod？</button></div>`;
+  else body = A.msgs.map((m, i) => m.role === 'user' ? `<div class="n-you"><span class="who">YOU &gt;</span><div>${esc(m.text)}${m.att ? `<small>+ ${esc(m.att)}</small>` : ''}</div></div>` : naviReply(i === A.msgs.length - 1 && C.fresh)).join('') + (A.busy ? `<div class="typing">NAVI 正在解析 LATEST.LOG</div>` : '');
+  C.fresh = false;
+  el.innerHTML = head + `<div class="n-body" id="nbody">${body}</div>` + (A.configured ? `<div class="n-in"><div class="atts">${A.atts.map((a, i) => `<span class="chip">+ ${esc(a)}<button onclick="S.ai.atts.splice(${i},1);renderNavi()" aria-label="移除">${I('x', 11)}</button></span>`).join('')}<button class="chip add" onclick="if(!S.ai.atts.includes('管理器日志'))S.ai.atts.push('管理器日志');renderNavi()">+ 附加日志</button></div>
+    <div class="term"><textarea id="aiIn" placeholder="向 NAVI 描述问题…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAi()}"></textarea><button class="btn sm pri" ${A.busy ? 'disabled' : ''} onclick="sendAi()">${I('send', 13)}</button></div>
+    <div class="hint"><span>${A.atts.length ? `TX：问题 + ${A.atts.join('、')}（末尾 8 KB）` : 'TX：仅问题文本'}</span><span>ENTER 发送 · SHIFT+ENTER 换行</span></div></div>` : '');
+  const b = $('#nbody'); b.scrollTop = b.scrollHeight;
+}
+function sendAi() { const t = $('#aiIn')?.value.trim(); if (t) Core.ask(t); }
+
+/* ---------- loadout / sys / no target ---------- */
+function loadoutHtml() {
+  const onIds = S.mods.filter(m => m.saved).map(m => m.id);
+  return vhead('LOADOUT', '方案', `<button class="btn" onclick="notify('已把当前配置存为 SLOT-04')">${I('plus', 14)}保存当前配置</button>`)
+    + `<div style="color:var(--text-3);font-size:13px;margin:-6px 0 14px">把一组启用选择存进槽位，按玩法切换。装备后同样需要执行才会写入游戏。</div>
+    <div class="slots">${S.profiles.map((p, i) => { const ids = p.ids || onIds, names = ids.map(x => mod(x)?.name).filter(Boolean);
+      return `<div class="hud slotrow ${p.cur ? 'eq' : ''}"><span class="sid">SLOT-${pad(i + 1)}</span><div><b>${esc(p.name)}</b> <span class="cell" style="margin-left:8px">${pad(names.length)} MODS</span><div class="mini">${names.map(n => `<span>${esc(n)}</span>`).join('')}</div></div>
+        ${p.cur ? `<span class="st ok">EQUIPPED</span>` : `<button class="btn" onclick="Core.applyProfile('${p.id}')">装备 EQUIP</button>`}</div>`; }).join('')}</div>`;
+}
+function sysHtml() {
+  const A = S.ai;
+  return vhead('SYSTEM CONFIG', '系统') + `<div class="sys">
+    <div class="hud"><span class="tag">// AI LINK · 可选</span><div style="font-size:12.5px;color:var(--text-3);margin-top:6px">OpenAI 兼容接口。未配置或离线时，Mod 管理照常可用。</div>
+      <div class="fld"><label>ENABLE</label><label class="hw"><input type="checkbox" ${A.configured ? 'checked' : ''} onchange="S.ai.configured=this.checked"></label></div>
+      <div class="fld"><label>ENDPOINT</label><input class="tin" value="${A.configured ? 'http://127.0.0.1:8000/v1' : ''}" placeholder="https://api.example.com/v1"></div>
+      <div class="fld"><label>MODEL</label><input class="tin" value="${A.configured ? 'local-diagnostic-model' : ''}"></div>
+      <div class="fld"><label>API KEY</label><input class="tin" type="password" value="${A.configured ? 'sk-xxxxxxxx' : ''}" placeholder="存于 Windows 凭据管理器"></div>
+      <div class="fld"><label></label><div style="display:flex;gap:10px;align-items:center"><button class="btn sm cy" onclick="this.nextElementSibling.style.display='inline'">链路测试 PING</button><span style="display:none;font:12px var(--mono);color:var(--cyan)">[ OK ] 420 ms</span></div></div></div>
+    <div class="hud"><span class="tag">// DATA</span><div style="font-size:12.5px;color:var(--text-3);margin-top:6px">数据与程序目录分开；删除程序不会删除数据，也不会卸载游戏 Mod。</div>
+      <dl class="read" style="margin-top:14px"><dt>ROOT</dt><dd>%LOCALAPPDATA%\\PSModManager</dd><dt>LIBRARY</dt><dd>3 PKGS · 19 MB</dd><dt>LOG</dt><dd>logs\\app.log</dd></dl><button class="btn sm">${I('folder', 13)}打开数据目录</button></div>
+    <div class="hud wide"><span class="tag">// ABOUT</span><div style="margin-top:8px;font:12.5px var(--mono);color:var(--text-2)">PSModManager v0.1.0 · WINDOWS X64 PORTABLE · BASED ON RIMCROW (MIT)</div></div></div>`;
+}
+function noTargetHtml() {
+  return `<div class="hud notarget"><span class="tag">// TARGET ACQUISITION</span><div class="big">NO TARGET</div>
+    <div class="ln">&gt; 尚未选择游戏安装。</div><div class="ln">&gt; 管理器只改动 Mods / Plugins / UserLibs，不会碰存档。</div>
+    ${S.finding ? `<div class="ln" style="color:var(--cyan)">&gt; 正在扫描 Steam 游戏库<span class="typing" style="margin-left:6px"></span></div>` : `<div class="ln dim" style="color:var(--text-3)">&gt; 等待指令_</div><div class="acts"><button class="btn pri" onclick="Core.findGame()">${I('search', 15)}自动查找 <span class="en">AUTO-SCAN</span></button><button class="btn" onclick="Core.findGame()">手动指定 <span class="en">MANUAL</span></button></div>`}</div>`;
+}
+
+/* ---------- modals ---------- */
+function openModal(html, w) {
+  $('#modalHost').innerHTML = `<div class="veil" onmousedown="if(event.target===this)closeModal()"><div class="hud modal" role="dialog" aria-modal="true" ${w ? `style="width:${w}px"` : ''}>${html}</div></div>`;
+  setTimeout(() => ($('.modal [autofocus]') || $('.modal button'))?.focus(), 30);
+}
+function closeModal() { if (!$('#modalHost').innerHTML) return false; $('#modalHost').innerHTML = ''; return true; }
+const mh = (tag, t, p) => `<div class="m-h"><div><span class="tag">${tag}</span><h2>${t}</h2>${p ? `<p>${p}</p>` : ''}</div><button class="btn sm ghost" onclick="closeModal()" aria-label="关闭">${I('x', 15)}</button></div>`;
+function openImport() {
+  openModal(`${mh('// UPLOAD BAY', '导入 Mod', '保存一份副本到管理器包库；不移动原文件，不执行任何程序。')}
+    <div class="m-b"><div class="bays"><button class="bay" onclick="importScan('NightVision.dll')"><span class="hexi">${I('file', 22)}</span><b>DLL</b><small>单个程序集</small></button><button class="bay" onclick="importScan('NightVision')"><span class="hexi">${I('folder', 22)}</span><b>DIR</b><small>带资源的文件夹</small></button><button class="bay" onclick="importScan('NightVision-1.0.3.zip')"><span class="hexi">${I('zip', 22)}</span><b>ZIP</b><small>压缩包</small></button></div>
+    <p class="fine">也可以直接拖进窗口。单个文件/ZIP ≤ 64 MiB，展开后 ≤ 256 MiB；不支持 RAR / 7z、加密、分卷或嵌套压缩包。</p></div>`);
+}
+function importScan(file) {
+  const base = String(file).replace(/\.(dll|zip)$/i, '').replace(/[-_ ]?\d+(\.\d+)+$/, '');
+  const files = [[`${base}.dll`, 'Mods/', '380 KB'], [`${base}.cfg`, 'UserData/', '2 KB'], ['README.md', '不安装', '30 KB']];
+  if (!$('.modal')) openImport();
+  $('.modal').innerHTML = `${mh('// UPLOAD BAY · SCANNING', esc(file), '只读取文件信息，不执行 DLL。')}
+    <div class="m-b"><div class="scanlist">${files.map((f, i) => `<div class="sl" id="sl${i}"><span>${esc(f[0])}</span><em>→ ${f[1]}</em><b class="wait">WAIT</b></div>`).join('')}</div><div id="impForm"></div></div><div class="m-f" id="impFoot"><span class="grow">SCANNING…</span></div>`;
+  files.forEach((_, i) => {
+    setTimeout(() => { const r = $('#sl' + i); if (!r) return; r.classList.add('scanning'); r.querySelector('b').className = 'scan'; r.querySelector('b').textContent = 'SCAN'; }, 150 + i * 380);
+    setTimeout(() => { const r = $('#sl' + i); if (!r) return; r.classList.remove('scanning'); r.querySelector('b').className = 'ok'; r.querySelector('b').textContent = i === 2 ? 'SKIP' : 'OK'; }, 480 + i * 380);
+  });
+  setTimeout(() => {
+    if (!$('#impForm')) return;
+    const name = base.replace(/([a-z])([A-Z])/g, '$1 $2') || 'New Mod';
+    $('#impForm').innerHTML = `<div class="fld"><label>DESIGNATION</label><input class="tin" id="impName" value="${esc(name)}"></div><div class="fld"><label>VERSION</label><span class="cell">1.0.3 · 读取自 DLL</span></div><div class="fld"><label>ARM</label><label class="chk"><input type="checkbox" id="impOn" checked>导入后启用（执行后生效）</label></div>`;
+    $('#impFoot').innerHTML = `<span class="grow">${I('shield', 12)} 3 FILES · 412 KB · 不执行 DLL / 安装脚本</span><button class="btn ghost" onclick="openImport()">返回</button><button class="btn pri" onclick="Core.importMod($('#impName').value.trim()||'New Mod',$('#impOn').checked)">确认入库 CONFIRM</button>`;
+    $('#impName').focus();
+  }, 1400);
+}
+function openTargets() {
+  if (!S.gameSet) return go('onboard');
+  openModal(`${mh('// TARGET SELECT', '游戏安装', '管理器只改动所选安装的 Mod 目录。')}
+    <div class="m-b tlist"><div class="opt" style="border-color:var(--cyan)"><span class="key">${I('check', 13)}</span><div class="grow"><b>Probably Stolen · Steam</b><small>D:\\SteamLibrary\\steamapps\\common\\Probably Stolen</small></div><span class="st ok">ACTIVE</span></div>
+      <div class="opt"><span class="key">2</span><div class="grow"><b>Probably Stolen · 测试版</b><small>C:\\Program Files (x86)\\Steam\\steamapps\\common\\Probably Stolen Beta</small></div><button class="btn sm" onclick="closeModal();notify('目标已切换：测试版安装')">切换</button></div></div>
+    <div class="m-f"><button class="btn ghost">${I('refresh', 13)}重新扫描</button><span class="grow"></span><button class="btn">手动指定目录…</button></div>`);
+}
+function openLoader(install) {
+  const ready = S.loader === 'ready', inst = S.loader === 'installing';
+  const row = (ok, t, d) => `<div><span class="dia ${ok ? 'ok' : 'bad'}"></span>${t}<small>${d}</small></div>`;
+  openModal(`${mh('// LINK DIAGNOSTICS', 'MelonLoader 与运行环境')}
+    <div class="m-b"><div class="chks">${row(ready, 'MelonLoader 0.7.3', ready ? '[ OK ] 文件完整' : inst ? Core.loaderStep() : '[ MISSING ]')}${row(true, '.NET 6 桌面运行时', '[ OK ] 6.0.36')}${row(true, 'Visual C++ 2015–2022 x64', '[ OK ] 14.40')}</div>
+      <div id="ldp" style="margin-top:12px">${inst ? ldBlocks() : ''}</div>
+      <p class="fine">部署/重装保留 Mods、UserData 和配置；不会安装系统运行库，也不会启动游戏。</p></div>
+    <div class="m-f"><button class="btn ghost" onclick="notify('链路诊断完成 · 无变化','info')">${I('refresh', 13)}重新检测</button><span class="grow"></span><button class="btn" ${inst ? 'disabled' : ''}>本地 ZIP…</button>${ready ? `<button class="btn" onclick="Core.installLoader()">重新部署</button>` : `<button class="btn pri" ${inst ? 'disabled' : ''} onclick="Core.installLoader()">部署官方 0.7.3</button>`}</div>`);
+  if (install) Core.installLoader();
+}
+function ldBlocks() { const n = Math.round(S.loaderPct / 100 * 24); return `<div style="display:flex;justify-content:space-between;font:12px var(--mono);color:var(--text-2)"><span>&gt; ${Core.loaderStep()}</span><span>${S.loaderPct}%</span></div><div class="blocks">${'▰'.repeat(n)}${'▱'.repeat(24 - n)}</div>`; }
+function openConfig() {
+  openModal(`${mh('// PSWALLPAPER.CFG', 'PSWallpaper 设置', 'UserData/PSWallpaper.cfg · 只修改下面的项目，其余内容和注释保留')}
+    <div class="m-b"><div class="fld"><label>MODE</label><select class="tin"><option>随机切换</option><option>固定一张</option><option>按地图</option></select></div>
+      <div class="fld"><label>INTERVAL</label><input class="tin" type="number" value="120"></div><div class="fld"><label>FADE</label><label class="hw"><input type="checkbox" checked></label></div>
+      <div class="fld"><label>BACKUP</label><label class="chk"><input type="checkbox" checked>保存前备份原文件</label></div></div>
+    <div class="m-f"><span class="grow"></span><button class="btn ghost" onclick="closeModal()">取消</button><button class="btn pri" onclick="closeModal();notify('配置已写入 · 原文件已备份')">写入 WRITE</button></div>`, 520);
+}
+
+/* ---------- boot sequence (skippable) ---------- */
+function bootSeq() {
+  const b = $('#boot'); if (reduceMotion) return;
+  const L = [['PSMM COCKPIT v0.1.0', 'dim'], [`&gt; 链接游戏目录 ........... ${S.gameSet ? '<span class="ok">OK</span>' : '<span class="bad">NO TARGET</span>'}`], [`&gt; MelonLoader ............. ${S.loader === 'ready' ? '<span class="ok">ONLINE</span>' : '<span class="bad">OFFLINE</span>'}`],
+    [`&gt; 读取 Mod 清单 ........... <span class="ok">${pad(S.mods.length)}</span>`], [`&gt; 本地诊断规则 ........... ${issueCount() ? `<span class="bad">${pad(issueCount())} ALERT</span>` : '<span class="ok">CLEAR</span>'}`], ['SYSTEM READY', 'ok']];
+  $('#bootBox').innerHTML = `<div class="t">PSMM // BOOT</div>` + L.map((l, i) => `<div class="bl" style="animation-delay:${.08 + i * .11}s"><span class="${l[1] || ''}">${l[0]}</span></div>`).join('');
+  b.classList.remove('gone');
+  const done = () => { b.classList.add('gone'); removeEventListener('keydown', done); b.onclick = null; };
+  b.onclick = done; addEventListener('keydown', done, { once:true });
+  setTimeout(done, 1150);
+}
+
+/* ---------- hooks ---------- */
+defineUI({
+  render() { $('#demoSel').innerHTML = demoOptions(); renderCmd(); renderRail(); renderView(false); },
+  boot(p) { closeModal(); this.render(); if (!C.booted) { C.booted = true; if (!p.noboot) bootSeq(); } notify(S.gameSet ? 'SYSTEM READY · 目标 PROBABLY STOLEN' : '等待目标：请选择游戏安装', 'info'); },
+  onToggle(id) {
+    updateTr(id); renderFilters(); renderRail(); renderCmd(); renderQueue();
+    if (S.selected === id) renderTarget(false); else renderTarget(false);
+    if (S.filter === 'on' || S.filter === 'off') setTimeout(renderGrid, 260);
+    if (S.page === 'logs') renderNavi();
+  },
+  onBulk(kind, p) { if (kind === 'profile') { go('mods'); notify(`已装备 ${p.name} · 检查任务队列后执行`, 'warn'); } else { renderGrid(); renderTarget(false); renderQueue(); } },
+  onSave(phase, n) {
+    renderQueue(); renderRail(); renderCmd();
+    if (phase !== 'tick') { $$('.tr').forEach(r => updateTr(r.dataset.id)); $$('.tr input').forEach(i => i.disabled = !!S.saving); renderTarget(false); }
+    if (phase === 'done') notify(`[DONE] 执行完成 · ${n} OPS · 0 ERRORS`);
+    if (phase === 'cancel') notify('已中止 · 已完成的部分已回滚', 'warn');
+  },
+  onRun(on) { renderRail(); renderTarget(false); renderQueue(); notify(on ? '出击 · Probably Stolen 已启动' : '任务结束 · 游戏已退出', on ? 'ok' : 'info'); },
+  onImported(id, on) {
+    closeModal();
+    const land = () => { renderGrid(); renderTarget(true); renderQueue(); const r = $(`.tr[data-id="${id}"]`); if (r) { r.scrollIntoView({ block:'center' }); r.classList.add('arrive'); placeReticle(true); } };
+    if (S.page !== 'mods') { go('mods'); setTimeout(land, 300); } else land();
+    notify(`入库完成：${mod(id).name}${on ? ' · 已加入任务队列' : ''}`);
+  },
+  onUninstalled(m) { renderGrid(); renderTarget(false); notify(`已卸载 ${m.name}`, 'warn'); },
+  onLoader(phase) { renderRail(); const p = $('#ldp'); if (p) p.innerHTML = S.loader === 'installing' ? ldBlocks() : ''; if (phase === 'done') { closeModal(); notify('MelonLoader 0.7.3 部署完成 · LINK ONLINE'); } },
+  onGame(phase) { if (phase === 'finding') renderView(false); else { renderRail(); go('mods'); notify('已锁定目标：PROBABLY STOLEN / STEAM'); } },
+  onAi(phase) { if (phase === 'reply') C.fresh = true; renderNavi(); renderCmd(); },
+  notify,
+  escape() { if (closeModal()) return true; if (S.selected && S.page === 'mods') { S.selected = null; $$('.tr').forEach(r => r.classList.remove('sel')); placeReticle(); renderTarget(); return true; } return false; },
+  focusSearch() { (S.page === 'logs' ? $('#lq') : $('#q'))?.focus(); },
+  hotkey(e) {
+    if ($('#modalHost').innerHTML) return;
+    const n = '1234'.indexOf(e.key); if (n >= 0 && S.gameSet) { go(TABS[n][0]); return; }
+    if (S.page === 'logs' && S.ai.msgs.some(m => m.role === 'ai')) { if (e.key.toLowerCase() === 'a') optA(); if (e.key.toLowerCase() === 'b') optB(); }
+  },
+  onDrag(on) { $('#cockpit').classList.toggle('dragging', on); },
+  onDrop(name) { if (S.page !== 'mods') go('mods'); setTimeout(() => importScan(name), 120); },
+});
+bootPrototype();
+const _hp = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+if (_hp.ask) C.fresh = false;
+if (_hp.dialog === 'import') openImport(); else if (_hp.dialog === 'preview') importScan('NightVision-1.0.3.zip'); else if (_hp.dialog === 'env') openLoader(); else if (_hp.dialog === 'uninstall') {}
+</script>
+</body>
+</html>

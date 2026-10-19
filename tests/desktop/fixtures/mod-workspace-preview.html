@@ -1,0 +1,11 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Owned Mod workspace interaction fixture</title></head><body><div id="app"></div><script type="module">
+import { createApp, h } from 'vue'
+import ModWorkspace from './src/features/catalog/ModWorkspace.vue'
+import './src/app/desktop.css'
+const names=['BrewingExpansion','MoreStorageColors','InventorySorter','DialogueSpeed','ExtraPerks','PSWallpaper','AutoBatterySwap','WaterTower','本地主题包']
+const items=names.map((name,i)=>({id:'mod-'+i,display_name:name,version_raw:i%2?'1.0.2':null,state:i<8?'enabled':'not_installed',file_count:i<2?7:1}))
+let enabled=items.slice(0,8).map(item=>item.id)
+window.fixtureCalls=[]
+const bridge={async request(command,payload){window.fixtureCalls.push({command,payload});if(command==='mod.workspace')return {items,enabled_ids:[...enabled],snapshot_id:'a'.repeat(64)};if(command==='mod.workspace.detail')return {files:[{relative_path:'Mods/'+items.find(item=>item.id===payload.id).display_name+'.dll',size:12000},{relative_path:'Mods/BrewingExpansion/textures/item.png',size:15000}],total:2,next_offset:null};if(command==='mod.workspace.save'){enabled=[...payload.enabled_ids];return {completed:true,workspace:{items,enabled_ids:enabled,snapshot_id:'b'.repeat(64)}}}if(command==='game.status')return {state:'not_started'};throw Error(command)}}
+createApp({render:()=>h('div',{class:'desktop-shell'},[h('header',{class:'topbar'},[h('h1','PSModManager'),h('span','合成交互验证')]),h(ModWorkspace,{bridge,installation:{installation_id:'owned-game'}})])}).mount('#app')
+</script></body></html>

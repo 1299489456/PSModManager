@@ -1,0 +1,969 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>PSModManager · 界面原型</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{
+  --bg:#F5F6F8; --side:#EEF0F3; --surface:#FFFFFF; --surface-2:#F8F9FB; --hover:#F2F4F7;
+  --line:#E3E6EB; --line-2:#D3D8DF;
+  --text:#1C2230; --text-2:#4B5465; --text-3:#7C8595;
+  --accent:#2457D6; --accent-hover:#1C49B8; --accent-soft:#EBF0FD; --accent-line:#C7D5F6;
+  --ok:#17803D; --ok-soft:#E6F5EC; --ok-line:#BFE3CC;
+  --warn:#A75A06; --warn-soft:#FFF5E5; --warn-line:#F2D49E;
+  --err:#C42F2A; --err-soft:#FDEDEC; --err-line:#F3C5C2;
+  --violet:#6D4FC9; --violet-soft:#F1EDFC; --teal:#0E7C79; --teal-soft:#E5F5F4;
+  --r:10px; --shadow:0 1px 2px rgba(22,32,52,.05),0 6px 20px rgba(22,32,52,.06);
+  --shadow-lg:0 12px 40px rgba(22,32,52,.16),0 2px 6px rgba(22,32,52,.06);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font:15px/1.5 "Segoe UI","Microsoft YaHei UI","Microsoft YaHei","PingFang SC",system-ui,sans-serif;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+code,.mono{font-family:"Cascadia Mono",Consolas,"Microsoft YaHei UI",monospace;font-size:.88em}
+.ic{flex:none;display:inline-block;vertical-align:-0.18em}
+.spin{animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+
+/* window chrome */
+.window{position:fixed;inset:0;display:flex;flex-direction:column;min-width:1040px}
+.titlebar{height:34px;flex:none;display:flex;align-items:center;gap:8px;padding-left:14px;background:#fff;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--text-2);user-select:none}
+.titlebar .logo-s{width:16px;height:16px;border-radius:4px;background:var(--accent);color:#fff;font-size:9px;font-weight:700;display:grid;place-items:center}
+.demo{margin-left:auto;display:flex;align-items:center;gap:6px;background:#FFF7E6;border:1px solid #F1D8A6;color:#865700;border-radius:6px;padding:1px 4px 1px 8px;font-size:12px}
+.demo select{border:0;background:transparent;font-size:12px;color:inherit;cursor:pointer;outline:none}
+.wc{display:flex}.wc span{width:46px;height:34px;display:grid;place-items:center;color:var(--text-3)}
+.app{flex:1;display:flex;min-height:0}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--line-2);background:#fff;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s,color .12s}
+.btn:hover{background:var(--hover);border-color:#C3C9D2}
+.btn:focus-visible,.nav-item:focus-visible,.row:focus-visible,.game-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--text-2)}
+.btn.ghost:hover{background:rgba(22,32,52,.05);color:var(--text)}
+.btn.danger{color:var(--err);border-color:var(--err-line)}
+.btn.danger:hover{background:var(--err-soft)}
+.btn.danger-fill{background:var(--err);border-color:var(--err);color:#fff}
+.btn.sm{height:30px;padding:0 10px;font-size:13px;border-radius:7px;gap:5px}
+.btn.lg{height:42px;padding:0 18px;font-size:15px}
+.btn:disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
+.link{background:none;border:0;padding:0;color:var(--accent);cursor:pointer;font-size:inherit;font-weight:500;display:inline-flex;align-items:center;gap:3px}
+.link:hover{text-decoration:underline}
+kbd{font:11px/1 "Segoe UI",sans-serif;color:var(--text-3);border:1px solid var(--line-2);border-bottom-width:2px;border-radius:4px;padding:2px 5px;background:#fff}
+
+/* switch */
+.switch{position:relative;display:inline-block;width:38px;height:22px;flex:none;cursor:pointer}
+.switch input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.switch span{position:absolute;inset:0;border-radius:11px;background:#C9CED6;transition:background .15s}
+.switch span::after{content:"";position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .15s}
+.switch input:checked+span{background:var(--accent)}
+.switch input:checked+span::after{transform:translateX(16px)}
+.switch input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.switch input:disabled+span{opacity:.45}
+
+/* pills */
+.pill{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:11px;font-size:12px;font-weight:500;white-space:nowrap;border:1px solid transparent}
+.pill.warn{background:var(--warn-soft);color:var(--warn);border-color:var(--warn-line)}
+.pill.err{background:var(--err-soft);color:var(--err);border-color:var(--err-line)}
+.pill.ok{background:var(--ok-soft);color:var(--ok);border-color:var(--ok-line)}
+.pill.accent{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-line)}
+.pill.muted{background:var(--surface-2);color:var(--text-3);border-color:var(--line)}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--text-3)}
+.dot.ok{background:#22A355}.dot.warn{background:#E39A1C}.dot.err{background:var(--err)}.dot.run{background:#22A355;box-shadow:0 0 0 3px rgba(34,163,85,.18)}
+
+/* sidebar */
+.sidebar{width:244px;flex:none;background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:16px 12px 14px;gap:16px}
+.brand{display:flex;align-items:center;gap:10px;padding:0 6px}
+.brand .logo{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#2D63E2,#5B8DF0);color:#fff;font-weight:700;font-size:13px;display:grid;place-items:center;letter-spacing:.5px}
+.brand b{display:block;font-size:15px;line-height:1.2}.brand small{color:var(--text-3);font-size:12px}
+.game-card{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px;border-radius:var(--r);background:#fff;border:1px solid var(--line);cursor:pointer;box-shadow:0 1px 2px rgba(22,32,52,.04)}
+.game-card:hover{border-color:var(--line-2)}
+.game-art{width:38px;height:38px;border-radius:8px;flex:none;background:linear-gradient(140deg,#FFE2B8,#FFC48A 55%,#F7A86A);display:grid;place-items:center;color:#7A3E06}
+.game-card .gt{flex:1;min-width:0}.game-card b{display:block;font-size:14px}
+.game-card small{display:block;color:var(--text-3);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.game-card.none .game-art{background:#E6E9EE;color:var(--text-3)}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav-label{font-size:12px;color:var(--text-3);padding:0 10px 4px;font-weight:500}
+.nav-item{display:flex;align-items:center;gap:10px;height:38px;padding:0 10px;border-radius:8px;border:0;background:transparent;color:var(--text-2);cursor:pointer;font-size:14.5px;font-weight:500;text-align:left}
+.nav-item:hover{background:rgba(22,32,52,.05);color:var(--text)}
+.nav-item.active{background:#fff;color:var(--accent);box-shadow:0 1px 2px rgba(22,32,52,.06)}
+.nav-item:disabled{opacity:.4;cursor:not-allowed}
+.nav-item .grow{flex:1}
+.badge{min-width:20px;height:20px;padding:0 6px;border-radius:10px;font-size:11.5px;font-weight:600;display:grid;place-items:center;background:rgba(22,32,52,.07);color:var(--text-3)}
+.badge.warn{background:#FCE7C2;color:#8A4B00}.badge.err{background:#FBD9D7;color:var(--err)}
+.side-bottom{margin-top:auto;display:flex;flex-direction:column;gap:10px}
+.env-row{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 10px;border-radius:8px;border:1px solid transparent;background:transparent;cursor:pointer}
+.env-row:hover{background:rgba(22,32,52,.05)}
+.env-row b{display:block;font-size:13px;font-weight:600}.env-row small{display:block;font-size:12px;color:var(--text-3)}
+.env-row.warn{background:var(--warn-soft);border-color:var(--warn-line)}.env-row.warn small{color:var(--warn)}
+.launch-card{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:8px}
+.launch-card .btn{width:100%}
+.launch-state{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2)}
+.launch-state .link{margin-left:auto;font-size:12.5px}
+
+/* main */
+.main{flex:1;min-width:0;display:flex;flex-direction:column;position:relative;background:var(--bg)}
+.page{flex:1;min-height:0;display:flex;flex-direction:column;padding:22px 26px 0}
+.page-head{display:flex;align-items:flex-end;gap:16px;margin-bottom:16px}
+.page-head h1{margin:0;font-size:22px;font-weight:650;letter-spacing:.2px}
+.page-head p{margin:2px 0 0;color:var(--text-3);font-size:13.5px}
+.page-head .acts{margin-left:auto;display:flex;gap:8px}
+.banner{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:var(--r);margin-bottom:14px;font-size:14px}
+.banner.warn{background:var(--warn-soft);border:1px solid var(--warn-line);color:#6E3F00}
+.banner.err{background:var(--err-soft);border:1px solid var(--err-line);color:#7D1E1A}
+.banner.info{background:var(--accent-soft);border:1px solid var(--accent-line);color:#1C3E94}
+.banner .grow{flex:1}.banner b{font-weight:600}
+.toolbar{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.seg{display:flex;background:#E9ECF0;border-radius:9px;padding:3px;gap:2px}
+.seg button{height:30px;padding:0 12px;border:0;border-radius:7px;background:transparent;color:var(--text-2);font-size:13.5px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:6px}
+.seg button:hover{color:var(--text)}
+.seg button.on{background:#fff;color:var(--text);box-shadow:0 1px 2px rgba(22,32,52,.1)}
+.seg .n{font-size:12px;color:var(--text-3);font-weight:500}
+.seg button.on .n{color:var(--text-2)}
+.seg .n.err{color:var(--err)}
+.search{flex:1;max-width:340px;margin-left:auto;display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;background:#fff;border:1px solid var(--line-2);border-radius:8px;color:var(--text-3)}
+.search:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.search input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:14px;color:var(--text)}
+
+/* mods */
+.mods-body{flex:1;min-height:0;display:flex;gap:16px;padding-bottom:18px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.list-card{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.list-head{display:flex;align-items:center;gap:14px;padding:0 16px;height:38px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--text-3);font-weight:500;background:var(--surface-2)}
+.list-head .c-sw{width:38px}.list-head .c-name{flex:1;padding-left:48px}.list-head .c-st{width:170px;text-align:right}
+.rows{flex:1;overflow:auto}
+.group-label{padding:12px 16px 6px;font-size:12px;color:var(--text-3);font-weight:600;letter-spacing:.3px}
+.row{display:flex;align-items:center;gap:14px;padding:10px 16px;border-bottom:1px solid #EFF1F4;cursor:pointer;position:relative;outline:none}
+.row:hover{background:#FAFBFC}
+.row.sel{background:var(--accent-soft)}
+.row.sel::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:3px;border-radius:0 3px 3px 0;background:var(--accent)}
+.row.flash{animation:flash 1.6s ease}
+@keyframes flash{0%,40%{background:#DCE7FD}100%{background:transparent}}
+.kind{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;flex:none}
+.kind.mod{background:var(--accent-soft);color:var(--accent)}
+.kind.plugin{background:var(--violet-soft);color:var(--violet)}
+.kind.lib{background:var(--teal-soft);color:var(--teal)}
+.kind.lg{width:48px;height:48px;border-radius:12px}
+.row-main{flex:1;min-width:0}
+.row-title{font-size:15px;font-weight:600;display:flex;align-items:baseline;gap:8px;white-space:nowrap;overflow:hidden}
+.row-title .ver{font-size:12.5px;font-weight:500;color:var(--text-3)}
+.row-sub{font-size:12.5px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.row.off .row-title{color:var(--text-2)}
+.row.off .kind{filter:grayscale(.8);opacity:.7}
+.row-tags{width:170px;display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:48px 24px;color:var(--text-3);gap:6px}
+.empty b{color:var(--text);font-size:16px}
+.dropzone{border:2px dashed var(--line-2);border-radius:12px;margin:18px;padding:40px 20px;background:var(--surface-2)}
+
+.detail{width:352px;flex:none;display:flex;flex-direction:column;overflow:hidden}
+.detail-scroll{flex:1;overflow:auto;padding:20px}
+.d-head{display:flex;gap:14px;align-items:center;margin-bottom:16px}
+.d-head h2{margin:0;font-size:18px;font-weight:650;line-height:1.3;word-break:break-word}
+.d-head p{margin:2px 0 0;font-size:13px;color:var(--text-3)}
+.d-toggle{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface-2);margin-bottom:14px}
+.d-toggle .grow{flex:1}.d-toggle b{display:block;font-size:14px}.d-toggle small{display:block;font-size:12.5px;color:var(--text-3)}
+.d-toggle small.pend-note{color:var(--warn)}
+.callout{display:flex;gap:10px;padding:12px 14px;border-radius:var(--r);margin-bottom:14px;font-size:13.5px}
+.callout.err{background:var(--err-soft);border:1px solid var(--err-line);color:#6F1C18}
+.callout.err .ic{color:var(--err);margin-top:1px}
+.callout b{display:block;font-size:14px;margin-bottom:2px}
+.callout .acts{display:flex;gap:12px;margin-top:6px}
+.facts{display:grid;grid-template-columns:64px 1fr;gap:9px 12px;margin:0 0 16px;font-size:13.5px}
+.facts dt{color:var(--text-3)}.facts dd{margin:0;min-width:0;word-break:break-all}
+.section-t{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--text-2);margin:18px 0 8px}
+.section-t .grow{flex:1}
+.cfg{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r)}
+.cfg .grow{flex:1;min-width:0}.cfg b{display:block;font-size:14px}.cfg small{display:block;font-size:12.5px;color:var(--text-3)}
+.tree{font-size:13px;border:1px solid var(--line);border-radius:var(--r);padding:6px 0;max-height:260px;overflow:auto}
+.tree div{display:flex;align-items:center;gap:7px;padding:3px 12px;color:var(--text-2);white-space:nowrap}
+.tree div .sz{margin-left:auto;color:var(--text-3);font-size:12px}
+.tree .ic{color:var(--text-3)}
+.d-foot{border-top:1px solid var(--line);padding:12px 20px;display:flex;gap:8px;align-items:center}
+.d-foot small{color:var(--text-3);font-size:12px;flex:1}
+
+/* pending bar */
+.pending{position:absolute;left:26px;right:26px;bottom:18px;display:flex;align-items:center;gap:14px;padding:12px 14px 12px 18px;background:#fff;border:1px solid var(--warn-line);border-left:4px solid #E39A1C;border-radius:12px;box-shadow:var(--shadow-lg);animation:up .18s ease}
+@keyframes up{from{transform:translateY(12px);opacity:0}}
+.pending .grow{flex:1;min-width:0}
+.pending b{font-size:14.5px}
+.pending .chg{font-size:13px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pending .chg .on{color:var(--ok);font-weight:500}.pending .chg .offc{color:var(--text-3);font-weight:500}
+.pending.saving{border-left-color:var(--accent);border-color:var(--accent-line)}
+.progress{height:6px;border-radius:3px;background:#E6E9EE;overflow:hidden;margin-top:6px}
+.progress i{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .12s}
+.pending .note{font-size:12.5px;color:var(--warn)}
+.has-pending .mods-body{padding-bottom:96px}
+
+/* logs */
+.logs-grid{flex:1;min-height:0;display:flex;gap:16px;padding-bottom:18px}
+.log-card{flex:1.25;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+.ai-card{flex:1;min-width:360px;display:flex;flex-direction:column;overflow:hidden}
+.card-head{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.card-head h3{margin:0;font-size:15px;font-weight:650}
+.card-head .grow{flex:1}
+.src-tabs{display:flex;gap:4px}
+.src-tabs button{height:30px;padding:0 10px;border-radius:7px;border:1px solid transparent;background:transparent;font-size:13px;color:var(--text-2);cursor:pointer;display:flex;align-items:center;gap:6px}
+.src-tabs button:hover{background:var(--hover)}
+.src-tabs button.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent-line);font-weight:500}
+.log-tools{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:13px;color:var(--text-3)}
+.log-tools .search{max-width:none;margin:0;height:32px}
+.chk{display:flex;align-items:center;gap:6px;color:var(--text-2);cursor:pointer;white-space:nowrap}
+.chk input{accent-color:var(--accent);width:15px;height:15px}
+.finding{display:flex;align-items:center;gap:10px;margin:10px 14px 0;padding:9px 12px;border-radius:8px;background:var(--err-soft);border:1px solid var(--err-line);font-size:13px;color:#6F1C18}
+.finding .ic{color:var(--err)}.finding .grow{flex:1}
+.log-view{flex:1;overflow:auto;padding:8px 0;font-family:"Cascadia Mono",Consolas,monospace;font-size:13px;line-height:1.75;background:#FCFCFD}
+.log-line{display:flex;align-items:flex-start;padding:0 14px 0 0;position:relative}
+.log-line:hover{background:#F3F5F8}
+.log-line .ln{width:48px;flex:none;text-align:right;padding-right:14px;color:#A7AEBA;user-select:none}
+.log-line .tx{flex:1;white-space:pre-wrap;word-break:break-all;color:#2B3342}
+.log-line.e{background:#FDF1F0}.log-line.e .tx{color:#B42520}.log-line.e .ln{color:#D98A86;box-shadow:inset 3px 0 0 var(--err)}
+.log-line.w .tx{color:#9A5A00}
+.log-line.focus{animation:flash 1.8s ease}
+.log-line mark{background:#FFE58A;color:inherit;border-radius:2px}
+.log-line .ask{position:absolute;right:10px;top:1px;opacity:0;font-family:"Segoe UI","Microsoft YaHei UI",sans-serif;height:24px;font-size:12px;padding:0 8px;border-radius:6px;border:1px solid var(--accent-line);background:#fff;color:var(--accent);cursor:pointer;display:flex;align-items:center;gap:4px}
+.log-line:hover .ask{opacity:1}
+.log-foot{padding:8px 14px;border-top:1px solid var(--line);font-size:12.5px;color:var(--text-3);display:flex;align-items:center;gap:10px}
+.log-foot .grow{flex:1}
+
+.ai-body{flex:1;overflow:auto;padding:18px}
+.ai-empty{text-align:center;padding:28px 10px 10px;color:var(--text-3);font-size:13.5px}
+.ai-empty .spark{width:44px;height:44px;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;margin:0 auto 12px}
+.ai-empty b{display:block;color:var(--text);font-size:16px;margin-bottom:4px}
+.prompts{display:flex;flex-direction:column;gap:8px;margin-top:18px;text-align:left}
+.prompts button{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#fff;cursor:pointer;font-size:13.5px;color:var(--text);text-align:left}
+.prompts button:hover{border-color:var(--accent-line);background:var(--accent-soft)}
+.prompts .ic{color:var(--accent)}
+.msg{margin-bottom:16px}
+.msg.user{display:flex;justify-content:flex-end}
+.msg.user .bubble{background:var(--accent-soft);border:1px solid var(--accent-line);padding:9px 13px;border-radius:12px 12px 4px 12px;max-width:85%;font-size:14px}
+.msg.user .att{display:block;font-size:12px;color:var(--text-3);margin-top:3px}
+.msg.ai{font-size:14px;color:var(--text);animation:up .2s ease}
+.msg.ai .who{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-3);margin-bottom:6px}
+.msg.ai h4{margin:0 0 6px;font-size:15px}
+.msg.ai p{margin:0 0 8px}
+.msg.ai ol{margin:0 0 10px;padding-left:20px}.msg.ai li{margin-bottom:3px}
+.cite{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 9px;border-radius:6px;border:1px solid var(--line-2);background:var(--surface-2);font-size:12.5px;color:var(--text-2);cursor:pointer;margin:0 0 10px}
+.cite:hover{border-color:var(--accent-line);color:var(--accent)}
+.typing{display:flex;align-items:center;gap:8px;color:var(--text-3);font-size:13px}
+.typing i{width:6px;height:6px;border-radius:50%;background:#AAB2BF;animation:blink 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes blink{50%{opacity:.25}}
+.act-card{display:flex;align-items:center;gap:12px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;margin-top:8px;background:#fff}
+.act-card .grow{flex:1;min-width:0}.act-card b{display:block;font-size:14px}.act-card small{display:block;font-size:12.5px;color:var(--text-3)}
+.act-card .done{font-size:12.5px;color:var(--ok);display:flex;align-items:center;gap:4px;white-space:nowrap}
+.composer{border-top:1px solid var(--line);padding:12px 14px}
+.atts{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.chip{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 6px 0 9px;border-radius:13px;background:var(--surface-2);border:1px solid var(--line);font-size:12.5px;color:var(--text-2)}
+.chip button{border:0;background:transparent;cursor:pointer;color:var(--text-3);display:grid;place-items:center;padding:2px;border-radius:50%}
+.chip button:hover{background:rgba(0,0,0,.06)}
+.chip.add{border-style:dashed;cursor:pointer;padding:0 9px}
+.chip.add:hover{border-color:var(--accent-line);color:var(--accent)}
+.input-box{display:flex;align-items:flex-end;gap:8px;border:1px solid var(--line-2);border-radius:10px;padding:8px 8px 8px 12px;background:#fff}
+.input-box:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.input-box textarea{flex:1;border:0;outline:0;resize:none;min-height:44px;max-height:120px;font-size:14px;background:transparent}
+.composer .hint{display:flex;justify-content:space-between;font-size:12px;color:var(--text-3);margin-top:6px}
+.ai-off{margin:10px 0;padding:18px;border:1px solid var(--line);border-radius:12px;background:var(--surface-2);text-align:center;font-size:13.5px;color:var(--text-2)}
+.ai-off b{display:block;font-size:15px;color:var(--text);margin-bottom:4px}
+.local-res{margin-top:14px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:#fff;text-align:left;font-size:13.5px}
+.local-res .t{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-3);margin-bottom:6px}
+
+/* profiles & settings */
+.stack{display:flex;flex-direction:column;gap:12px;max-width:820px;overflow:auto;padding-bottom:24px}
+.prof{display:flex;align-items:center;gap:14px;padding:16px 18px}
+.prof .grow{flex:1;min-width:0}.prof b{font-size:15px;display:flex;align-items:center;gap:8px}
+.prof small{display:block;color:var(--text-3);font-size:13px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prof .kind{background:#F1F2F5;color:var(--text-2)}
+.prof.cur{border-color:var(--accent-line)}
+.prof.cur .kind{background:var(--accent-soft);color:var(--accent)}
+.set{padding:18px 20px}
+.set h3{margin:0 0 4px;font-size:16px}
+.set > p{margin:0 0 14px;color:var(--text-3);font-size:13.5px}
+.field{display:grid;grid-template-columns:140px 1fr;align-items:center;gap:10px 16px;margin-bottom:12px;font-size:14px}
+.field label{color:var(--text-2)}
+.inp{height:36px;border:1px solid var(--line-2);border-radius:8px;padding:0 11px;background:#fff;font-size:14px;width:100%;outline:none}
+.inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+select.inp{cursor:pointer}
+.inline{display:flex;gap:8px;align-items:center}
+.kv{display:grid;grid-template-columns:140px 1fr auto;gap:10px 16px;align-items:center;font-size:14px}
+.kv dt{color:var(--text-2)}.kv dd{margin:0;min-width:0;word-break:break-all}
+.ok-text{color:var(--ok);font-size:13px;display:inline-flex;align-items:center;gap:5px}
+
+/* onboarding */
+.onboard{flex:1;display:grid;place-items:center;padding:30px;overflow:auto}
+.ob-card{width:620px;padding:34px 36px}
+.ob-card h1{margin:0 0 6px;font-size:24px}
+.ob-card > p{margin:0 0 24px;color:var(--text-2)}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.steps li{display:flex;gap:16px;padding:14px;border-radius:12px}
+.steps li.cur{background:var(--accent-soft)}
+.steps .num{width:30px;height:30px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:600;font-size:14px;background:#E8EBEF;color:var(--text-3)}
+.steps li.cur .num{background:var(--accent);color:#fff}
+.steps li.done .num{background:var(--ok);color:#fff}
+.steps b{display:block;font-size:15.5px;margin-top:3px}
+.steps small{display:block;color:var(--text-2);font-size:13.5px;margin-top:2px}
+.steps li:not(.cur) small{color:var(--text-3)}
+.steps .acts{display:flex;gap:8px;margin-top:12px}
+
+/* modal */
+.overlay{position:fixed;inset:0;background:rgba(30,38,54,.28);display:grid;place-items:center;z-index:50;animation:fade .12s ease}
+@keyframes fade{from{opacity:0}}
+.modal{width:560px;max-width:calc(100vw - 40px);max-height:calc(100vh - 60px);display:flex;flex-direction:column;background:#fff;border-radius:14px;box-shadow:var(--shadow-lg);animation:pop .16s ease}
+.modal.wide{width:720px}.modal.narrow{width:440px}
+@keyframes pop{from{transform:translateY(8px) scale(.98);opacity:0}}
+.m-head{display:flex;align-items:flex-start;gap:12px;padding:20px 22px 0}
+.m-head h2{margin:0;font-size:18px;font-weight:650}
+.m-head p{margin:3px 0 0;color:var(--text-3);font-size:13.5px}
+.m-head .x{margin-left:auto;margin-top:-4px;margin-right:-6px}
+.m-body{padding:18px 22px;overflow:auto}
+.m-foot{display:flex;align-items:center;gap:8px;padding:14px 22px;border-top:1px solid var(--line)}
+.m-foot .grow{flex:1;font-size:12.5px;color:var(--text-3);display:flex;align-items:center;gap:5px}
+.drop{border:2px dashed var(--line-2);border-radius:12px;padding:34px 20px;text-align:center;background:var(--surface-2);transition:all .12s}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop .big{width:52px;height:52px;border-radius:14px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;margin:0 auto 12px;color:var(--accent)}
+.drop b{display:block;font-size:16px}
+.drop .or{color:var(--text-3);font-size:13px;margin:10px 0}
+.drop .acts{display:flex;gap:8px;justify-content:center}
+.fine{font-size:12.5px;color:var(--text-3);margin:12px 2px 0;line-height:1.6}
+.ftable{width:100%;border-collapse:collapse;font-size:13px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.ftable th{background:var(--surface-2);text-align:left;font-weight:500;color:var(--text-3);padding:7px 12px;border-bottom:1px solid var(--line);font-size:12.5px}
+.ftable td{padding:7px 12px;border-bottom:1px solid #F0F2F5}
+.ftable tr:last-child td{border-bottom:0}
+.ftable td.r{text-align:right;color:var(--text-3)}
+.summary{display:flex;gap:10px;margin:14px 0}
+.summary div{flex:1;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:12.5px;color:var(--text-3)}
+.summary b{display:block;font-size:15px;color:var(--text)}
+.checks{list-style:none;margin:0;padding:0;border:1px solid var(--line);border-radius:12px}
+.checks li{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;border-bottom:1px solid var(--line)}
+.checks li:last-child{border-bottom:0}
+.checks .grow{flex:1}.checks b{display:block;font-size:14px}.checks small{display:block;color:var(--text-3);font-size:12.5px}
+.checks .ic.ok{color:var(--ok)}.checks .ic.warn{color:#D88A0F}
+.inst{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px}
+.inst.cur{border-color:var(--accent-line);background:var(--accent-soft)}
+.inst .grow{flex:1;min-width:0}.inst b{display:block;font-size:14px}
+.inst code{display:block;color:var(--text-3);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub-t{font-size:12.5px;color:var(--text-3);font-weight:600;margin:14px 0 8px}
+
+/* toasts & drag overlay */
+.toasts{position:fixed;right:22px;top:50px;display:flex;flex-direction:column;gap:8px;z-index:80}
+.toast{display:flex;align-items:center;gap:10px;min-width:280px;max-width:420px;padding:11px 14px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow-lg);font-size:14px;animation:slide .2s ease}
+.toast .ic.ok{color:var(--ok)}.toast .ic.info{color:var(--accent)}
+.toast .link{margin-left:auto;font-size:13px}
+@keyframes slide{from{transform:translateX(16px);opacity:0}}
+.drag-cover{position:fixed;inset:34px 0 0 0;z-index:60;background:rgba(235,240,253,.92);border:3px dashed var(--accent);border-radius:14px;margin:10px;display:none;place-items:center;text-align:center;color:var(--accent)}
+.drag-cover.on{display:grid}
+.drag-cover b{display:block;font-size:20px;margin-top:10px}
+.drag-cover small{color:var(--text-2);font-size:14px}
+</style>
+</head>
+<body>
+<div class="window">
+  <div class="titlebar">
+    <span class="logo-s">PS</span><span>PSModManager</span>
+    <label class="demo" title="仅用于预览不同情况，正式界面没有此控件">原型演示
+      <select id="demoSel" onchange="setDemo(this.value)">
+        <option value="normal">正常使用</option>
+        <option value="dirty">有未保存更改</option>
+        <option value="firstrun">首次启动（未选游戏）</option>
+        <option value="noloader">未安装 MelonLoader</option>
+        <option value="running">游戏运行中</option>
+        <option value="noai">未配置 AI</option>
+        <option value="empty">还没有 Mod</option>
+      </select>
+    </label>
+    <div class="wc"><span>&#x2013;</span><span>&#x25A1;</span><span>&#x2715;</span></div>
+  </div>
+  <div class="app">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="main" id="main"></main>
+  </div>
+</div>
+<div id="modal"></div>
+<div class="toasts" id="toasts"></div>
+<div class="drag-cover" id="dragCover"><div><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin:auto;display:block"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg><b>松开即可导入</b><small>支持 DLL、文件夹、ZIP · 导入只保存副本，不执行任何文件</small></div></div>
+
+<script>
+/* ---------- icons (lucide-style) ---------- */
+const ICONS = {
+  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  plus:'<path d="M5 12h14"/><path d="M12 5v14"/>',
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  package:'<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  plug:'<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>',
+  lib:'<path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/>',
+  play:'<polygon points="6 3 20 12 6 21 6 3"/>',
+  file:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
+  logs:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+  folder:'<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  zip:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 6h1"/><path d="M10 10h1"/><path d="M10 14h1"/><path d="M9 18h2v-2H9z"/>',
+  gear:'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  okc:'<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  down:'<path d="m6 9 6 6 6-6"/>', right:'<path d="m9 18 6-6-6-6"/>', updown:'<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+  refresh:'<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+  trash:'<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
+  undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>',
+  upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+  spark:'<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>',
+  layers:'<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+  send:'<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+  ext:'<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  loader:'<path d="M21 12a9 9 0 1 1-6.219-8.56"/>',
+  game:'<line x1="6" x2="10" y1="11" y2="11"/><line x1="8" x2="8" y1="9" y2="13"/><line x1="15" x2="15.01" y1="12" y2="12"/><line x1="18" x2="18.01" y1="10" y2="10"/><path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z"/>',
+  edit:'<path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/>',
+  more:'<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',
+  link:'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+  clip:'<path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>',
+  shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>'
+};
+const I = (n, s = 18, c = '') => `<svg class="ic ${c}" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = s => document.querySelector(s);
+
+/* ---------- sample data (synthetic) ---------- */
+const KIND = { mod:{label:'Mod', icon:'package'}, plugin:{label:'插件', icon:'plug'}, lib:{label:'依赖库', icon:'lib'} };
+const SEED = [
+  { id:'workshop', name:'Workshop Decorations', version:'1.4.2', kind:'mod', path:'Mods/WorkshopDecorations.dll', files:12, size:'2.3 MB', source:'imported', imported:'10 月 14 日', on:true,
+    issue:{ title:'上次运行加载失败', text:'缺少依赖 SharedAssets 2.0.0（当前安装 1.8.0）', line:4 },
+    tree:[['Mods/WorkshopDecorations.dll','1.1 MB'],['Mods/WorkshopDecorations/','—'],['  textures/ (9 个文件)','1.2 MB'],['  decorations.json','8 KB']] },
+  { id:'pswallpaper', name:'PSWallpaper', version:'1.2.0', kind:'mod', path:'Mods/PSWallpaper.dll', files:3, size:'184 KB', source:'imported', imported:'10 月 12 日', on:true, config:'UserData/PSWallpaper.cfg',
+    tree:[['Mods/PSWallpaper.dll','164 KB'],['UserData/PSWallpaper.cfg','2 KB'],['UserData/Wallpapers/','18 KB']] },
+  { id:'brewing', name:'Brewing Expansion', version:'0.9.1', kind:'mod', path:'Mods/BrewingExpansion/', files:1036, size:'14.8 MB', source:'imported', imported:'10 月 10 日', on:false,
+    tree:[['Mods/BrewingExpansion.dll','420 KB'],['Mods/BrewingExpansion/','—'],['  textures/ (1034 个文件)','14.3 MB'],['  recipes.json','36 KB']] },
+  { id:'fasttravel', name:'Fast Travel', version:'2.0.0', kind:'mod', path:'Mods/FastTravel.dll', files:1, size:'88 KB', source:'game', on:true, tree:[['Mods/FastTravel.dll','88 KB']] },
+  { id:'betterinv', name:'Better Inventory', version:'1.1.3', kind:'mod', path:'Mods/BetterInventory.dll', files:2, size:'240 KB', source:'game', on:true, tree:[['Mods/BetterInventory.dll','236 KB'],['UserData/BetterInventory.json','4 KB']] },
+  { id:'localtheme', name:'LocalTheme', version:null, kind:'mod', path:'Mods/LocalTheme/', files:4, size:'1.6 MB', source:'imported', imported:'9 月 29 日', on:true, tree:[['Mods/LocalTheme.dll','52 KB'],['Mods/LocalTheme/preview.png','1.4 MB'],['Mods/LocalTheme/theme.json','3 KB'],['Mods/LocalTheme/README.txt','1 KB']] },
+  { id:'stealcounter', name:'Steal Counter', version:'0.3.0', kind:'mod', path:'Mods/StealCounter.dll', files:1, size:'46 KB', source:'imported', imported:'10 月 2 日', on:false, tree:[['Mods/StealCounter.dll','46 KB']] },
+  { id:'unityexplorer', name:'UnityExplorer', version:'4.12.8', kind:'mod', path:'Mods/UnityExplorer.ML.IL2CPP.dll', files:2, size:'3.1 MB', source:'game', on:false, tree:[['Mods/UnityExplorer.ML.IL2CPP.dll','1.9 MB'],['UserLibs/UniverseLib.ML.IL2CPP.dll','1.2 MB']] },
+  { id:'loaderfix', name:'Loader Startup Fix', version:'1.0.1', kind:'plugin', path:'Plugins/LoaderStartupFix.dll', files:1, size:'22 KB', source:'game', on:true, tree:[['Plugins/LoaderStartupFix.dll','22 KB']] },
+  { id:'sharedassets', name:'SharedAssets', version:'1.8.0', kind:'lib', path:'UserLibs/SharedAssets.dll', files:1, size:'96 KB', source:'game', on:true, tree:[['UserLibs/SharedAssets.dll','96 KB']] },
+];
+const LOG = [
+  '[12:03:08] MelonLoader v0.7.3 Open-Beta',
+  '[12:03:08] Game: Probably Stolen',
+  '[12:03:09] Loading Mod: Workshop Decorations v1.4.2',
+  '[12:03:09] ERROR Could not load dependency SharedAssets, Version=2.0.0',
+  '[12:03:09]   at WorkshopDecorations.Initialize()',
+  '[12:03:09]   at MelonLoader.MelonEvent.Invoke()',
+  '[12:03:09] Loading Mod: PSWallpaper v1.2.0',
+  '[12:03:09] WARNING PSWallpaper: wallpaper folder is empty, using defaults',
+  '[12:03:10] Loading Mod: Fast Travel v2.0.0',
+  '[12:03:10] Loading Mod: Better Inventory v1.1.3',
+  '[12:03:10] Other Mods loaded successfully.',
+];
+const MGR_LOG = [
+  '2026-10-16 12:01:40 INFO  已选择安装 Probably Stolen (Steam)',
+  '2026-10-16 12:01:41 INFO  已读取 10 个 Mod，3 个来自包库',
+  '2026-10-16 12:02:55 INFO  保存：启用 Workshop Decorations（3 个文件操作）',
+  '2026-10-16 12:02:56 INFO  保存完成',
+  '2026-10-16 12:03:02 INFO  已启动游戏（PID 18244）',
+];
+
+/* ---------- state ---------- */
+const S = {};
+function reset(demo) {
+  Object.assign(S, {
+    demo, page:'mods', filter:'all', query:'', selected:'workshop', history:[],
+    mods: SEED.map(m => ({ ...m, saved:m.on })),
+    gameSet: demo !== 'firstrun', loader: demo === 'noloader' ? 'missing' : 'ready',
+    running: demo === 'running', saving:null,
+    ai:{ configured: demo !== 'noai', msgs:[], busy:false, atts:['Latest.log'] },
+    log:{ src:'ml', errorsOnly:false, q:'', focus:null },
+    profiles:[ { id:'p1', name:'日常', ids:null, cur:true }, { id:'p2', name:'联机精简', ids:['fasttravel','betterinv','sharedassets','loaderfix'] }, { id:'p3', name:'测试新 Mod', ids:['workshop','brewing','unityexplorer','sharedassets','loaderfix','pswallpaper'] } ],
+  });
+  if (demo === 'empty') { S.mods = []; S.selected = null; }
+  if (demo === 'dirty') { setOn('brewing', true, true); setOn('stealcounter', true, true); setOn('betterinv', false, true); S.selected = 'brewing'; }
+}
+const mod = id => S.mods.find(m => m.id === id);
+const changes = () => S.mods.filter(m => m.on !== m.saved);
+const dirty = () => changes().length > 0;
+function setOn(id, v, quiet) {
+  const m = mod(id); if (!m || m.on === v) return;
+  S.history.push({ id, prev:m.on }); m.on = v;
+  if (!quiet) render();
+}
+
+/* ---------- sidebar ---------- */
+function renderSidebar() {
+  const ch = changes().length, errs = S.mods.filter(m => m.issue && m.on).length, off = !S.gameSet;
+  const nav = (page, icon, label, badge = '', dis = false) =>
+    `<button class="nav-item ${S.page === page ? 'active' : ''}" ${dis ? 'disabled' : ''} onclick="go('${page}')">${I(icon, 18)}<span class="grow">${label}</span>${badge}</button>`;
+  const loaderRow = S.loader === 'ready'
+    ? `<button class="env-row" onclick="openLoader()"><span class="dot ok"></span><span><b>MelonLoader 0.7.3</b><small>运行环境正常</small></span></button>`
+    : `<button class="env-row warn" onclick="openLoader()"><span class="dot warn"></span><span><b>未安装 MelonLoader</b><small>游戏不会加载 Mod · 点击安装</small></span></button>`;
+  const launch = S.running
+    ? `<div class="launch-state"><span class="dot run"></span>游戏运行中 · 已 3 分钟<button class="link" onclick="stopGame()">刷新状态</button></div><button class="btn lg" disabled>${I('play', 16)}游戏运行中</button>`
+    : `<button class="btn primary lg" ${off || S.saving ? 'disabled' : ''} onclick="launch()">${I('play', 16)}${dirty() ? '保存并启动游戏' : '启动游戏'}</button>`;
+  $('#sidebar').innerHTML = `
+    <div class="brand"><div class="logo">PS</div><div><b>PSModManager</b><small>v0.1.0</small></div></div>
+    ${S.gameSet
+      ? `<button class="game-card" onclick="openGame()" title="切换游戏安装"><div class="game-art">${I('game', 20)}</div><div class="gt"><b>Probably Stolen</b><small>Steam · D:\\SteamLibrary\\…\\Probably Stolen</small></div>${I('updown', 16)}</button>`
+      : `<button class="game-card none" onclick="openGame()"><div class="game-art">${I('game', 20)}</div><div class="gt"><b>未选择游戏</b><small>点击查找或选择安装</small></div>${I('right', 16)}</button>`}
+    <nav class="nav">
+      ${nav('mods', 'package', '模组', off ? '' : ch ? `<span class="badge warn" title="${ch} 项未保存">${ch}</span>` : `<span class="badge">${S.mods.length}</span>`, off)}
+      ${nav('logs', 'logs', '日志与 AI', !off && errs ? `<span class="badge err" title="上次运行有 ${errs} 个错误">${errs}</span>` : '', off)}
+      ${nav('profiles', 'layers', '方案', '', off)}
+    </nav>
+    <div class="side-bottom">
+      ${nav('settings', 'gear', '设置')}
+      ${off ? '' : loaderRow}
+      <div class="launch-card">${launch}</div>
+    </div>`;
+}
+
+/* ---------- mods page ---------- */
+function filtered() {
+  const q = S.query.trim().toLowerCase();
+  return S.mods.filter(m => {
+    if (S.filter === 'on' && !m.on) return false;
+    if (S.filter === 'off' && m.on) return false;
+    if (S.filter === 'issue' && !m.issue) return false;
+    return !q || (m.name + ' ' + (m.version || '') + ' ' + m.path).toLowerCase().includes(q);
+  });
+}
+function renderMods() {
+  const total = S.mods.length, on = S.mods.filter(m => m.on).length;
+  const banner = S.loader === 'missing'
+    ? `<div class="banner warn">${I('alert', 18)}<div class="grow"><b>还没有安装 MelonLoader。</b>Mod 文件可以照常管理，但游戏启动时不会加载它们。</div><button class="btn sm" onclick="openLoader()">查看环境</button><button class="btn sm primary" onclick="openLoader(true)">安装官方 0.7.3</button></div>` : '';
+  $('#main').innerHTML = `
+    <div class="page ${dirty() || S.saving ? 'has-pending' : ''}" id="modsPage">
+      <div class="page-head">
+        <div><h1>模组</h1><p>${total} 个 · ${on} 个已启用 · 开关后点击“保存”才会改动游戏文件</p></div>
+        <div class="acts">
+          <button class="btn ghost" onclick="refreshMods()" title="重新读取游戏目录">${I('refresh', 16)}刷新</button>
+          <button class="btn primary" onclick="openImport()">${I('plus', 17)}导入 Mod</button>
+        </div>
+      </div>
+      ${banner}
+      <div class="toolbar">
+        <div class="seg" id="seg"></div>
+        <label class="search">${I('search', 16)}<input id="q" placeholder="搜索名称、版本或文件" value="${esc(S.query)}" oninput="S.query=this.value;renderList()"><kbd>Ctrl F</kbd></label>
+      </div>
+      <div class="mods-body">
+        <section class="card list-card">
+          <div class="list-head"><span class="c-sw">启用</span><span class="c-name">名称</span><span class="c-st">状态</span></div>
+          <div class="rows" id="rows" role="listbox" aria-label="模组列表"></div>
+        </section>
+        <aside class="card detail" id="detail"></aside>
+      </div>
+      <div id="pending"></div>
+    </div>`;
+  renderList();
+}
+function renderSeg() {
+  const on = S.mods.filter(m => m.on).length, issues = S.mods.filter(m => m.issue).length;
+  const f = (k, label, n, cls = '') => `<button class="${S.filter === k ? 'on' : ''}" onclick="S.filter='${k}';renderList()">${label}<span class="n ${cls}">${n}</span></button>`;
+  $('#seg').innerHTML = f('all', '全部', S.mods.length) + f('on', '已启用', on) + f('off', '未启用', S.mods.length - on) + (issues ? f('issue', '需处理', issues, 'err') : '');
+}
+function rowHtml(m) {
+  const k = KIND[m.kind], tags = [];
+  if (m.on !== m.saved) tags.push(`<span class="pill warn">待保存 · ${m.on ? '启用' : '停用'}</span>`);
+  if (m.issue) tags.push(`<span class="pill err">${I('alert', 12)}加载失败</span>`);
+  if (m.fresh) tags.push(`<span class="pill accent">新导入</span>`);
+  if (!tags.length) tags.push(m.on ? `<span class="pill ok">${I('check', 12)}已启用</span>` : `<span class="pill muted">未启用</span>`);
+  return `<div class="row ${S.selected === m.id ? 'sel' : ''} ${m.on ? '' : 'off'}" id="row-${m.id}" role="option" tabindex="0" aria-selected="${S.selected === m.id}" onclick="select('${m.id}')" onkeydown="rowKey(event,'${m.id}')">
+    <label class="switch" onclick="event.stopPropagation()" title="${m.on ? '停用' : '启用'}"><input type="checkbox" ${m.on ? 'checked' : ''} ${S.saving ? 'disabled' : ''} aria-label="启用 ${esc(m.name)}" onchange="setOn('${m.id}',this.checked)"><span></span></label>
+    <div class="kind ${m.kind}">${I(k.icon, 18)}</div>
+    <div class="row-main"><div class="row-title">${esc(m.name)}<span class="ver">${m.version ? 'v' + m.version : '本地 Mod'}</span></div><div class="row-sub">${k.label} · ${esc(m.path)} · ${m.files} 个文件</div></div>
+    <div class="row-tags">${tags.join('')}</div></div>`;
+}
+function renderList() {
+  if (!$('#rows')) return;
+  renderSeg();
+  const list = filtered();
+  let html;
+  if (!S.mods.length) {
+    html = `<div class="empty dropzone"><div class="kind lg mod" style="margin-bottom:8px">${I('upload', 22)}</div><b>还没有 Mod</b><span>把 DLL、文件夹或 ZIP 拖到窗口里，或点击右上角“导入 Mod”。<br>游戏 Mods 目录里已有的 Mod 会自动出现在这里。</span><button class="btn primary" style="margin-top:12px" onclick="openImport()">${I('plus', 16)}导入 Mod</button></div>`;
+  } else if (!list.length) {
+    html = `<div class="empty"><b>没有匹配的 Mod</b><span>换个关键词，或<button class="link" onclick="S.query='';S.filter='all';$('#q').value='';renderList()">清除筛选</button></span></div>`;
+  } else {
+    const groups = [['lib', '依赖库与插件', list.filter(m => m.kind !== 'mod')], ['mod', 'Mod', list.filter(m => m.kind === 'mod')]];
+    html = groups.filter(g => g[2].length).map(([, label, items]) => `<div class="group-label">${label} · ${items.length}</div>${items.map(rowHtml).join('')}`).join('');
+  }
+  $('#rows').innerHTML = html;
+  renderDetail(); renderPending(); renderSidebar();
+}
+function renderDetail() {
+  const el = $('#detail'); if (!el) return;
+  const m = mod(S.selected);
+  if (!m) { el.innerHTML = `<div class="empty" style="flex:1">${I('package', 30)}<b>选择一个 Mod</b><span>查看版本、位置和包含的文件</span></div>`; return; }
+  const k = KIND[m.kind], pend = m.on !== m.saved;
+  const stateText = pend ? `<small class="pend-note">已${m.on ? '启用' : '停用'}，保存后应用到游戏</small>` : `<small>${m.on ? '游戏启动时会加载' : '文件已移出游戏目录，可随时启用'}</small>`;
+  el.innerHTML = `
+    <div class="detail-scroll">
+      <div class="d-head"><div class="kind lg ${m.kind}">${I(k.icon, 24)}</div><div><h2>${esc(m.name)}</h2><p>${m.version ? 'v' + m.version : '本地 Mod'} · ${k.label}</p></div></div>
+      <div class="d-toggle"><div class="grow"><b>${m.on ? '已启用' : '未启用'}</b>${stateText}</div><label class="switch"><input type="checkbox" ${m.on ? 'checked' : ''} ${S.saving ? 'disabled' : ''} onchange="setOn('${m.id}',this.checked)"><span></span></label></div>
+      ${m.issue ? `<div class="callout err">${I('alert', 18)}<div><b>${m.issue.title}</b>${m.issue.text}<div class="acts"><button class="link" onclick="go('logs');focusLine(${m.issue.line})">查看日志</button><button class="link" onclick="askAiAbout('${m.id}')">让 AI 分析</button></div></div></div>` : ''}
+      <dl class="facts">
+        <dt>位置</dt><dd><code>${esc(m.path)}</code></dd>
+        <dt>来源</dt><dd>${m.source === 'game' ? '游戏目录中已有' : '从本地导入 · ' + (m.imported || '刚刚')}</dd>
+        <dt>大小</dt><dd>${m.files} 个文件 · ${m.size}</dd>
+      </dl>
+      ${m.config ? `<div class="section-t">配置</div><div class="cfg">${I('file', 18)}<div class="grow"><b>PSWallpaper 设置</b><small>${m.config}</small></div><button class="btn sm" onclick="openConfig()">${I('edit', 14)}编辑</button></div>` : ''}
+      <div class="section-t"><span class="grow">包含文件</span><span style="font-weight:400;color:var(--text-3)">${m.files} 个</span></div>
+      <div class="tree">${m.tree.map(([p, s]) => `<div>${I(p.trim().endsWith('/') || p.includes('个文件') ? 'folder' : 'file', 14)}<span>${esc(p)}</span><span class="sz">${s}</span></div>`).join('')}</div>
+    </div>
+    <div class="d-foot"><small>${m.source === 'game' ? '未保存到包库：卸载后需要重新导入' : '包库中保留副本'}</small><button class="btn sm danger" ${dirty() || S.saving || S.running ? 'disabled' : ''} title="${dirty() ? '先保存或撤销更改' : ''}" onclick="openUninstall('${m.id}')">${I('trash', 14)}卸载</button></div>`;
+}
+function renderPending() {
+  const el = $('#pending'); if (!el) return;
+  const page = $('#modsPage'); page && page.classList.toggle('has-pending', dirty() || !!S.saving);
+  if (S.saving) {
+    const pct = Math.round(S.saving.done / S.saving.total * 100);
+    el.innerHTML = `<div class="pending saving">${I('loader', 20, 'spin')}<div class="grow"><b>正在应用更改…</b><div class="chg">${S.saving.done} / ${S.saving.total} 个文件操作</div><div class="progress"><i style="width:${pct}%"></i></div></div><button class="btn" onclick="cancelSave()">取消</button></div>`;
+    return;
+  }
+  const ch = changes();
+  if (!ch.length) { el.innerHTML = ''; return; }
+  const desc = ch.map(m => `<span class="${m.on ? 'on' : 'offc'}">${m.on ? '启用' : '停用'}</span> ${esc(m.name)}`).join('、');
+  el.innerHTML = `<div class="pending"><div class="grow"><b>${ch.length} 项更改尚未保存</b><div class="chg">${desc}</div>${S.running ? `<div class="note">游戏正在运行，退出游戏后才能保存</div>` : ''}</div>
+    <button class="btn ghost" onclick="undoAll()">${I('undo', 16)}撤销</button>
+    <button class="btn" ${S.running ? 'disabled' : ''} onclick="save()">保存 <kbd>Ctrl S</kbd></button>
+    <button class="btn primary" ${S.running ? 'disabled' : ''} onclick="save(true)">${I('play', 15)}保存并启动</button></div>`;
+}
+
+/* ---------- logs page ---------- */
+function renderLogs() {
+  $('#main').innerHTML = `
+    <div class="page">
+      <div class="page-head"><div><h1>日志与 AI</h1><p>先看原文；需要时把日志交给 AI 解释。只有你点击发送的内容会离开本机。</p></div></div>
+      <div class="logs-grid">
+        <section class="card log-card" id="logCard"></section>
+        <section class="card ai-card" id="aiCard"></section>
+      </div>
+    </div>`;
+  renderLogCard(); renderAi();
+}
+function renderLogCard() {
+  const el = $('#logCard'); if (!el) return;
+  const lines = S.log.src === 'ml' ? LOG : MGR_LOG;
+  const q = S.log.q.trim();
+  const cls = t => /ERROR|Exception|  at /.test(t) ? 'e' : /WARN/.test(t) ? 'w' : '';
+  const rows = lines.map((t, i) => ({ t, n:i + 1, c:cls(t) })).filter(r => (!S.log.errorsOnly || r.c) && (!q || r.t.toLowerCase().includes(q.toLowerCase())));
+  const hi = t => { let h = esc(t); if (q) h = h.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), x => `<mark>${x}</mark>`); return h; };
+  const errN = lines.filter(t => /ERROR/.test(t)).length, warnN = lines.filter(t => /WARN/.test(t)).length;
+  el.innerHTML = `
+    <div class="card-head"><div class="src-tabs">
+      <button class="${S.log.src === 'ml' ? 'on' : ''}" onclick="S.log.src='ml';renderLogCard()">${I('game', 15)}游戏 · Latest.log</button>
+      <button class="${S.log.src === 'mgr' ? 'on' : ''}" onclick="S.log.src='mgr';renderLogCard()">${I('package', 15)}管理器日志</button></div>
+      <span class="grow"></span><button class="btn sm ghost" onclick="toast('已重新读取日志','info')">${I('refresh', 14)}刷新</button></div>
+    ${S.log.src === 'ml' && errN ? `<div class="finding">${I('alert', 16)}<span class="grow"><b>本地检查：</b>Workshop Decorations 缺少依赖 SharedAssets 2.0.0</span><button class="link" onclick="focusLine(4)">定位到第 4 行</button></div>` : ''}
+    <div class="log-tools"><label class="search">${I('search', 15)}<input placeholder="在日志中查找" value="${esc(S.log.q)}" oninput="S.log.q=this.value;renderLogCard();const i=$('#logCard input');i.focus();i.setSelectionRange(i.value.length,i.value.length)"></label>
+      <label class="chk"><input type="checkbox" ${S.log.errorsOnly ? 'checked' : ''} onchange="S.log.errorsOnly=this.checked;renderLogCard()">只看错误和警告</label>
+      <span>${errN} 错误 · ${warnN} 警告</span></div>
+    <div class="log-view" id="logView">${rows.map(r => `<div class="log-line ${r.c} ${S.log.focus === r.n ? 'focus' : ''}" id="ln-${r.n}"><span class="ln">${r.n}</span><span class="tx">${hi(r.t)}</span>${r.c ? `<button class="ask" onclick="askLine(${r.n})">${I('spark', 12)}问 AI</button>` : ''}</div>`).join('') || `<div class="empty">没有匹配的行</div>`}</div>
+    <div class="log-foot"><span class="grow">${lines.length} 行 · ${S.log.src === 'ml' ? '2.5 KB · 本次运行 12:03' : '1.1 KB'} · 已隐去用户名等个人信息</span><span>已显示全部内容</span></div>`;
+}
+function renderAi() {
+  const el = $('#aiCard'); if (!el) return;
+  const A = S.ai;
+  let body;
+  if (!A.configured) {
+    body = `<div class="ai-off"><div class="ai-empty" style="padding:4px 0 6px"><div class="spark">${I('spark', 22)}</div></div><b>还没有配置 AI 服务</b>日志查看和本地检查不受影响。配置 OpenAI 兼容服务后，可以让 AI 解释错误并给出处理建议。<div style="margin-top:14px"><button class="btn primary" onclick="go('settings')">配置 AI 服务</button></div></div>
+      <div class="local-res"><div class="t">${I('shield', 13)}本地检查（不联网）</div><b>Workshop Decorations 没能加载</b><br>日志第 4 行：找不到 SharedAssets 2.0.0，当前安装的是 1.8.0。可以更新 SharedAssets，或先停用 Workshop Decorations。<div style="margin-top:8px;display:flex;gap:12px"><button class="link" onclick="focusLine(4)">查看第 4 行</button><button class="link" onclick="go('mods');select('workshop')">打开这个 Mod</button></div></div>`;
+  } else if (!A.msgs.length) {
+    body = `<div class="ai-empty"><div class="spark">${I('spark', 22)}</div><b>描述遇到的问题，或直接分析日志</b>AI 会引用日志原文说明原因，并给出可以一键执行的建议。
+      <div class="prompts">
+        <button onclick="ask('分析这次运行的日志')">${I('logs', 16)}分析这次运行的日志</button>
+        <button onclick="ask('为什么 Workshop Decorations 没有加载？')">${I('package', 16)}为什么 Workshop Decorations 没有加载？</button>
+        <button onclick="ask('游戏一启动就崩溃，可能是哪个 Mod？')">${I('alert', 16)}游戏一启动就崩溃，可能是哪个 Mod？</button>
+      </div></div>`;
+  } else {
+    body = A.msgs.map(msgHtml).join('') + (A.busy ? `<div class="msg ai"><div class="typing"><i></i><i></i><i></i>正在阅读 Latest.log…</div></div>` : '');
+  }
+  el.innerHTML = `
+    <div class="card-head"><h3>AI 排错</h3>${A.configured ? `<span class="pill muted">local-diagnostic-model</span>` : ''}<span class="grow"></span>${A.msgs.length ? `<button class="btn sm ghost" onclick="S.ai.msgs=[];renderAi()">新对话</button>` : ''}</div>
+    <div class="ai-body" id="aiBody">${body}</div>
+    ${!A.configured ? '' : `<div class="composer">
+      <div class="atts">${A.atts.map((a, i) => `<span class="chip">${I('clip', 12)}${esc(a)}<button onclick="S.ai.atts.splice(${i},1);renderAi()" aria-label="移除附件">${I('x', 12)}</button></span>`).join('')}<button class="chip add" onclick="addAtt()" ${A.configured ? '' : 'disabled'}>${I('plus', 12)}附加日志</button></div>
+      <div class="input-box"><textarea id="aiInput" placeholder="${A.configured ? '描述问题，或继续追问…' : '配置 AI 服务后可用'}" ${A.configured ? '' : 'disabled'} onkeydown="if(event.ctrlKey&&event.key==='Enter'){sendAi()}"></textarea><button class="btn primary sm" ${A.configured && !A.busy ? '' : 'disabled'} onclick="sendAi()" aria-label="发送">${I('send', 15)}</button></div>
+      <div class="hint"><span>${A.atts.length ? `将发送：问题 + ${A.atts.join('、')}（末尾 8 KB）` : '将只发送问题文本'}</span><span>Ctrl + Enter 发送</span></div>
+    </div>`}`;
+  const b = $('#aiBody'); b.scrollTop = b.scrollHeight;
+}
+function msgHtml(m) {
+  if (m.role === 'user') return `<div class="msg user"><div class="bubble">${esc(m.text)}${m.att ? `<span class="att">附带：${esc(m.att)}</span>` : ''}</div></div>`;
+  const w = mod('workshop');
+  const wDone = w && !w.on, card1 = !w ? '' : `<div class="act-card"><div class="kind mod">${I('package', 16)}</div><div class="grow"><b>停用 Workshop Decorations</b><small>先让游戏正常启动，之后再更新依赖</small></div>${wDone ? `<span class="done">${I('check', 14)}已停用${w.on !== w.saved ? '，待保存' : ''}</span>${w.on !== w.saved ? `<button class="btn sm" onclick="go('mods')">去保存</button>` : ''}` : `<button class="btn sm" onclick="setOn('workshop',false);renderAi();toast('已停用 Workshop Decorations，保存后生效','info','去保存',()=>go('mods'))">停用</button>`}</div>`;
+  return `<div class="msg ai"><div class="who">${I('spark', 13)}AI · 依据 Latest.log</div>
+    <h4>Workshop Decorations 没能加载</h4>
+    <p>它需要 <code>SharedAssets 2.0.0</code>，但游戏里安装的是 <b>1.8.0</b>，初始化时找不到所需版本。</p>
+    <button class="cite" onclick="focusLine(4)">${I('link', 12)}Latest.log · 第 4 行</button>
+    <p>第 11 行显示其余 Mod 都正常加载，问题只影响 Workshop Decorations。第 8 行的 PSWallpaper 警告不影响运行。</p>
+    <p><b>建议</b></p>
+    <ol><li>从 Mod 作者处获取 SharedAssets 2.0.0，导入后替换旧版本；</li><li>在此之前，可以先停用 Workshop Decorations。</li></ol>
+    ${card1}
+    <div class="act-card"><div class="kind lib">${I('lib', 16)}</div><div class="grow"><b>SharedAssets · v1.8.0</b><small>查看当前安装的依赖库</small></div><button class="btn sm" onclick="go('mods');select('sharedassets')">查看</button></div>
+  </div>`;
+}
+function ask(text, att) {
+  if (!S.ai.configured) return;
+  S.ai.msgs.push({ role:'user', text, att: att ?? (S.ai.atts.join('、') || null) }); S.ai.busy = true; renderAi();
+  setTimeout(() => { S.ai.busy = false; S.ai.msgs.push({ role:'ai' }); renderAi(); }, 1300);
+}
+function sendAi() { const t = $('#aiInput').value.trim(); if (t) ask(t); }
+function askLine(n) { if (!S.ai.configured) { toast('请先在设置中配置 AI 服务', 'info', '去设置', () => go('settings')); return; } ask(`解释第 ${n} 行：${LOG[n - 1].replace(/^\[[^\]]+\]\s*/, '')}`, `Latest.log 第 ${n} 行附近`); }
+function askAiAbout(id) { go('logs'); setTimeout(() => S.ai.configured ? ask(`为什么 ${mod(id).name} 没有加载？`) : null, 50); }
+function addAtt() { if (!S.ai.atts.includes('管理器日志')) S.ai.atts.push('管理器日志'); renderAi(); }
+function focusLine(n) {
+  S.log.src = 'ml'; S.log.errorsOnly = false; S.log.q = ''; S.log.focus = n; renderLogCard();
+  const el = $('#ln-' + n); el && el.scrollIntoView({ block:'center' });
+  setTimeout(() => { S.log.focus = null; }, 1800);
+}
+
+/* ---------- profiles ---------- */
+function renderProfiles() {
+  const onIds = S.mods.filter(m => m.saved).map(m => m.id);
+  $('#main').innerHTML = `<div class="page">
+    <div class="page-head"><div><h1>方案</h1><p>把一组启用选择存成方案，方便在不同玩法之间切换。日常管理不需要方案。</p></div>
+      <div class="acts"><button class="btn ghost">${I('upload', 16)}导入方案文件</button><button class="btn primary" onclick="toast('已把当前选择保存为“方案 4”','ok')">${I('plus', 16)}保存当前选择</button></div></div>
+    <div class="stack">${S.profiles.map(p => {
+      const ids = p.ids || onIds, names = ids.map(i => mod(i)?.name).filter(Boolean);
+      return `<div class="card prof ${p.cur ? 'cur' : ''}"><div class="kind">${I('layers', 18)}</div><div class="grow"><b>${esc(p.name)}${p.cur ? '<span class="pill accent">当前</span>' : ''}</b><small>${names.length} 个 Mod：${names.join('、')}</small></div>
+        ${p.cur ? '' : `<button class="btn" onclick="applyProfile('${p.id}')">应用到列表</button>`}<button class="btn ghost sm" aria-label="更多">${I('more', 16)}</button></div>`; }).join('')}
+      <p class="fine">应用方案只会改动模组页的开关，和手动开关一样，确认后点击“保存”才会写入游戏目录。</p></div></div>`;
+}
+function applyProfile(id) {
+  const p = S.profiles.find(x => x.id === id);
+  S.mods.forEach(m => setOn(m.id, p.ids.includes(m.id), true));
+  S.profiles.forEach(x => x.cur = x.id === id);
+  go('mods'); toast(`已应用“${p.name}”，检查后点击保存`, 'info');
+}
+
+/* ---------- settings ---------- */
+function renderSettings() {
+  const A = S.ai;
+  $('#main').innerHTML = `<div class="page"><div class="page-head"><div><h1>设置</h1><p>界面只保留一套浅色样式，没有主题选项。</p></div></div>
+    <div class="stack">
+      <section class="card set"><h3>AI 服务（可选）</h3><p>使用 OpenAI 兼容接口。未配置或离线时，Mod 管理和日志查看照常可用。</p>
+        <div class="field"><label>启用 AI 排错</label><div><label class="switch"><input type="checkbox" ${A.configured ? 'checked' : ''} onchange="S.ai.configured=this.checked;renderSidebar()"><span></span></label></div></div>
+        <div class="field"><label>服务地址</label><input class="inp" value="${A.configured ? 'http://127.0.0.1:8000/v1' : ''}" placeholder="https://api.example.com/v1"></div>
+        <div class="field"><label>模型</label><input class="inp" value="${A.configured ? 'local-diagnostic-model' : ''}" placeholder="模型名称"></div>
+        <div class="field"><label>API 密钥</label><div class="inline"><input class="inp" type="password" value="${A.configured ? 'sk-xxxxxxxxxxxx' : ''}" placeholder="保存在 Windows 凭据管理器中"><button class="btn">清除</button></div></div>
+        <div class="field"><label></label><div class="inline"><button class="btn" onclick="this.nextElementSibling.style.display='inline-flex'">测试连接</button><span class="ok-text" style="display:none">${I('okc', 15)}连接成功 · 响应 420 ms</span></div></div>
+      </section>
+      <section class="card set"><h3>数据位置</h3><p>管理器数据与程序目录分开。删除程序不会删除这里的数据，也不会卸载游戏里的 Mod。</p>
+        <dl class="kv">
+          <dt>数据目录</dt><dd><code>%LOCALAPPDATA%\\PSModManager</code></dd><dd><button class="btn sm">${I('folder', 14)}打开</button></dd>
+          <dt>Mod 包库</dt><dd><code>…\\PSModManager\\library</code>（3 个包 · 19 MB）</dd><dd><button class="btn sm">${I('folder', 14)}打开</button></dd>
+          <dt>管理器日志</dt><dd><code>…\\PSModManager\\logs\\app.log</code></dd><dd><button class="btn sm">${I('folder', 14)}打开</button></dd>
+        </dl></section>
+      <section class="card set"><h3>关于</h3><p style="margin-bottom:6px">PSModManager v0.1.0 · Windows x64 便携版 · 基于 RimCrow（MIT）</p>
+        <div class="inline"><button class="link">许可证</button><span style="color:var(--line-2)">|</span><button class="link">第三方声明</button><span style="color:var(--line-2)">|</span><button class="link">使用说明 ${I('ext', 12)}</button></div></section>
+    </div></div>`;
+}
+
+/* ---------- onboarding ---------- */
+function renderOnboard() {
+  $('#main').innerHTML = `<div class="onboard"><div class="card ob-card">
+    <h1>开始管理 Probably Stolen 的 Mod</h1>
+    <p>只需要三步。管理器只改动游戏里的 Mods、Plugins、UserLibs 目录，不会动存档。</p>
+    <ol class="steps">
+      <li class="cur"><span class="num">1</span><div><b>选择游戏安装</b><small>自动在 Steam 库中查找，也可以手动选择包含 Probably Stolen.exe 的目录。</small>
+        <div class="acts"><button class="btn primary" id="findBtn" onclick="findGame(this)">${I('search', 16)}自动查找</button><button class="btn" onclick="findGame($('#findBtn'))">手动选择目录…</button></div></div></li>
+      <li><span class="num">2</span><div><b>确认 MelonLoader</b><small>游戏需要 MelonLoader 才能加载 Mod。没有安装时，可以一键安装官方 0.7.3。</small></div></li>
+      <li><span class="num">3</span><div><b>启用 Mod</b><small>游戏里已有的 Mod 会自动列出；新 Mod 直接把 DLL、文件夹或 ZIP 拖进窗口。</small></div></li>
+    </ol></div></div>`;
+}
+function findGame(btn) {
+  btn.innerHTML = `${I('loader', 16, 'spin')}正在查找 Steam 库…`; btn.disabled = true;
+  setTimeout(() => { S.gameSet = true; S.page = 'mods'; render(); toast('已找到 Probably Stolen（Steam）', 'ok'); }, 1000);
+}
+
+/* ---------- dialogs ---------- */
+function modal(html, cls = '') {
+  $('#modal').innerHTML = `<div class="overlay" onmousedown="if(event.target===this)closeModal()"><div class="modal ${cls}" role="dialog" aria-modal="true">${html}</div></div>`;
+  const f = $('#modal .modal [autofocus]') || $('#modal .modal button'); f && f.focus();
+}
+function closeModal() { $('#modal').innerHTML = ''; }
+const head = (t, p) => `<div class="m-head"><div><h2>${t}</h2>${p ? `<p>${p}</p>` : ''}</div><button class="btn ghost sm x" onclick="closeModal()" aria-label="关闭">${I('x', 18)}</button></div>`;
+
+function openImport() {
+  modal(`${head('导入 Mod', '导入会保存一份副本到管理器，不会移动原文件，也不会执行任何程序。')}
+    <div class="m-body"><div class="drop" id="drop"><div class="big">${I('upload', 24)}</div><b>把文件拖到这里</b><div class="or">或者</div>
+      <div class="acts"><button class="btn" onclick="importPreview('NightVision.dll','dll')">${I('file', 16)}选择 DLL</button><button class="btn" onclick="importPreview('NightVision','dir')">${I('folder', 16)}选择文件夹</button><button class="btn" onclick="importPreview('NightVision-1.0.3.zip','zip')">${I('zip', 16)}选择 ZIP</button></div></div>
+      <p class="fine">单个文件或 ZIP 不超过 64 MiB，展开后总计不超过 256 MiB。暂不支持 RAR / 7z、加密或分卷压缩包、嵌套压缩包。</p></div>
+    <div class="m-foot"><span class="grow"></span><button class="btn" onclick="closeModal()">取消</button></div>`);
+}
+function importPreview(file, type) {
+  const base = String(file).replace(/\.(dll|zip)$/i, '').replace(/[-_ ]?\d+(\.\d+)+$/, '');
+  const name = base.replace(/([a-z])([A-Z])/g, '$1 $2') || 'New Mod';
+  modal(`${head('导入 Mod', esc(file))}<div class="m-body" style="text-align:center;padding:46px 22px;color:var(--text-3)">${I('loader', 26, 'spin')}<p style="margin:12px 0 0">正在读取文件信息（不会执行 DLL）…</p></div>`);
+  setTimeout(() => {
+    modal(`${head('确认导入', '检查名称和文件去向，确认后加入列表。')}
+      <div class="m-body">
+        <div class="field"><label>名称</label><input class="inp" id="impName" value="${esc(name)}" autofocus></div>
+        <div class="summary"><div><b>v1.0.3</b>从 DLL 读取的版本</div><div><b>3 个文件</b>共 412 KB</div><div><b>Mods · UserData</b>安装位置</div></div>
+        <table class="ftable"><thead><tr><th>文件</th><th>放到</th><th style="text-align:right">大小</th></tr></thead><tbody>
+          <tr><td>${I('file', 13)} ${esc(base)}.dll</td><td>Mods/</td><td class="r">380 KB</td></tr>
+          <tr><td>${I('file', 13)} ${esc(base)}.cfg</td><td>UserData/</td><td class="r">2 KB</td></tr>
+          <tr><td>${I('file', 13)} README.md</td><td>不安装（说明文件）</td><td class="r">30 KB</td></tr></tbody></table>
+        <label class="chk" style="margin-top:14px"><input type="checkbox" id="impOn" checked>导入后启用（点击保存后生效）</label>
+      </div>
+      <div class="m-foot"><span class="grow">${I('shield', 13)} 不会执行 DLL 或安装脚本</span><button class="btn" onclick="openImport()">返回</button><button class="btn primary" onclick="doImport('${type}')">导入</button></div>`);
+  }, 700);
+}
+function doImport(type) {
+  const name = $('#impName').value.trim() || 'New Mod', on = $('#impOn').checked;
+  const id = 'imp' + Date.now(), slug = name.replace(/\s+/g, '');
+  S.mods.forEach(m => m.fresh = false);
+  S.mods.push({ id, name, version:'1.0.3', kind:'mod', path:`Mods/${slug}.dll`, files:2, size:'382 KB', source:'imported', imported:'刚刚', on:false, saved:false, fresh:true,
+    tree:[[`Mods/${slug}.dll`, '380 KB'], [`UserData/${slug}.cfg`, '2 KB']] });
+  if (on) setOn(id, true, true);
+  closeModal(); S.filter = 'all'; S.query = ''; S.selected = id; go('mods');
+  setTimeout(() => { const r = $('#row-' + id); if (r) { r.scrollIntoView({ block:'center' }); r.classList.add('flash'); } }, 30);
+  toast(on ? `已导入 ${name}，保存后启用` : `已导入 ${name}`, 'ok');
+}
+function openGame() {
+  modal(`${head('游戏安装', '管理器只改动所选安装的 Mods、Plugins、UserLibs 目录。')}
+    <div class="m-body">
+      ${S.gameSet ? `<div class="sub-t">当前使用</div><div class="inst cur"><div class="game-art" style="width:34px;height:34px">${I('game', 18)}</div><div class="grow"><b>Probably Stolen · Steam</b><code>D:\\SteamLibrary\\steamapps\\common\\Probably Stolen</code></div><span class="pill accent">${I('check', 12)}使用中</span></div>` : ''}
+      <div class="sub-t">在 Steam 中找到</div>
+      <div class="inst"><div class="game-art" style="width:34px;height:34px">${I('game', 18)}</div><div class="grow"><b>Probably Stolen · Steam（测试版）</b><code>C:\\Program Files (x86)\\Steam\\steamapps\\common\\Probably Stolen Beta</code></div><button class="btn sm" onclick="closeModal();toast('已切换到测试版安装','ok')">使用</button></div>
+      <div class="inline" style="margin-top:14px"><button class="btn">${I('refresh', 15)}重新查找</button><button class="btn">${I('folder', 15)}手动选择目录…</button></div>
+      <p class="fine">手动选择时，请选包含 Probably Stolen.exe 的文件夹。</p>
+    </div><div class="m-foot"><span class="grow"></span><button class="btn" onclick="closeModal()">关闭</button></div>`);
+}
+function openLoader(install) {
+  const ready = S.loader === 'ready';
+  const row = (ok, t, d) => `<li>${I(ok ? 'okc' : 'alert', 18, ok ? 'ok' : 'warn')}<div class="grow"><b>${t}</b><small>${d}</small></div></li>`;
+  modal(`${head('MelonLoader 与运行环境', ready ? '一切就绪，游戏可以加载 Mod。' : '游戏需要 MelonLoader 才能加载 Mod。')}
+    <div class="m-body"><ul class="checks">
+      ${row(ready, ready ? 'MelonLoader 0.7.3 已安装' : 'MelonLoader 未安装', ready ? 'version.dll 与 MelonLoader 目录完整' : '可以下载官方 0.7.3 Windows x64 安装包，或使用已下载的同版本 ZIP')}
+      ${row(true, '.NET 6 桌面运行时', '已安装 6.0.36')}
+      ${row(true, 'Visual C++ 2015–2022 (x64)', '已安装 14.40')}
+    </ul>
+    <div id="ldProg"></div>
+    <p class="fine">安装或重装会保留 Mods、UserData 和配置；不会自动安装系统运行库，也不会启动游戏。<button class="link">官方说明 ${I('ext', 11)}</button></p></div>
+    <div class="m-foot"><button class="btn ghost">${I('refresh', 15)}重新检测</button><span class="grow"></span>
+      <button class="btn">从本地 ZIP 安装…</button>
+      ${ready ? `<button class="btn" onclick="installLoader()">重新安装</button>` : `<button class="btn primary" id="ldBtn" onclick="installLoader()">下载并安装 0.7.3</button>`}</div>`);
+  if (install) installLoader();
+}
+function installLoader() {
+  const p = $('#ldProg'); let v = 0;
+  const steps = ['正在下载官方安装包', '正在核对安装包摘要', '正在解压到游戏目录', '正在检查结果'];
+  const t = setInterval(() => {
+    v += 7; const s = steps[Math.min(3, Math.floor(v / 26))];
+    if (p) p.innerHTML = `<div style="margin-top:14px;font-size:13.5px;display:flex;justify-content:space-between"><span>${s}…</span><span style="color:var(--text-3)">${Math.min(v, 100)}%</span></div><div class="progress"><i style="width:${Math.min(v, 100)}%"></i></div>`;
+    if (v >= 100) { clearInterval(t); S.loader = 'ready'; closeModal(); render(); toast('MelonLoader 0.7.3 安装完成', 'ok'); }
+  }, 90);
+}
+function openUninstall(id) {
+  const m = mod(id);
+  modal(`${head(`卸载 ${esc(m.name)}？`)}
+    <div class="m-body" style="padding-top:12px;font-size:14px;color:var(--text-2)">
+      <p style="margin:0 0 10px">将从游戏目录删除 <b>${m.files} 个文件</b>，并从列表中移除。</p>
+      ${m.source === 'game' ? `<div class="callout err" style="margin:0">${I('alert', 16)}<div>这个 Mod 没有保存在管理器包库里，卸载后需要重新导入原文件才能恢复。</div></div>` : `<p class="fine" style="margin:0">管理器包库中的副本会保留。只想暂时不用的话，关闭开关停用即可。</p>`}
+    </div>
+    <div class="m-foot"><span class="grow"></span><button class="btn" onclick="closeModal()" autofocus>取消</button><button class="btn danger-fill" onclick="doUninstall('${id}')">卸载</button></div>`, 'narrow');
+}
+function doUninstall(id) {
+  const m = mod(id); S.mods = S.mods.filter(x => x.id !== id); S.selected = S.mods[0]?.id || null;
+  closeModal(); render(); toast(`已卸载 ${m.name}`, 'ok');
+}
+function openConfig() {
+  modal(`${head('PSWallpaper 设置', 'UserData/PSWallpaper.cfg · 只修改下面的项目，文件中的其他内容和注释会保留')}
+    <div class="m-body">
+      <div class="field"><label>壁纸模式</label><select class="inp"><option>随机切换</option><option>固定一张</option><option>按地图</option></select></div>
+      <div class="field"><label>切换间隔（秒）</label><div class="inline"><input class="inp" type="number" value="120" min="30" max="3600" style="width:140px"><span class="fine" style="margin:0">30 – 3600</span></div></div>
+      <div class="field"><label>淡入淡出动画</label><div><label class="switch"><input type="checkbox" checked><span></span></label></div></div>
+      <div class="field"><label>在菜单中显示</label><div><label class="switch"><input type="checkbox"><span></span></label></div></div>
+      <label class="chk" style="margin-top:6px"><input type="checkbox" checked>保存前备份原文件</label>
+    </div>
+    <div class="m-foot"><button class="btn ghost">${I('refresh', 15)}重新读取</button><span class="grow"></span><button class="btn" onclick="closeModal()">取消</button><button class="btn primary" onclick="closeModal();toast('配置已保存，已备份原文件','ok')">保存</button></div>`);
+}
+
+/* ---------- actions ---------- */
+function go(page) {
+  if (!S.gameSet && page !== 'settings') page = 'onboard';
+  S.page = page; render();
+}
+function select(id) {
+  S.selected = id;
+  if ($('#rows')) { document.querySelectorAll('.row').forEach(r => { const on = r.id === 'row-' + id; r.classList.toggle('sel', on); r.setAttribute('aria-selected', on); }); renderDetail(); }
+  else render();
+}
+function rowKey(e, id) {
+  const rows = [...document.querySelectorAll('.row')], i = rows.findIndex(r => r.id === 'row-' + id);
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const n = rows[i + (e.key === 'ArrowDown' ? 1 : -1)]; if (n) { n.focus(); select(n.id.slice(4)); } }
+  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setOn(id, !mod(id).on); setTimeout(() => $('#row-' + id)?.focus()); }
+}
+function undoAll() { S.mods.forEach(m => m.on = m.saved); S.history = []; render(); toast('已撤销全部更改', 'info'); }
+let saveTimer;
+function save(thenLaunch) {
+  if (!dirty() || S.running || S.saving) return;
+  S.saving = { done:0, total:changes().reduce((n, m) => n + Math.max(1, Math.min(m.files, 4)), 0) + 1 };
+  render();
+  saveTimer = setInterval(() => {
+    S.saving.done++; renderPending();
+    if (S.saving.done >= S.saving.total) {
+      clearInterval(saveTimer); const n = S.saving.total; S.saving = null;
+      S.mods.forEach(m => m.saved = m.on); S.history = [];
+      render(); toast(`已保存 · 完成 ${n} 个文件操作`, 'ok');
+      if (thenLaunch) launch();
+    }
+  }, 160);
+}
+function cancelSave() { clearInterval(saveTimer); S.saving = null; render(); toast('已取消，已完成的部分已恢复原状', 'info'); }
+function launch() {
+  if (dirty()) { if (S.page !== 'mods') go('mods'); save(true); return; }
+  S.running = true; render(); toast('已启动 Probably Stolen', 'ok');
+}
+function stopGame() { S.running = false; render(); toast('游戏已退出', 'info'); }
+function refreshMods() { toast('已重新读取游戏目录，没有发现变化', 'info'); }
+
+function toast(text, kind = 'ok', linkText, fn) {
+  const el = document.createElement('div'); el.className = 'toast';
+  el.innerHTML = `${I(kind === 'ok' ? 'okc' : 'info', 18, kind)}<span>${esc(text)}</span>`;
+  if (linkText) { const b = document.createElement('button'); b.className = 'link'; b.textContent = linkText; b.onclick = () => { fn(); el.remove(); }; el.appendChild(b); }
+  $('#toasts').appendChild(el); setTimeout(() => el.remove(), 3600);
+}
+
+/* ---------- render root ---------- */
+function render() {
+  renderSidebar();
+  if (!S.gameSet && S.page !== 'settings') S.page = 'onboard';
+  ({ mods:renderMods, logs:renderLogs, profiles:renderProfiles, settings:renderSettings, onboard:renderOnboard })[S.page]();
+}
+function setDemo(d) { closeModal(); reset(d); $('#demoSel').value = d; render(); }
+
+/* keyboard */
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && $('#modal').innerHTML) { closeModal(); return; }
+  if (!e.ctrlKey) return;
+  const k = e.key.toLowerCase();
+  if (k === 's') { e.preventDefault(); save(); }
+  if (k === 'f' && S.page === 'mods') { e.preventDefault(); $('#q')?.focus(); }
+  if (k === 'z' && !/INPUT|TEXTAREA/.test(document.activeElement.tagName) && S.history.length) {
+    e.preventDefault(); const h = S.history.pop(); mod(h.id).on = h.prev; render();
+  }
+});
+/* window-level drag & drop import */
+let dragDepth = 0;
+addEventListener('dragenter', e => { e.preventDefault(); if (!S.gameSet) return; dragDepth++; $('#dragCover').classList.add('on'); });
+addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; $('#dragCover').classList.remove('on'); } });
+addEventListener('dragover', e => e.preventDefault());
+addEventListener('drop', e => {
+  e.preventDefault(); dragDepth = 0; $('#dragCover').classList.remove('on');
+  if (!S.gameSet) return;
+  const f = e.dataTransfer.files[0]; if (f) importPreview(f.name, /\.zip$/i.test(f.name) ? 'zip' : 'dll');
+});
+
+/* boot: #demo=dirty&page=logs&dialog=import&ask=1 lets you open a given state directly */
+(function boot() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  const d = p.get('demo') || 'normal'; reset(d); $('#demoSel').value = d;
+  if (p.get('select')) S.selected = p.get('select');
+  if (p.get('page')) S.page = p.get('page');
+  render();
+  if (p.get('ask')) { S.ai.msgs.push({ role:'user', text:'分析这次运行的日志', att:'Latest.log' }, { role:'ai' }); renderAi(); }
+  const dlg = p.get('dialog');
+  if (dlg === 'import') openImport(); else if (dlg === 'preview') importPreview('NightVision-1.0.3.zip', 'zip');
+  else if (dlg === 'loader') openLoader(); else if (dlg === 'game') openGame(); else if (dlg === 'config') openConfig(); else if (dlg === 'uninstall') openUninstall(S.selected);
+})();
+</script>
+</body>
+</html>

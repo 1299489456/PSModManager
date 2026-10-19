@@ -1,0 +1,253 @@
+{
+  "Installation": {
+    "installation_id": "00000000-0000-4000-8000-000000000001",
+    "canonical_root": "C:/synthetic/game",
+    "file_identity": "volume:1:file:2",
+    "channel": "synthetic",
+    "app_id": null,
+    "build_id": null,
+    "fingerprint_id": "00000000-0000-4000-8000-000000000002",
+    "schema_version": 1
+  },
+  "RuntimeFingerprint": {
+    "fingerprint_id": "00000000-0000-4000-8000-000000000002",
+    "game_version_raw": null,
+    "unity_version": null,
+    "loader_version": null,
+    "exe_hash": null,
+    "game_assembly_hash": null,
+    "metadata_hash": null,
+    "observed_at": "2026-09-28T00:00:00Z",
+    "source": {
+      "kind": "embedded_metadata",
+      "reference": "manifest.json",
+      "observed_at": "2026-09-28T00:00:00Z"
+    },
+    "coverage": "partial",
+    "schema_version": 1
+  },
+  "ModPackage": {
+    "package_id": "00000000-0000-4000-8000-000000000003",
+    "display_name": "Same name",
+    "source": {
+      "kind": "embedded_metadata",
+      "reference": "manifest.json",
+      "observed_at": "2026-09-28T00:00:00Z"
+    },
+    "trust": "unknown",
+    "schema_version": 1
+  },
+  "ModRelease": {
+    "release_id": "00000000-0000-4000-8000-000000000004",
+    "package_id": "00000000-0000-4000-8000-000000000003",
+    "version_raw": "api19-local",
+    "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "schema_version": 1
+  },
+  "Component": {
+    "component_id": "00000000-0000-4000-8000-000000000005",
+    "release_id": "00000000-0000-4000-8000-000000000004",
+    "artifact_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "file_name": "Example.dll",
+    "assembly_name": null,
+    "assembly_version": null,
+    "melon_info": null,
+    "roles": [
+      "melon_mod",
+      "itemforge_content"
+    ],
+    "content_ids": [
+      {
+        "framework": "itemforge",
+        "type": "BundleId",
+        "value": "same"
+      },
+      {
+        "framework": "another",
+        "type": "BundleId",
+        "value": "same"
+      }
+    ],
+    "schema_version": 1
+  },
+  "Artifact": {
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "size": 10,
+    "library_relative_path": "sha256/Example.dll",
+    "schema_version": 1
+  },
+  "FileEntry": {
+    "file_entry_id": "00000000-0000-4000-8000-000000000006",
+    "release_id": "00000000-0000-4000-8000-000000000004",
+    "source_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "target_root_kind": "mods",
+    "relative_path": "Example.dll",
+    "lifecycle": "immutable",
+    "ownership": "exclusive",
+    "schema_version": 1
+  },
+  "Relation": {
+    "relation_id": "00000000-0000-4000-8000-000000000007",
+    "from_id": "00000000-0000-4000-8000-000000000005",
+    "to_id": null,
+    "capability": "itemforge.runtime_api",
+    "kind": "capability_requirement",
+    "requirement_raw": 19,
+    "source": {
+      "kind": "embedded_metadata",
+      "reference": "manifest.json",
+      "observed_at": "2026-09-28T00:00:00Z"
+    },
+    "confidence": "confirmed",
+    "fingerprint_scope": "00000000-0000-4000-8000-000000000002",
+    "schema_version": 1
+  },
+  "Profile": {
+    "profile_id": "00000000-0000-4000-8000-000000000008",
+    "installation_id": "00000000-0000-4000-8000-000000000001",
+    "revision": 0,
+    "selections": [
+      {
+        "release_id": "00000000-0000-4000-8000-000000000004",
+        "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "selected": true
+      }
+    ],
+    "config_overrides": {},
+    "display_order": [
+      "00000000-0000-4000-8000-000000000005"
+    ],
+    "schema_version": 1
+  },
+  "BaselineSnapshot": {
+    "snapshot_id": "00000000-0000-4000-8000-000000000009",
+    "installation_id": "00000000-0000-4000-8000-000000000001",
+    "scan_generation": 1,
+    "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "files": [
+      {
+        "relative_path": "Mods/Example.dll",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "size": 10
+      }
+    ],
+    "coverage": "complete",
+    "schema_version": 1
+  },
+  "DeploymentGeneration": {
+    "generation_id": "00000000-0000-4000-8000-000000000010",
+    "installation_id": "00000000-0000-4000-8000-000000000001",
+    "sequence": 1,
+    "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "transaction_id": "00000000-0000-4000-8000-000000000017",
+    "committed_at": "2026-09-28T00:00:00Z",
+    "schema_version": 1
+  },
+  "RuntimeSession": {
+    "session_id": "00000000-0000-4000-8000-000000000011",
+    "installation_id": "00000000-0000-4000-8000-000000000001",
+    "generation_id": null,
+    "pid": null,
+    "started_at": null,
+    "log_file_ids": [],
+    "association_confidence": "unknown",
+    "schema_version": 1
+  },
+  "Observation": {
+    "observation_id": "00000000-0000-4000-8000-000000000012",
+    "session_id": "00000000-0000-4000-8000-000000000011",
+    "component_id": "00000000-0000-4000-8000-000000000005",
+    "event_kind": "registered",
+    "stage": "loader-registration",
+    "evidence_ids": [
+      "00000000-0000-4000-8000-000000000013"
+    ],
+    "schema_version": 1
+  },
+  "DiagnosticEvidence": {
+    "evidence_id": "00000000-0000-4000-8000-000000000013",
+    "source_id": "00000000-0000-4000-8000-000000000014",
+    "epoch": 0,
+    "byte_start": 0,
+    "byte_end": 10,
+    "excerpt_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "source_time": null,
+    "rule_id": null,
+    "component_ids": [
+      "00000000-0000-4000-8000-000000000005"
+    ],
+    "schema_version": 1
+  },
+  "ActionPlan": {
+    "plan_id": "00000000-0000-4000-8000-000000000015",
+    "installation_id": "00000000-0000-4000-8000-000000000001",
+    "profile_id": "00000000-0000-4000-8000-000000000008",
+    "profile_revision": 0,
+    "base_generation": null,
+    "baseline_snapshot_id": "00000000-0000-4000-8000-000000000009",
+    "baseline_manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "fingerprint_id": "00000000-0000-4000-8000-000000000002",
+    "plan_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "idempotency_key": "00000000-0000-4000-8000-000000000018",
+    "operations": [
+      {
+        "operation_id": "00000000-0000-4000-8000-000000000019",
+        "kind": "install_owned",
+        "target_root_kind": "mods",
+        "relative_path": "Example.dll",
+        "expected_before": "absent",
+        "desired_after": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "owner_ids": [
+          "00000000-0000-4000-8000-000000000003"
+        ]
+      }
+    ],
+    "preconditions": [
+      {
+        "kind": "baseline_hash",
+        "reference": "00000000-0000-4000-8000-000000000009",
+        "expected": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "verification_checks": [
+      {
+        "kind": "target_hash",
+        "reference": "Mods/Example.dll",
+        "expected": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    ],
+    "evidence_ids": [],
+    "disk_estimate_by_volume": {
+      "synthetic_volume": 1024
+    },
+    "backup_scope": [
+      "owned_files"
+    ],
+    "restart_required": false,
+    "approval_scope": [
+      "install_owned"
+    ],
+    "expires_at": "2026-09-28T00:00:00Z",
+    "schema_version": 1
+  },
+  "Approval": {
+    "approval_id": "00000000-0000-4000-8000-000000000016",
+    "plan_id": "00000000-0000-4000-8000-000000000015",
+    "plan_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "scope": [
+      "install_owned"
+    ],
+    "actor": "synthetic-user",
+    "expires_at": "2026-09-28T00:00:00Z",
+    "schema_version": 1
+  },
+  "Transaction": {
+    "transaction_id": "00000000-0000-4000-8000-000000000017",
+    "plan_id": "00000000-0000-4000-8000-000000000015",
+    "state": "planned",
+    "journal_path": "journals/transaction.jsonl",
+    "target_generation": "00000000-0000-4000-8000-000000000010",
+    "last_sequence": 0,
+    "schema_version": 1
+  }
+}
