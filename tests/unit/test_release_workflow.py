@@ -13,7 +13,7 @@ import pack_pyinstaller as packaging
 from backend.loaders.melonloader.offline import CPP2IL, SCRS, UNITY, OfflineError, OfflineToolchain
 from tools.check_release_version import check
 from tools.prepare_public_toolchain import build
-from tools.publish_release import checked_assets, publish
+from tools.publish_release import checked_assets, publish, version_changes
 
 ROOT = Path(__file__).resolve().parents[2]
 COMMIT = '1'*40
@@ -117,6 +117,30 @@ def test_release_tag_must_match_committed_product_version(tag):
 def test_current_tag_matches_all_version_sources():
     from backend.app.identity import APP_VERSION
     assert check('v'+APP_VERSION) == packaging.VERSION
+    assert check() == APP_VERSION
+
+
+@pytest.mark.parametrize('notes', [
+    '# 0.0.1 · 2026-10-19\n\nOld notes only',
+    '# 0.1.1 · 2026-10-19\n\n# 0.1.0 便携版\n\nOld notes',
+    'Missing a version heading',
+])
+def test_release_check_rejects_stale_or_empty_current_notes(tmp_path, notes):
+    write(tmp_path, 'pyproject.toml', b'[project]\nversion = "0.1.1"\n')
+    write(tmp_path, 'backend/app/identity.py', b'APP_VERSION = "0.1.1"\n')
+    write(tmp_path, 'uv.lock', b'[[package]]\nname = "psmodmanager"\nversion = "0.1.1"\n')
+    write(tmp_path, 'docs/user/release-notes.md', notes.encode('utf-8'))
+    with pytest.raises(ValueError, match='Release notes'):
+        check(root=tmp_path)
+
+
+def test_release_check_accepts_current_notes_and_preserves_history(tmp_path):
+    write(tmp_path, 'pyproject.toml', b'[project]\nversion = "0.1.1"\n')
+    write(tmp_path, 'backend/app/identity.py', b'APP_VERSION = "0.1.1"\n')
+    write(tmp_path, 'uv.lock', b'[[package]]\nname = "psmodmanager"\nversion = "0.1.1"\n')
+    write(tmp_path, 'docs/user/release-notes.md',
+          '# 0.1.1 · 2026-10-19\r\n\r\n- 修复首次查询\r\n\r\n# 0.1.0 便携版\r\n历史记录'.encode('utf-8'))
+    assert check(root=tmp_path) == '0.1.1'
 
 
 def test_packager_can_be_loaded_by_isolated_pyinstaller_spec(tmp_path):
@@ -165,6 +189,18 @@ def test_release_publishes_only_after_both_assets_upload(assets):
     assert publish(api, assets, 'v0.1.0', COMMIT).endswith('/v0.1.0')
     assert [method for method, _, _ in api.calls] == ['GET', 'GET', 'POST', 'POST', 'POST', 'PATCH']
     assert api.calls[-1][2] == {'draft': False}
+    assert version_changes('v0.1.0') in api.calls[2][2]['body']
+
+
+def test_release_notes_select_only_the_published_version(tmp_path):
+    notes = write(tmp_path, 'notes.md', '# 0.1.1 · 2026-10-19\r\n\r\n## 修复\r\n- 查询超时\r\n\r\n# 0.1.0 便携版\r\n旧记录'.encode())
+    assert version_changes('v0.1.1', notes) == '## 修复\n- 查询超时'
+    assert version_changes('v0.1.0', notes) == '旧记录'
+    with pytest.raises(ValueError, match='Missing release notes'):
+        version_changes('v9.0.0', notes)
+    notes.write_text('# 0.1.1\n\n# 0.1.0\n旧记录', encoding='utf-8')
+    with pytest.raises(ValueError, match='Missing release notes'):
+        version_changes('v0.1.1', notes)
 
 
 @pytest.mark.parametrize('case', ['existing', 'moved-tag', 'failed-upload', 'bad-checksum'])

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createMelonLoaderRuntime, melonLoaderStatusText, melonLoaderCheckText, melonLoaderProgress } from './melonLoaderRuntime.js'
+import { createMelonLoaderRuntime, melonLoaderStatusText, melonLoaderCheckText, melonLoaderGenerationNotice, melonLoaderProgress } from './melonLoaderRuntime.js'
 
 const tick = () => new Promise(resolve => setTimeout(resolve, 0))
 const status = (extra = {}) => ({ status: 'not_installed', version_raw: null, recommended_version: '0.7.3',
@@ -282,4 +282,29 @@ test('successful installation keeps its useful cleanup warning visible', async (
   assert.equal(state.notice, `MelonLoader 已安装。 ${warning}`)
   assert.equal(state.error, '')
   runtime.dispose()
+})
+
+test('pending generation stays visible despite ready dependencies and does not enable repair', async () => {
+  const message = '游戏更新后待重新生成程序集；下次启动由 MelonLoader 重建，可能需要较长时间。'
+  const pending = { ...installed(), assembly_generation: { status: 'pending', message },
+    generation_dependencies: { ready: true, can_repair: false },
+    checks: [{ id: 'assembly_generation', label: '程序集生成状态', status: 'pending', detail: message }] }
+  const { state, runtime } = fixture({ 'loader.status': () => pending })
+  assert.equal(await runtime.setInstallation('installation'), true)
+  assert.equal(state.snapshot.ready, true)
+  assert.match(melonLoaderStatusText(state), /待重新生成程序集/)
+  assert.equal(melonLoaderGenerationNotice(state.snapshot), message)
+  assert.equal(melonLoaderCheckText('pending'), '待重新生成')
+  assert.equal(runtime.canRepair(), false)
+  runtime.dispose()
+})
+
+test('first generation, matched and unknown states remain distinct', () => {
+  for (const [status, label, summary] of [['not_generated', '尚未生成', '首次启动待生成程序集'],
+    ['matched', '已匹配', '环境已就绪'], ['unknown', '待确认', '生成状态待确认']]) {
+    const snapshot = { ...installed(), assembly_generation: { status, message: '生成状态说明' } }
+    assert.match(melonLoaderStatusText({ snapshot }), new RegExp(summary))
+    assert.equal(melonLoaderCheckText(status), label)
+    assert.equal(melonLoaderGenerationNotice(snapshot), status === 'matched' ? '' : '生成状态说明')
+  }
 })

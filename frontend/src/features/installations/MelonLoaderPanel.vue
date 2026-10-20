@@ -1,14 +1,16 @@
 <script setup>
 import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
 import { CircleCheck, TriangleAlert, RefreshCw } from 'lucide-vue-next'
-import { createMelonLoaderRuntime, melonLoaderCheckText, melonLoaderProgress, melonLoaderStatusText } from './melonLoaderRuntime.js'
+import { createMelonLoaderRuntime, melonLoaderCheckText, melonLoaderGenerationNotice, melonLoaderProgress, melonLoaderStatusText } from './melonLoaderRuntime.js'
 
 const props = defineProps({ bridge: { type: Object, required: true }, installation: { type: Object, default: null } })
 const state = reactive({}), dialog = ref(null), detailButton = ref(null)
 const runtime = createMelonLoaderRuntime(props.bridge, state)
 const working = computed(() => state.busy || state.refreshing || state.choosing)
 const summary = computed(() => melonLoaderStatusText(state))
+const generationNotice = computed(() => melonLoaderGenerationNotice(state.snapshot))
 const overviewMessage = computed(() => {
+  if (state.snapshot?.ready && generationNotice.value) return generationNotice.value
   const message = state.snapshot?.message || ''
   return message.length > 100 ? '查看环境详情，定位缺少的文件或运行库。' : message
 })
@@ -24,12 +26,12 @@ onUnmounted(() => runtime.dispose())
 
 <template>
   <section v-if="state.installationId" class="loader-panel" data-testid="loader-panel" :aria-busy="working">
-    <button ref="detailButton" class="env-pill" :class="{ warn: !state.snapshot?.ready && !state.refreshing }" data-testid="loader-details" :title="state.snapshot?.ready ? '环境详情' : '环境与安装'" @click="openDetails">
-      <CircleCheck v-if="state.snapshot?.ready" :size="15" class="ready" aria-hidden="true"/><TriangleAlert v-else-if="!state.refreshing" :size="15" class="warning" aria-hidden="true"/><RefreshCw v-else :size="15" class="garden-spin" aria-hidden="true"/>
+    <button ref="detailButton" class="env-pill" :class="{ warn: (!state.snapshot?.ready || generationNotice) && !state.refreshing }" data-testid="loader-details" :title="state.snapshot?.ready ? '环境详情' : '环境与安装'" @click="openDetails">
+      <CircleCheck v-if="state.snapshot?.ready && !generationNotice" :size="15" class="ready" aria-hidden="true"/><TriangleAlert v-else-if="!state.refreshing" :size="15" :class="state.snapshot?.ready ? 'pending' : 'warning'" aria-hidden="true"/><RefreshCw v-else :size="15" class="garden-spin" aria-hidden="true"/>
       <strong role="status" data-testid="loader-status" :data-state="state.snapshot?.status || 'unknown'">{{ summary }}</strong>
     </button>
     <Teleport defer to="#garden-sign-slot">
-      <div v-if="(state.busy && !state.choosing) || state.error || (state.snapshot && !state.snapshot.ready)" class="garden-sign-banner" data-testid="loader-banner">
+      <div v-if="(state.busy && !state.choosing) || state.error || (state.snapshot && !state.snapshot.ready) || generationNotice" class="garden-sign-banner" data-testid="loader-banner">
         <TriangleAlert :size="20" aria-hidden="true"/>
         <div class="grow">
           <b>{{ summary }}</b> <span v-if="overviewMessage">{{ overviewMessage }}</span>
@@ -64,6 +66,7 @@ onUnmounted(() => runtime.dispose())
 
 <style scoped>
 .loader-panel { flex:none; margin:0 12px; padding:10px 14px; border:1px solid rgb(var(--rgb-border-base)/.2); border-radius:10px; color:rgb(var(--rgb-text-main)); font-size:14px; }
+.pending,.not_generated { color:var(--accent-warn); }.matched { color:rgb(var(--rgb-accent-success)); }
 .loader-overview { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }.loader-summary { flex:1; min-width:200px; display:flex; flex-direction:column; gap:4px; }.loader-summary strong { font-size:15px; font-weight:600; }.loader-message,.hint { color:rgb(var(--rgb-text-dim)); line-height:1.5; }.loader-message { overflow-wrap:anywhere; }.ready,.loader-notice,.ok { color:rgb(var(--rgb-accent-success)); }.warning,.missing,.disabled,.loader-error { color:rgb(var(--rgb-accent-danger)); }.unknown { color:rgb(var(--rgb-text-dim)); }
 button { display:inline-flex; align-items:center; justify-content:center; gap:6px; font:inherit; color:inherit; cursor:pointer; white-space:nowrap; padding:7px 11px; border:1px solid rgb(var(--rgb-border-base)/.24); background:rgb(var(--rgb-bg-overlay)/.05); border-radius:8px; }button:hover { background:rgb(var(--rgb-bg-overlay)/.1); }button:disabled { opacity:.45; cursor:not-allowed; }button:focus-visible,a:focus-visible { outline:2px solid rgb(var(--rgb-accent-primary)); outline-offset:3px; }.primary { background:rgb(var(--rgb-accent-primary)/.12); border-color:rgb(var(--rgb-accent-primary)/.45); }
 .loader-progress { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-top:12px; }.loader-progress progress { width:160px; }.loader-progress button { margin-left:auto; }.loader-error,.loader-notice { margin:9px 0 0; overflow-wrap:anywhere; }

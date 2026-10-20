@@ -125,6 +125,25 @@ node --test $frontendTests
 
 ## 7. 构建 Windows x64 便携包
 
+**每次向用户交付修复或功能更新，都必须递增产品版本号并写更新记录，包括仅在本地交付的便携包。** 同一候选版本的失败重试不用再递增。修复和小幅体验改动通常递增补丁号（如 `0.1.0 → 0.1.1`）；较大的新增功能递增次版本号；已公开的版本不覆盖、不移动旧标签。
+
+交付前同步以下来源：
+
+- `backend/app/identity.py` 的 `APP_VERSION`：应用信息、EXE 打包清单与 ZIP 名称的产品版本来源。
+- `pyproject.toml` 的 `project.version`。
+- `uv.lock` 中 `name = "psmodmanager"` 对应的版本。仅更新项目版本时，不升级任何依赖；如运行 `uv lock`，必须检查差异。
+- `docs/user/release-notes.md`：在最上方添加 `# 版本号 · YYYY-MM-DD`，列出用户可见的修复和变化，保留旧版记录。设置里的“更新记录”直接读取这份文档，Markdown 会在构建时一并嵌入，离线可读；GitHub Release 也从中提取对应版本的更新内容。
+
+`frontend/package.json` 的 `0.0.0` 是私有前端构建包的标识，不是产品版本；遗留 `backend/_version.py` 也不用于当前桌面入口，均不随产品版本更新。
+
+先检查四处是否一致，再重新构建前端，避免把旧更新记录带入新包：
+
+```powershell
+.\.venv\Scripts\python.exe tools/check_release_version.py
+if ($LASTEXITCODE) { throw '版本号或更新记录不一致，请先修正。' }
+npm --prefix frontend run build
+```
+
 先完成前端 build 和离线资源准备。打包器会核对 Python、Python / npm 依赖、helper runtime 与 `third_party/notices/build-baseline.json` 中的许可基线是否一致，同时校验本地 npm 安装与 `package-lock.json`。当前基线为 Python `3.11.14`、helper runtime `10.0.11`，其余确切依赖版本见该 JSON。
 
 helper 选择本机最高版本的 .NET 10 SDK；当前使用 SDK `10.0.400`，其 runtime 和 reference pack 版本均为 `10.0.11`。需要匹配的 runtime、reference pack 与 win-x64 host pack；安装更高 SDK 后应重新核对许可基线，而不是假设仍产出同版运行时。打包还需要对应的 `Microsoft.NETCore.App.Runtime.win-x64` 本地 NuGet 缓存；准备好匹配的 SDK 后，可**显式联网**缓存一次：
@@ -149,7 +168,7 @@ $output = Join-Path (Get-Location).Path ('.preview\portable-' + (Get-Date -Forma
 成功后的主要输出：
 
 - `dist/PSModManager/`：完整便携目录，包含两个 EXE、共享 `_internal`、用户文档、许可材料与构建清单。
-- `PSModManager-v0.1.0-windows-x64.zip`：对应的完整 ZIP。
+- `PSModManager-v<版本号>-windows-x64.zip`：对应版本的完整 ZIP。
 - `result.json`：产物路径、体积等结果；`helper.log`、`pyinstaller.log` 用于排查构建失败。
 
 检查刚生成的实际目录和 ZIP，而不是只检查测试夹具：
@@ -169,11 +188,7 @@ Remove-Item Env:PSMM_PORTABLE_ROOT, Env:PSMM_PORTABLE_ZIP, Env:PSMM_FINAL_DELIVE
 
 [`Windows portable` 工作流](../../.github/workflows/release.yml)在 `main` 推送时构建、测试并上传保留 14 天的 Actions artifact；**只有推送 `v主版本.次版本.补丁版本` 标签才自动创建 Release**。普通源码提交不会发布新版本。
 
-每次更新版本时，同步以下三处，然后提交并推送 `main`：
-
-- `pyproject.toml` 的 `project.version`。
-- `backend/app/identity.py` 的 `APP_VERSION`（打包器直接使用它）。
-- `uv.lock` 中 `psmodmanager` 的版本：修改声明后执行 `uv lock`，检查差异没有意外升级依赖。
+按第 7 节完成版本递增、更新记录和本地验证。获得提交与发布授权后，再提交并推送 `main`。CI 的 `check_release_version.py` 会同时核对标签、三个版本来源和最新更新记录，缺少当前版本记录或记录为空都会停止构建。
 
 确认该提交的 Actions 构建成功，再推送相同版本的标签，例如：
 

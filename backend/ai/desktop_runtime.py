@@ -41,7 +41,7 @@ MESSAGES = {
     'AI_TOOL_ARGUMENTS':'查询参数无效，请使用已登记的 Mod 和支持的字段。',
     'AI_TOOL_SCOPE':'查询超出所选范围，请重新选择当前游戏或日志片段。',
     'AI_TOOL_UNAVAILABLE':'此项本地信息暂不可读，请在管理页检查；其他操作仍可使用。',
-    'AI_TOOL_TIMEOUT':'本地查询超时，已停止后续查询，请重试。',
+    'AI_TOOL_TIMEOUT':'这项本地查询超时，未取得结果；将使用已有日志与资料继续分析。',
     'AI_TOOL_OUTPUT_LIMIT':'本地查询结果过多，请减少每页数量。',
     'AI_TOOL_LIMIT':'本次查询次数已达上限，请缩小问题范围后重试。',
     'AI_TOOL_RESPONSE_LIMIT':'服务单次请求了过多工具，已停止本次请求并保留收到的内容。',
@@ -345,6 +345,7 @@ class DesktopAssistant:
         query_state = query_state if query_state is not None else {}
         base_messages = [dict(row) for row in messages]
         cache, stop_reason = {}, ''
+        query_timed_out = False
         narratives=[]
         latest_text=''
         def joined(text=''):
@@ -364,7 +365,7 @@ class DesktopAssistant:
             if (stop_reason or budget.provider_calls >= budget.limits.provider_calls-1
                     or budget.tool_batches >= budget.limits.tool_batches
                     or budget.tool_calls >= budget.limits.tool_calls):
-                query_state['notice']='已根据本轮取得的资料完成分析；未继续额外查询，可继续追问。'
+                query_state.setdefault('notice','已根据本轮取得的资料完成分析；未继续额外查询，可继续追问。')
                 task.progress(0,None,'ai_summary','AI_SUMMARY',dict(session_id=str(session_id)))
                 final_messages=self._final_query_messages(messages,base_messages,budget.limits.input_bytes,stop_reason)
                 latest_text=''
@@ -394,6 +395,12 @@ class DesktopAssistant:
             for call, safe_call in zip(reply.tool_calls, reflected):
                 check()
                 name = call['function']['name']
+                if query_timed_out:
+                    # Close every requested tool-call ID, but do not start more
+                    # disk work once a local query has exhausted its time budget.
+                    result=json.dumps(dict(ok=False,error_code='AI_TOOL_SKIPPED',message=stop_reason),ensure_ascii=False)
+                    messages.append(dict(role='tool',tool_call_id=safe_call['id'],content=result))
+                    continue
                 try:
                     signature=(name,json.dumps(json.loads(call['function']['arguments']),ensure_ascii=False,sort_keys=True,separators=(',',':')))
                 except (ValueError,TypeError,RecursionError):
@@ -417,8 +424,12 @@ class DesktopAssistant:
                         if name in {SUGGESTION_TOOL,WORKSPACE_TOOL_NAME} and self.proposals is not None
                         else self.tools.execute(name,call['function']['arguments'],scope,check,secrets))
                 except AIError as exc:
-                    if exc.code in ('AI_TIMEOUT','AI_TOOL_TIMEOUT'):
+                    if exc.code == 'AI_TIMEOUT':
                         raise
+                    if exc.code == 'AI_TOOL_TIMEOUT':
+                        query_timed_out=True
+                        stop_reason='本地查询超时，停止额外查询；只根据已有日志和已返回的资料分析，未取得的结果保持未知。'
+                        query_state['notice']='部分本地查询超时；已根据日志和已有资料完成分析，未取得的查询结果保持未知。'
                     result = json.dumps(dict(ok=False,error_code=exc.code,message=MESSAGES.get(exc.code,'本地查询未完成。')),
                                         ensure_ascii=False)
                 check()

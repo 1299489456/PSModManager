@@ -220,3 +220,82 @@ def test_utf16_log_reader_preserves_complete_lines(app):
             break
         assert len(pages) < 10
     assert ''.join(pages) == original
+
+
+def test_old_log_warning_and_actual_file_time_reach_model(app):
+    import os
+    log_path = app.game / 'MelonLoader/Latest.log'
+    os.utime(log_path, (1000, 1000))
+    result = preview(app, include_context=False)
+    log = result['logs'][0]
+    assert log['freshness'] == 'predates_game_files'
+    assert log['source_modified_at'].startswith('1970-01-01T00:16:40')
+    assert log['source_modified_at'] != log['captured_at']
+    assert '历史参考' in log['freshness_message']
+    with ScriptedAIProvider([{'text': '这是更新前的历史日志，请先取得更新后的启动日志。'}]) as provider:
+        configure(app, provider)
+        assert send(app, result)['completed']
+        sent = json.dumps(provider.requests[0]['body'], ensure_ascii=False)
+        assert '1970-01-01T00:16:40' in sent and '可能来自更新前' in sent
+    log_path.write_text('fresh log\n', encoding='utf-8')
+    current = preview(app)['logs'][0]
+    assert current['freshness'] == 'not_older_than_game_files'
+    assert not current['freshness_message']
+
+
+@pytest.mark.parametrize('encoding', ['utf-8', 'utf-16'])
+def test_large_logs_keep_startup_outside_tail_window_and_respect_budget(app, encoding):
+    header = ('[12:00:00] MelonLoader v0.7.3 Open-Beta\n'
+              '[12:00:00] Game Version: 0.49D\n'
+              '[12:00:00] Unity Version: 2021.3.45f2\n'
+              '[12:00:00] [Il2CppAssemblyGenerator] Assembly generation needed.\n'
+              '[12:00:00] [Il2CppAssemblyGenerator] token=do-not-send-password\n')
+    text = header + 'routine 中文 line\n' * 25000 + '[12:01:00] ERROR newest failure\n'
+    (app.game / 'MelonLoader/Latest.log').write_text(text, encoding=encoding)
+    result = preview(app)
+    log = result['logs'][0]
+    startup = log['startup_context']
+    assert 'Game Version: 0.49D' in startup['text']
+    assert 'Unity Version: 2021.3.45f2' in startup['text']
+    assert 'Assembly generation needed' in startup['text']
+    assert 'do-not-send-password' not in startup['text']
+    assert 'newest failure' in log['text']
+    assert len((startup['text'] + log['text']).encode('utf-8')) <= 8192
+    assert len(startup['line_numbers']) + log['line_count'] <= 240
+    with ScriptedAIProvider([{'text': '按日志中的版本和生成阶段分析。'}]) as provider:
+        configure(app, provider)
+        assert send(app, result)['completed']
+        sent = json.dumps(provider.requests[0]['body'], ensure_ascii=False)
+        assert '文件开头' in sent and 'Game Version: 0.49D' in sent and 'newest failure' in sent
+        assert 'do-not-send-password' not in sent
+
+
+def test_error_flood_does_not_discard_boot_versions_and_generation(app):
+    header = ('[12:00:00] MelonLoader v0.7.3 Open-Beta\n'
+              '[12:00:00] Game Version: 0.49D\n'
+              '[12:00:00] Unity Version: 2021.3.45f2\n'
+              '[12:00:01] [Il2CppAssemblyGenerator] Assembly is up to date. No Generation Needed.\n')
+    (app.game / 'MelonLoader/Latest.log').write_text(header + ('ERROR mod failure ' + 'x' * 300 + '\n') * 300, encoding='utf-8')
+    log = preview(app)['logs'][0]
+    assert log['startup_context'] is None
+    for line in header.splitlines():
+        assert line in log['text']
+    assert len(log['text'].encode()) <= 8192 and log['line_count'] <= 240
+
+
+def test_current_environment_does_not_reuse_stored_or_historical_versions(app, monkeypatch):
+    from backend.games.probably_stolen import fingerprint
+    (app.game / 'UnityPlayer.dll').write_bytes(b'synthetic metadata')
+    monkeypatch.setattr(fingerprint, 'file_version', lambda p: '0.7.3' if p.name == 'MelonLoader.dll' else '2021.3.45f2')
+    result = preview(app)['context']['installation']
+    assert result['game_version'] is None
+    assert result['unity_version'] == '2021.3.45f2'
+    assert result['loader_version'] == '0.7.3'
+    assert result['freshness'] == 'current_files' and result['runtime_verified'] is False
+
+
+def test_manager_log_does_not_get_game_update_warning(app):
+    result = preview(app, manager=True)
+    log = next(row for row in result['logs'] if row['relative_path'] == 'logs/psmodmanager.log')
+    assert log['freshness'] == 'unknown'
+    assert log['game_files_modified_at'] is None and log['freshness_message'] == ''

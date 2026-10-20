@@ -91,6 +91,33 @@ def file_version(path):
     return None
 
 
+def game_version_from_pe(value, unity_version=None):
+    """Unity's player EXE usually carries an engine version, not a game version."""
+    if not value:
+        return None
+    if re.match(r'^(?:20\d{2}|6000)\.\d+\.\d+(?:[abfp]\d+|\.\d+)(?:\s|$)', value):
+        return None
+    if unity_version and value.split()[0] == unity_version.split()[0]:
+        return None
+    return value
+
+
+def current_versions(root):
+    """Read current PE metadata only; never promote a historical log to current state."""
+    def version(relative):
+        try:
+            target = safe_path(root, relative)
+            before = signature(target.stat())
+            value = file_version(target)
+            return value if signature(safe_path(root, relative).stat()) == before else None
+        except (OSError, ValueError):
+            return None
+    unity = version('UnityPlayer.dll')
+    loader = version('MelonLoader/net6/MelonLoader.dll') or version('MelonLoader/MelonLoader.dll')
+    return dict(game_version=game_version_from_pe(version(EXE), unity),
+                unity_version=unity, loader_version=loader)
+
+
 def collect(root: Path, paths: dict, budget: Budget):
     hashes = {}
     stamps = {}
@@ -104,7 +131,9 @@ def collect(root: Path, paths: dict, budget: Budget):
                 stamps[relative] = stamp
             except (OSError, ValueError) as exc:
                 issues.append(f'{relative}: {exc}')
-    version = file_version(paths[EXE]) if EXE in stamps else None
+    versions = current_versions(root)
+    version = game_version_from_pe(file_version(paths[EXE]), versions['unity_version']) if EXE in stamps else None
+    unity_version = versions['unity_version']
     loader_version = None
     if 'loader' in paths:
         relative = paths['loader'].relative_to(root).as_posix()
@@ -120,12 +149,12 @@ def collect(root: Path, paths: dict, budget: Budget):
         except (OSError, ValueError) as exc:
             issues.append(f'{relative}: {exc}')
             hashes = {key: None for key in hashes}
-            version = loader_version = None
+            version = loader_version = unity_version = None
     now = datetime.now(timezone.utc)
     dto = RuntimeFingerprint(
-        fingerprint_id=uuid4(), game_version_raw=version, unity_version=None,
+        fingerprint_id=uuid4(), game_version_raw=version, unity_version=unity_version,
         loader_version=loader_version, **hashes, observed_at=now,
-        source={'kind': 'embedded_metadata', 'reference': 'SHA256 current files; versions: current Windows PE resource or unknown; Unity unknown; historical log excluded', 'observed_at': now},
+        source={'kind': 'embedded_metadata', 'reference': 'SHA256 current files; Unity: UnityPlayer PE; game: non-engine EXE PE version or unknown; historical log excluded', 'observed_at': now},
         coverage='complete' if all(hashes.values()) and not issues else 'partial')
     return dto.model_dump(mode='json'), issues
 

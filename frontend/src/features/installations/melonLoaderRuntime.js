@@ -1,13 +1,16 @@
 import { terminalStates } from '../../app/bridge/reducer.js'
 
 const loaderStates = new Set(['not_installed', 'incomplete', 'installed', 'unreadable'])
-const checkStates = new Set(['ok', 'missing', 'unknown', 'disabled'])
+const generationStates = new Set(['pending', 'not_generated', 'matched', 'unknown'])
+const checkStates = new Set(['ok', 'missing', 'unknown', 'disabled', ...generationStates])
 
 function readStatus(value) {
   if (!value || !loaderStates.has(value.status) || typeof value.ready !== 'boolean'
     || !(value.version_raw === null || typeof value.version_raw === 'string')
     || typeof value.recommended_version !== 'string' || typeof value.message !== 'string'
     || typeof value.can_install !== 'boolean' || typeof value.install_label !== 'string'
+    || (value.assembly_generation !== undefined && (!value.assembly_generation
+      || !generationStates.has(value.assembly_generation.status) || typeof value.assembly_generation.message !== 'string'))
     || !Array.isArray(value.checks) || value.checks.some(check => !check || typeof check.id !== 'string'
       || typeof check.label !== 'string' || !checkStates.has(check.status) || typeof check.detail !== 'string')) {
     throw new Error('未能读到完整的 MelonLoader 状态，请重新检测。')
@@ -26,11 +29,20 @@ export function melonLoaderStatusText(state) {
   if (!state.snapshot) return '尚未确认 MelonLoader 状态'
   const value = state.snapshot
   const version = value.version_raw ? ` ${value.version_raw.split('+')[0]}` : ''
-  if (value.status === 'installed') return value.ready ? `MelonLoader${version} · 环境已就绪` : `MelonLoader${version} · 环境待处理`
+  if (value.status === 'installed') {
+    const generationLabel = { pending: '待重新生成程序集', not_generated: '首次启动待生成程序集', unknown: '生成状态待确认' }[value.assembly_generation?.status]
+    return `MelonLoader${version} · ${!value.ready ? '环境待处理' : generationLabel || '环境已就绪'}`
+  }
   return { not_installed: '未安装 MelonLoader', incomplete: `MelonLoader${version} · 安装不完整`, unreadable: '无法读取 MelonLoader' }[value.status]
 }
 
-export const melonLoaderCheckText = value => ({ ok: '正常', missing: '缺少', unknown: '待确认', disabled: '已关闭' })[value] || '待确认'
+export const melonLoaderCheckText = value => ({ ok: '正常', missing: '缺少', unknown: '待确认', disabled: '已关闭',
+  pending: '待重新生成', not_generated: '尚未生成', matched: '已匹配' })[value] || '待确认'
+
+export function melonLoaderGenerationNotice(snapshot) {
+  const generation = snapshot?.assembly_generation
+  return snapshot?.status === 'installed' && generation && generation.status !== 'matched' ? generation.message : ''
+}
 
 export function melonLoaderProgress(task) {
   const downloading = task?.stage === 'download' || task?.stage === 'downloading'

@@ -13,6 +13,7 @@ import GameLaunchButton from '../features/installations/GameLaunchButton.vue'
 import LogDiagnosticsWorkspace from '../features/ai/LogDiagnosticsWorkspace.vue'
 import WindowFrame from './WindowFrame.vue'
 import AboutLicenses from './AboutLicenses.vue'
+import AboutUpdates from './AboutUpdates.vue'
 import appIcon from '../shared/branding/psmm-icon-256.png?inline'
 import StorageSettings from './StorageSettings.vue'
 import { reducedMotion } from '../features/catalog/gardenMotion.js'
@@ -188,11 +189,13 @@ onUnmounted(cleanup)
       <NexusPanel v-if="workspaceReady && nexusOpened" v-show="workspaceTab === 'nexus'" :active="workspaceTab === 'nexus'" :bridge="bridge" :incoming="incomingNxm" :inbox-error="inboxError" :install-blocked="workspaceBusy || importActive" @downloaded="importPanel?.installSource($event)"/>
       <LogDiagnosticsWorkspace v-if="workspaceReady && aiOpened" v-show="workspaceTab==='ai'" :active="workspaceTab==='ai'" :bridge="bridge" :installation="selectedInstallation" @mod-changed="modManager?.refresh()"/>
       <section v-if="appInfo" v-show="storageGated || workspaceTab === 'settings'" class="garden-settings app-info" :class="{ 'storage-gated': storageGated }" aria-label="设置">
-        <div v-if="!storageGated" class="garden-intro"><div><h1>设置</h1><p>PSMM v{{ appInfo.version }} · 数据位置、本地检查、许可与致谢。AI 服务在“日志”页配置。</p></div></div>
+        <div v-if="!storageGated" class="garden-intro"><div><h1>设置</h1><p>PSMM v{{ appInfo.version }} · 数据位置、本地检查、更新记录与许可。AI 服务在“日志”页配置。</p></div></div>
         <div v-if="!storageGated" class="garden-chips info-tabs" role="tablist" aria-label="应用信息">
           <button role="tab" data-testid="info-overview" :class="{ on: infoTab === 'overview' }" :aria-selected="infoTab === 'overview'" @click="infoTab = 'overview'">概览</button>
+          <button id="info-updates-tab" role="tab" data-testid="info-updates" aria-controls="info-updates-panel" :class="{ on: infoTab === 'updates' }" :aria-selected="infoTab === 'updates'" @click="infoTab = 'updates'">更新记录</button>
           <button role="tab" data-testid="info-licenses" :class="{ on: infoTab === 'licenses' }" :aria-selected="infoTab === 'licenses'" @click="infoTab = 'licenses'">许可与致谢</button>
         </div>
+        <AboutUpdates v-if="!storageGated && infoTab === 'updates'" :version="appInfo.version"/>
         <AboutLicenses v-if="!storageGated && infoTab === 'licenses'" :version="appInfo.version"/>
         <div v-show="storageGated || infoTab === 'overview'" class="garden-cards">
           <StorageSettings class="wide" :bridge="bridge" :first-run="appInfo.storage_first_run" :blocked="workspaceBusy || importActive || modState.dirty" @ready="connect" @state="storagePhase = $event.phase"/>
@@ -200,7 +203,7 @@ onUnmounted(cleanup)
             <div class="workspace-check"><button class="garden-btn" data-testid="workspace-check" :disabled="activeTask" @click="checkWorkspace">检查本地工作空间</button><button v-if="activeTask && task" class="garden-btn soft" data-testid="workspace-cancel" :disabled="task.state === 'cancelling'" @click="cancelCheck">取消检查</button></div>
             <div v-if="task" data-testid="workspace-progress" :data-task-id="task.task_id" :data-sequence="task.sequence" :data-state="task.state" role="status" class="check-progress"><span>{{ taskLabel }}</span><span v-if="task.total != null">{{ task.completed }} / {{ task.total }}</span><div v-if="!terminalStates.has(task.state)" class="garden-solar"><i :class="{ indeterminate: !task.total }" :style="{ width: task.total ? `${Math.round(task.completed / task.total * 100)}%` : '35%' }"></i></div></div>
             <p v-if="checkError" role="alert" class="check-error">{{ checkError }}</p></article>
-          <article v-if="!storageGated" class="garden-card about-card"><img class="about-mark" :src="appIcon" alt="" aria-hidden="true"/><h2>关于</h2><p>PSMM（{{ appInfo.name }}）v{{ appInfo.version }} · Probably Stolen 的 Mod 管理器 · Windows x64 便携版 · MIT 许可证</p><dl class="garden-facts wide"><template v-for="[label, value] in details.filter(([label]) => ['产品', '版本', '凭据服务', '更新来源'].includes(label))" :key="label"><dt>{{ label }}</dt><dd>{{ value }}</dd></template></dl><button class="garden-link about-licenses" data-testid="info-licenses-link" @click="infoTab = 'licenses'">查看许可与致谢</button></article>
+          <article v-if="!storageGated" class="garden-card about-card"><img class="about-mark" :src="appIcon" alt="" aria-hidden="true"/><h2>关于</h2><p>PSMM（{{ appInfo.name }}）v{{ appInfo.version }} · Probably Stolen 的 Mod 管理器 · Windows x64 便携版 · MIT 许可证</p><dl class="garden-facts wide"><template v-for="[label, value] in details.filter(([label]) => ['产品', '版本', '凭据服务', '更新来源'].includes(label))" :key="label"><dt>{{ label }}</dt><dd>{{ value }}</dd></template></dl><div class="about-links"><button class="garden-link" data-testid="info-updates-link" @click="infoTab = 'updates'">查看更新记录</button><button class="garden-link" data-testid="info-licenses-link" @click="infoTab = 'licenses'">查看许可与致谢</button></div></article>
         </div>
       </section>
       <div v-if="!appInfo && !error" class="garden-connecting" role="status"><img class="connecting-mark" :src="appIcon" alt="" aria-hidden="true"/>正在连接本地桌面…</div>
@@ -211,7 +214,7 @@ onUnmounted(cleanup)
 
 <style scoped>
 .storage-gated { max-width: none; }
-.about-licenses { margin-top: 14px; }
+.about-links { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 14px; }
 .about-card { position: relative; }
 .about-mark { float: right; width: 56px; height: 56px; margin: 0 0 8px 16px; filter: drop-shadow(0 8px 12px rgba(20,83,45,.2)); }
 .connecting-mark { width: 72px; height: 72px; animation: garden-grow .9s ease-in-out infinite alternate; transform-origin: 50% 90%; }

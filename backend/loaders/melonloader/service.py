@@ -20,6 +20,7 @@ from backend.games.probably_stolen.fingerprint import file_version
 from backend.games.probably_stolen.layout import EXE, safe_path
 from .environment import pe_machine, environment_checks
 from .offline import OfflineToolchain, OfflineError, GENERATOR
+from .generation import AssemblyGeneration
 
 VERSION = '0.7.3'
 RELEASE_URL = 'https://github.com/LavaGang/MelonLoader/releases/download/v0.7.3/MelonLoader.x64.zip'
@@ -44,6 +45,7 @@ class MelonLoaderService:
         self._sources = {}
         self._lock = threading.RLock()
         self.offline = OfflineToolchain(offline_resources)
+        self.assembly_generation = AssemblyGeneration()
 
     @staticmethod
     def _configuration(root):
@@ -142,9 +144,15 @@ class MelonLoaderService:
             issue = next((row['detail'] for row in checks if row['status'] != 'ok'), '')
             message = 'MelonLoader 和运行环境已就绪。' if ready else issue
             if state == 'not_installed': message = '安装 MelonLoader 后，游戏才能加载 Mod。'
+            # Generation is an advisory observation, not another launch or Mod
+            # operation prerequisite. Keep dependency-ready semantics intact.
+            assemblies = self.assembly_generation.assess(root, version, check=check)
+            checks.append(dict(id='assembly_generation', label='程序集生成状态',
+                status=assemblies['status'], detail=assemblies['message']))
             return dict(installation_id=str(installation_id), status=state, version_raw=version,
                 recommended_version=VERSION, ready=ready, message=message, checks=checks,
                 generation_dependencies=generation,
+                assembly_generation=assemblies,
                 can_install=machine == 0x8664 and not unreadable,
                 install_label=f'重新安装 MelonLoader {VERSION}' if state=='installed' else f'安装 MelonLoader {VERSION}')
 

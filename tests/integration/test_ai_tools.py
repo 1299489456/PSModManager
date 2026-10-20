@@ -365,8 +365,11 @@ def test_shortened_tool_deadline_is_enforced_during_actual_lock_wait(app, monkey
         configure(app, provider)
         with app.context.mods.plans._lock:
             result = reply(app)
-        assert result['error_code'] == 'AI_TOOL_TIMEOUT', result
-        assert len(provider.requests) == 1
+        assert result.get('completed'), result
+        assert '超时' in result['query_notice']
+        assert len(provider.requests) == 2
+        assert 'tools' not in provider.requests[1]['body']
+        assert tool_results(provider.requests[1]['body'])[0]['error_code'] == 'AI_TOOL_TIMEOUT'
 
 
 def test_tool_output_limit_is_a_bounded_error_from_the_actual_consumer(app, monkeypatch):

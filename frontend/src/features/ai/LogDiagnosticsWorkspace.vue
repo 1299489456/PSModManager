@@ -27,6 +27,12 @@ const loaded = computed(() => {
     bytes_total: last.bytes_total ?? logs.pages[0].bytes_total, reachedStart: first.previous_before === null, skipped_long_line: pages.some(page => page.skipped_long_line) }
 })
 const activeLog = computed(() => logs.viewMode === 'analysis' ? excerpt.value : loaded.value)
+const logObservation = computed(() => logs.viewMode === 'analysis' ? excerpt.value : logs.pages[0])
+const logTime = value => value ? new Date(value).toLocaleString() : '未知'
+const startupLines = computed(() => {
+  const startup = excerpt.value?.startup_context
+  return startup ? startup.text.split('\n').map((text, i) => ({ text, number: startup.line_numbers[i] })) : []
+})
 const lines = computed(() => (activeLog.value?.text || '').split('\n').map((text, index) => ({ text, number: activeLog.value?.line_numbers?.[index] || (activeLog.value?.reachedStart === false ? '' : index + 1), error: /\b(error|exception|fatal|failed|failure)\b|错误|异常|失败/i.test(text) }))
   .filter(row => (!onlyErrors.value || row.error) && (!search.value || row.text.toLocaleLowerCase().includes(search.value.toLocaleLowerCase()))))
 const canLoadOlder = computed(() => logs.viewMode === 'original' && Boolean(loaded.value) && !loaded.value.reachedStart && logs.pages.length < MAX_CACHED_PAGES)
@@ -160,8 +166,11 @@ onUnmounted(() => {
           <div class="log-tools"><input v-model="search" type="search" placeholder="在已加载的日志中查找" aria-label="查找日志" data-testid="diagnostic-search"/><label class="checkbox"><input v-model="onlyErrors" type="checkbox"/>只看错误</label></div>
           <div class="log-view-options"><div class="log-mode-switch"><button :class="{ active: logs.viewMode === 'original' }" @click="logs.viewMode = 'original'">完整日志</button><button data-testid="diagnostic-analysis-material" :class="{ active: logs.viewMode === 'analysis' }" @click="logs.viewMode = 'analysis'">发送给 AI 的内容</button></div><span v-if="logs.viewMode === 'original' && logs.pageReading" role="status">正在读取…</span></div>
         </div>
+        <div v-if="logObservation?.source_modified_at" class="log-observation" data-testid="diagnostic-log-time"><span>日志写入于 {{ logTime(logObservation.source_modified_at) }}</span><span v-if="logObservation.game_files_modified_at">游戏文件更新于 {{ logTime(logObservation.game_files_modified_at) }}</span></div>
+        <p v-if="logObservation?.freshness_message" class="warning update-warning" data-testid="diagnostic-stale-log" role="status">{{ logObservation.freshness_message }}</p>
         <p v-if="activeLog" class="log-range" data-testid="diagnostic-range"><template v-if="logs.viewMode === 'analysis'">{{ activeLog.selection_mode === 'error_context' ? `包含 ${activeLog.error_matches} 处错误及上下文` : '日志末尾内容' }} · 读取 {{ sizeText(activeLog.scanned_bytes) }} / {{ sizeText(activeLog.bytes_total) }}{{ activeLog.truncated ? ' · 内容已截断' : '' }} · 行号对应发送内容</template><template v-else>已加载 {{ sizeText(activeLog.byte_end - activeLog.byte_start) }} / {{ sizeText(activeLog.bytes_total) }}{{ activeLog.reachedStart ? ' · 已到开头' : ' · 向上滚动加载更早内容' }}</template> · 已隐藏个人信息</p>
         <div ref="logScroll" class="log-scroll" data-testid="diagnostic-log-text" tabindex="0" aria-label="日志内容" @scroll.passive="logScrolled">
+          <section v-if="logs.viewMode === 'analysis' && startupLines.length" class="startup-context" data-testid="diagnostic-startup-context"><h4>文件开头的启动信息 · 日志记载</h4><div v-for="line in startupLines" :key="line.number" class="log-line"><span class="line-number" aria-hidden="true">{{ line.number }}</span><code>{{ line.text }}</code></div><h4>错误与相邻上下文</h4></section>
           <p v-if="logs.viewMode === 'original' && activeLog && lines.length" class="log-edge" data-testid="diagnostic-log-edge" role="status">{{ logs.pageReading ? '正在加载更早的日志…' : activeLog.reachedStart ? '已到日志开头' : logs.pages.length >= MAX_CACHED_PAGES ? '已加载的内容较多，更早的部分请在日志文件中查看' : '向上滚动加载更早的日志' }}</p>
           <p v-if="logs.loading || logs.reading || (logs.pageReading && !logs.pages.length)" class="empty-state" role="status">正在读取日志…</p>
           <p v-else-if="!activeLog" class="empty-state">{{ logs.sources.length ? '选择日志来源后即可查看和分析。' : '还没有可用的日志。选择游戏后可读取 MelonLoader 日志，管理器日志随时可以查看。' }}</p>
@@ -204,10 +213,10 @@ onUnmounted(() => {
               <h4>发送给 AI 的内容</h4>
               <div class="attach-choice"><button v-if="state.diagnosticSnapshotId" type="button" :disabled="blocked" @click="diagnostics.chatOnly(); attachOpen = false">不附带日志</button><button v-else-if="logs.preview" type="button" class="primary" :disabled="blocked" @click="runtime.setDiagnostic(logs.preview.snapshot_id); attachOpen = false">附带当前日志</button><span v-if="logs.preview?.captured_at" class="muted">日志读取于 {{ new Date(logs.preview.captured_at).toLocaleTimeString() }}，刷新日志会开始新对话。</span></div>
               <label class="checkbox"><input type="checkbox" :checked="logs.includeContext" :disabled="blocked || !logs.installationId" data-testid="ai-allow-queries" @change="diagnostics.setContext($event.target.checked)"/>附带游戏、MelonLoader 和 Mod 状态，允许 AI 查询并给出操作建议</label>
-              <dl v-if="context.installation"><dt>游戏</dt><dd>{{ context.installation.game }} {{ context.installation.game_version || '版本未识别' }}</dd><dt>MelonLoader</dt><dd>{{ context.installation.loader_version || '版本未识别' }}</dd><dt>Unity</dt><dd>{{ context.installation.unity_version || '版本未识别' }}</dd></dl>
+              <dl v-if="context.installation"><dt>游戏</dt><dd>{{ context.installation.game }} {{ context.installation.game_version || '版本未识别' }}</dd><dt>Steam Build</dt><dd>{{ context.installation.build_id || '未识别' }}</dd><dt>MelonLoader</dt><dd>{{ context.installation.loader_version || '版本未识别' }}</dd><dt>Unity</dt><dd>{{ context.installation.unity_version || '版本未识别' }}</dd></dl>
               <ul v-if="context.mods?.items?.length" class="context-mods"><li v-for="(mod, index) in context.mods.items" :key="index"><span>{{ mod.display_name }} {{ mod.version_raw }}</span><span>{{ modState(mod.state) }}</span></li></ul>
               <p v-if="context.mods" class="muted">{{ context.mods.scope }}{{ context.mods.truncated ? '，当前列表已截断。' : '。' }}</p>
-              <p class="muted">每份日志从末尾 256 KB 中优先选取错误及上下文，最多 8 KB / 240 行。左侧切到“发送给 AI 的内容”可以看到实际发送的文字。</p>
+              <p class="muted">每份日志保留启动环境与生成信息，再从末尾 256 KB 中选取错误及上下文，合计最多 8 KB / 240 行。长日志会补读开头 32 KB。左侧可查看实际发送内容。</p>
             </div>
           </details>
           <span class="composer-hint">Ctrl + Enter 发送</span><button type="submit" class="primary send" data-testid="ai-send" :disabled="!runtime.canSend() || logs.reading || logs.loading" aria-label="发送"><SendHorizontal :size="16" aria-hidden="true"/>发送</button></div></div></form>
@@ -218,6 +227,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.log-observation{display:flex;gap:4px 16px;flex-wrap:wrap;padding:0 16px 8px;color:rgb(var(--rgb-text-dim));font-size:13px}.log-pane .update-warning{flex-shrink:0;margin:0 16px 8px;line-height:1.6;color:var(--accent-warn)}.startup-context h4{font:inherit;font-weight:600;color:rgb(var(--rgb-text-main));margin:12px 16px 8px}
 .log-pane{position:relative}.source-picker{position:absolute;top:56px;left:10px;right:10px;z-index:20;background:rgb(var(--rgb-bg-surface));border:1px solid rgb(var(--rgb-border-base)/.2);border-radius:10px;box-shadow:0 12px 28px #0006}.diagnostic-workspace .log-scroll,.diagnostic-workspace .conversation-scroll{min-height:0}
 .diagnostic-workspace{position:relative}.connection-settings{position:absolute;top:80px;left:26px;right:26px;z-index:30;background:rgb(var(--rgb-bg-surface));box-shadow:0 16px 42px #0007;max-height:calc(100% - 110px)}
 .log-line code{font-size:13px}.formatted-reply :deep(p code),.formatted-reply :deep(li code){display:inline;white-space:normal}

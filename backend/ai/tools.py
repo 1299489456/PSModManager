@@ -1,13 +1,16 @@
 """Fixed projections of existing local services, never bridge reflection."""
 import json
 import time
+from pathlib import Path
 
 from .gateway import AIError
 from .redaction import redact
 from .tool_policy import ToolScope, parameters
 
 
-TOOL_SECONDS = 10
+# A cold library/file query may legitimately take more than ten seconds. The
+# whole request's deadline and cancellation still bound every nested operation.
+TOOL_SECONDS = 30
 MAX_OUTPUT_BYTES = 12000
 
 
@@ -78,40 +81,23 @@ class ReadOnlyTools:
             raise AIError('AI_TOOL_UNAVAILABLE') from None
 
     def _installation(self, scope, data, check):
-        installation, fingerprint = self.configs.guards._facts(scope.installation_id)
+        from backend.games.probably_stolen.fingerprint import current_versions
+        from backend.games.probably_stolen.layout import identity
+        from backend.games.probably_stolen.update_state import current_build_id
+        installation, _ = self.configs.guards._facts(scope.installation_id)
+        check()
+        root = Path(installation.canonical_root)
+        if identity(root) != installation.file_identity:
+            raise AIError('AI_TOOL_UNAVAILABLE')
+        versions = current_versions(root)
+        build = current_build_id(root, installation.app_id)
         check()
         return dict(installation_id=scope.installation_id, game='Probably Stolen', channel=installation.channel,
-                    build_id=installation.build_id, game_version=fingerprint.game_version_raw,
-                    unity_version=fingerprint.unity_version, loader_version=fingerprint.loader_version,
-                    freshness='stored_observation', runtime_verified=False)
-
-    @staticmethod
-    def _release(row):
-        return {key: row[key] for key in ('release_id', 'manifest_hash', 'display_name', 'version_raw', 'integrity')}
+                    build_id=build, **versions,
+                    freshness='current_files', runtime_verified=False)
 
     def _search(self, scope, data, check):
-        query = data['query'].casefold()
-        offset, items, scanned = data['offset'], [], 0
-        next_offset = None
-        # A name search must not silently search only the first library page.
-        # Offset is the library scan cursor, so sparse matches remain pageable.
-        while offset <= 2000:
-            check()
-            result = self.packages.list(offset, 20, check=check)
-            page = result['releases']
-            for index, row in enumerate(page):
-                check()
-                scanned += 1
-                if query in (row['display_name']+' '+(row['version_raw'] or '')).casefold():
-                    items.append(self._release(row))
-                if len(items)==data['limit']:
-                    cursor=offset+index+1
-                    next_offset=cursor if (index+1<len(page) or len(page)==20) and cursor <= 2000 else None
-                    return dict(items=items,offset=data['offset'],next_offset=next_offset,scanned=scanned,search_scope='library')
-            offset += len(page)
-            if len(page)<20:
-                break
-        return dict(items=items,offset=data['offset'],next_offset=next_offset,scanned=scanned,search_scope='library')
+        return self.packages.search(**data, check=check)
 
     def _package(self, scope, data, check):
         page = self.packages.detail(**data, check=check)

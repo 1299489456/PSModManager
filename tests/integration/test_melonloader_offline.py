@@ -289,6 +289,23 @@ def test_ready_launch_uses_one_read_only_dependency_inspection(app, monkeypatch)
     assert len(calls) == 1 and tree(app.game) == before
 
 
+def test_pending_generation_is_visible_without_changing_ready_or_launch_contract(app, monkeypatch):
+    seed_tools(app)
+    config = app.game / 'MelonLoader/Dependencies/Il2CppAssemblyGenerator/Config.cfg'
+    config.write_text('[Il2CppAssemblyGenerator]\nUnityVersion = "2021.3.45"\nGameAssemblyHash = "' + 'A' * 128 + '"\n', encoding='utf-8')
+    monkeypatch.setattr(loader_module, 'environment_checks', lambda *args: [])
+    before = tree(app.game)
+    status = app.context.loader.status(app.installation)
+    assert status['ready'] and status['generation_dependencies']['ready']
+    assert status['assembly_generation']['status'] == 'pending'
+    assert next(row for row in status['checks'] if row['id'] == 'assembly_generation')['status'] == 'pending'
+    monkeypatch.setattr(app.context.loader.assembly_generation, 'assess',
+        lambda *args, **kwargs: pytest.fail('Launch must not require the advisory hash check'))
+    result = launch_prepare(app)
+    assert not result['repaired'] and result['files_written'] == 0
+    assert tree(app.game) == before
+
+
 @pytest.mark.parametrize('mode', ['no_loader', 'no_loader_proxy', 'disabled'])
 def test_launch_does_not_modify_unloaded_or_disabled_game(app, mode):
     if mode == 'no_loader':

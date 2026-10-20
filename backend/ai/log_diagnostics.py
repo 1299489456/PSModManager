@@ -11,6 +11,7 @@ from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from backend.diagnostics.service import LogService, user_log_path
 from backend.games.probably_stolen.layout import identity, safe_path
+from backend.games.probably_stolen.update_state import game_files_modified_at, timestamp
 from .gateway import AIError
 from .redaction import redact
 from .tool_policy import ToolScope
@@ -18,6 +19,23 @@ from .tool_policy import ToolScope
 LOG_BYTES = 8192
 CONTEXT_BYTES = 6000
 ERROR_LINE = re.compile(r'\b(error|exception|fatal|failed|failure)\b|错误|异常|失败', re.I)
+STARTUP_LINE = re.compile(r'^(?:\[[^\]\r\n]+\]\s*)*(?:MelonLoader v\S+|Game (?:Name|Type|Version):|Unity Version:)', re.I)
+GENERATION_LINE = re.compile(r'^(?:\[[^\]\r\n]+\]\s*)*\[Il2CppAssemblyGenerator\]', re.I)
+
+
+def startup_indices(lines):
+    """Reserve a small part of the existing budget for the latest visible startup."""
+    banners = [i for i, line in enumerate(lines) if STARTUP_LINE.match(line) and 'MelonLoader v' in line]
+    start = banners[-1] if banners else 0
+    environment = [i for i in range(start, len(lines)) if STARTUP_LINE.match(lines[i])]
+    generation = [i for i in range(start, len(lines)) if GENERATION_LINE.match(lines[i])]
+    selected, used = set(), 0
+    for index in environment + list(reversed(generation)):
+        cost = len(lines[index].encode('utf-8')) + 1
+        if len(selected) < 48 and used + cost <= 2048:
+            selected.add(index)
+            used += cost
+    return selected, used
 
 
 class LogDiagnostics:
@@ -92,7 +110,7 @@ class LogDiagnostics:
             text = text.replace(value, '[管理器数据目录]')
         return text
 
-    def _read_window(self, row, secrets, *, maximum, end=None):
+    def _read_window(self, row, secrets, *, maximum, end=None, include_startup=False):
         root, relative = row['_root'], row['relative_path']
         try:
             target = safe_path(root, relative)
@@ -107,11 +125,19 @@ class LogDiagnostics:
                 offset = max(0, end - maximum)
                 if encoding.startswith('utf-16'):
                     offset += offset % 2
+                startup_text = None
+                if include_startup and offset and row['kind'] == 'game':
+                    stream.seek(0)
+                    raw_startup = stream.read(min(before.st_size, 32768))
+                    startup_text = raw_startup.decode(encoding, errors='replace').lstrip('\ufeff')
+                    if len(raw_startup) < before.st_size:
+                        startup_text = startup_text.rsplit('\n', 1)[0] if '\n' in startup_text else ''
                 stream.seek(offset)
                 raw = stream.read(end - offset)
                 after = os.fstat(stream.fileno())
                 final = safe_path(root, relative).stat()
-                if (before.st_dev, before.st_ino) != (final.st_dev, final.st_ino) or after.st_size < before.st_size:
+                if ((before.st_dev, before.st_ino) != (final.st_dev, final.st_ino) or after.st_size < before.st_size
+                        or after.st_size == before.st_size and after.st_mtime_ns != before.st_mtime_ns):
                     raise ValueError('changed_source')
                 original_offset = offset
                 # Find the byte boundary before decoding, so UTF-8 continuation
@@ -130,12 +156,22 @@ class LogDiagnostics:
                 text = self._clean(text, secrets)
                 if row['kind'] != 'manager':
                     text = text.replace(str(root), '[游戏目录]').replace(str(root).replace('\\', '/'), '[游戏目录]')
+                if startup_text is not None:
+                    startup_text = self._clean(startup_text, secrets).replace(str(root), '[游戏目录]').replace(str(root).replace('\\', '/'), '[游戏目录]')
+                game_modified = game_files_modified_at(root) if row['kind'] != 'manager' else None
+                freshness = ('predates_game_files' if before.st_mtime < game_modified else 'not_older_than_game_files') if game_modified is not None else 'unknown'
                 return dict(source_id=row['source_id'], label=row['label'], relative_path=relative, text=text,
                     bytes_total=before.st_size, byte_start=offset, byte_end=end, bytes_read=end-original_offset,
                     previous_before=offset if offset > 0 and offset < end else original_offset if original_offset > 0 else None,
                     truncated=offset > 0 or end < before.st_size, line_origin='本页',
                     line_count=len(text.splitlines()), encoding=encoding,
                     skipped_long_line=bool(original_offset and not raw),
+                    source_modified_at=timestamp(before.st_mtime),
+                    game_files_modified_at=timestamp(game_modified) if game_modified is not None else None,
+                    freshness=freshness,
+                    freshness_message=('这份日志早于当前游戏文件，可能来自更新前。运行更新后的游戏再刷新日志；当前分析仅供历史参考。'
+                                       if freshness == 'predates_game_files' else ''),
+                    **({'startup_window': startup_text} if include_startup else {}),
                     captured_at=datetime.now(timezone.utc).isoformat())
         except (OSError, ValueError):
             raise AIError('AI_LOG_UNREADABLE') from None
@@ -147,11 +183,22 @@ class LogDiagnostics:
         return self._read_window(sources[source_id], self._secrets(), maximum=32768, end=before)
 
     def _read(self, row, secrets):
-        scan = self._read_window(row, secrets, maximum=262144)
+        scan = self._read_window(row, secrets, maximum=262144, include_startup=True)
+        startup_window = scan.pop('startup_window')
         lines = scan['text'].splitlines()
         errors = [index for index, line in enumerate(lines) if ERROR_LINE.search(line)]
-        indices = set()
-        used = 0
+        indices, used = startup_indices(lines) if row['kind'] == 'game' else (set(), 0)
+        startup = None
+        # A log larger than the tail window still needs its boot environment.
+        # Keep it separately labelled; its line numbers are not tail offsets.
+        if startup_window is not None and not any('MelonLoader v' in lines[i] for i in indices):
+            head_lines = startup_window.splitlines()
+            head_indices, head_used = startup_indices(head_lines)
+            if head_indices:
+                ordered_head = sorted(head_indices)
+                startup = dict(text='\n'.join(head_lines[i] for i in ordered_head),
+                               line_numbers=[i + 1 for i in ordered_head], line_origin='文件开头（日志记载）')
+                used += head_used
         # Prefer the latest error with adjacent stack/context lines, while retaining
         # complete lines and exposing the exact excerpt that the model receives.
         groups = [range(max(0, index-3), min(len(lines), index+5)) for index in reversed(errors)] if errors else [range(len(lines)-1, -1, -1)]
@@ -160,7 +207,7 @@ class LogDiagnostics:
                 if index in indices:
                     continue
                 cost = len(lines[index].encode('utf-8')) + 1
-                if len(indices) >= 240 or used + cost > LOG_BYTES:
+                if len(indices) + (len(startup['line_numbers']) if startup else 0) >= 240 or used + cost > LOG_BYTES:
                     continue
                 indices.add(index)
                 used += cost
@@ -170,6 +217,7 @@ class LogDiagnostics:
         return dict(scan, text='\n'.join(lines[index] for index in ordered),
             line_numbers=[index+1 for index in ordered], line_count=len(ordered),
             line_origin='本次扫描片段', selection_mode='error_context' if errors else 'tail',
+            startup_context=startup,
             error_matches=len(errors), scanned_bytes=scan['bytes_read'],
             truncated=scan['truncated'] or len(ordered) < len(lines))
 
@@ -239,10 +287,18 @@ class LogDiagnostics:
         if snapshot['context']:
             sections.append('游戏、Loader 与 Mod 上下文：\n' + json.dumps(snapshot['context'], ensure_ascii=False))
         for log in snapshot['logs']:
-            sections.append(f"日志：{log['label']} ({log['relative_path']})；行号为本次扫描片段内行号；"
+            sections.append(f"日志：{log['label']} ({log['relative_path']})；文件最后写入：{log['source_modified_at']}；"
+                            + (f"当前游戏文件最近修改：{log['game_files_modified_at']}；" if log['game_files_modified_at'] else '')
+                            + (log['freshness_message'] + '\n' if log['freshness_message'] else '')
+                            + '读取时间不是游戏运行时间；文件时间只能辅助判断，不能证明此日志对应当前版本。\n'
+                            + '行号为本次扫描片段内行号；'
                             + ('错误及相邻上下文。' if log['selection_mode'] == 'error_context' else '最近日志。')
                             + (f"资料已截断：扫描末尾 {log['scanned_bytes']} 字节，未选行不包含在内。" if log['truncated'] else '当前完整内容。')
                             + '\n' + '\n'.join(f'{number}: {line}' for number, line in zip(log['line_numbers'], log['text'].splitlines())))
+            if log.get('startup_context'):
+                startup = log['startup_context']
+                sections.append('同一日志文件开头的启动信息（历史声明，不代表当前运行环境）：\n'
+                    + '\n'.join(f'{number}: {line}' for number, line in zip(startup['line_numbers'], startup['text'].splitlines())))
         if snapshot['warnings']:
             sections.append('资料范围：' + '；'.join(snapshot['warnings']))
         prompt = '\n\n'.join(sections)

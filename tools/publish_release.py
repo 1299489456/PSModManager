@@ -34,6 +34,18 @@ def checked_assets(directory, tag):
     return archive, checksums
 
 
+def version_changes(tag, path=None):
+    path = Path(path) if path else Path(__file__).resolve().parents[1]/'docs/user/release-notes.md'
+    text = path.read_text('utf-8')
+    headings = list(re.finditer(r'^# (\d+\.\d+\.\d+)(?:[^\r\n]*)\r?$', text, re.M))
+    for index, heading in enumerate(headings):
+        if 'v'+heading[1] == tag:
+            changes = text[heading.end():headings[index+1].start() if index+1 < len(headings) else len(text)].strip()
+            if changes:
+                return changes
+    raise ValueError('Missing release notes for '+tag)
+
+
 class GitHub:
     def __init__(self, repository, token):
         if not re.fullmatch(r'[\w.-]+/[\w.-]+', repository) or not token:
@@ -61,6 +73,7 @@ class GitHub:
 
 def publish(api, directory, tag, commit):
     assets = checked_assets(directory, tag)
+    changes = version_changes(tag)
     if not re.fullmatch('[0-9a-f]{40}', commit):
         raise ValueError('Release commit must be a full Git commit ID')
     reference = api.request('GET', '/git/ref/tags/'+quote(tag, safe=''))
@@ -76,6 +89,7 @@ def publish(api, directory, tag, commit):
     if api.request('GET', '/releases/tags/'+quote(tag, safe='')) is not None:
         raise ValueError('Release already exists; no assets were overwritten. Use a new version, or inspect an interrupted draft.')
     notes = (f'## PSModManager {tag}\n\n'
+        + changes + '\n\n## 下载与使用\n\n'
         '下载下方 Windows x64 ZIP，完整解压后运行 PSModManager.exe。\n\n'
         '公开版内置 Cpp2IL 和配套插件的离线恢复资源；Unity 运行库由 MelonLoader '
         '在首次生成或游戏更新后联网下载。\n\n'

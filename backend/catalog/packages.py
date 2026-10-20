@@ -214,6 +214,41 @@ class PackageService:
         finally:
             store.close()
 
+    def search(self, query='', offset=0, limit=10, *, check=lambda: None):
+        """Filter names before reading package bytes; matching results stay verified."""
+        store = self._open()
+        try:
+            repository = PackageRepository(store, self.library)
+            needle, cursor, items = query.casefold(), offset, []
+            while cursor <= 2000:
+                check()
+                page = store.list('ModRelease', offset=cursor, limit=20)
+                for index, release in enumerate(page):
+                    check()
+                    cursor += 1
+                    package = store.get('ModPackage', release.package_id)
+                    if needle not in (package.display_name + ' ' + (release.version_raw or '')).casefold():
+                        continue
+                    try:
+                        repository.release(release.release_id, check=check)
+                        integrity = 'verified'
+                    except (ValueError, OSError, KeyError):
+                        # Preserve cancellation/deadline errors from the caller.
+                        check()
+                        integrity = 'corrupt'
+                    items.append(dict(release_id=str(release.release_id), manifest_hash=release.manifest_hash,
+                        display_name=package.display_name, version_raw=release.version_raw, integrity=integrity))
+                    if len(items) == limit:
+                        more = (index + 1 < len(page) or len(page) == 20) and cursor <= 2000
+                        return dict(items=items, offset=offset, next_offset=cursor if more else None,
+                            scanned=cursor-offset, search_scope='library')
+                if len(page) < 20:
+                    break
+            return dict(items=items, offset=offset, next_offset=None,
+                scanned=cursor-offset, search_scope='library')
+        finally:
+            store.close()
+
     def detail(self, release_id, manifest_hash, offset=0, limit=20, *, check=lambda: None):
         """Verified library facts, never installation state or deployed ownership."""
         try:
