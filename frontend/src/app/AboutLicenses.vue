@@ -26,16 +26,17 @@ const groups = [
   { name: '打包', items: [['PyInstaller', '6.19.0', 'GPL-2.0（含运行时例外）', '生成便携版']] },
 ]
 const services = [
-  ['MelonLoader', 'Apache-2.0', '游戏的 Mod 加载器。PSMM 只在你点击安装时从官方 GitHub 发布页下载，不包含它的代码。'],
-  ['Nexus Mods', '服务条款', '使用你自己的个人 API Key 浏览和下载 Mod，请遵守 Nexus Mods 的服务条款和作者的许可。'],
-  ['AI 服务', '由你选择', '你自己配置的 OpenAI 兼容服务。只有点击“分析日志”或“AI 翻译”时才会发送内容。'],
+  ['Steam 客户端与创意工坊', 'Steam 订户协议', '订阅、取消订阅和更新通过游戏自带的 Steam API 交给本机 Steam 客户端完成；公开目录、详情和封面从 Steam 社区公开页面读取。PSMM 不读取账号密码或登录令牌。'],
+  ['Microsoft Defender', 'Windows 组件', '只在你点击“无处置扫描”时调用本机引擎，不自动删除或隔离文件。PSMM 不上传样本，云保护是否联网由你的 Windows 设置决定。'],
+  ['AI 服务', '由你选择', '你自己配置的 OpenAI 兼容服务。只在你点击分析日志、翻译工坊介绍或确认发送模组检查解读时发送内容，发送前可预览。'],
 ]
 const features = [
-  ['模组', '启用和停用 Mod，导入 DLL、文件夹或 ZIP，识别新旧版本并升级或降级，保存前可撤销。'],
-  ['方案', '保存一组 Mod 的启停和版本，随时切换、应用到游戏，导出清单或含 Mod 文件的整合包。'],
-  ['Nexus', '浏览和搜索 Nexus 上本游戏的全部 Mod，查看详情、AI 翻译介绍，下载后预览再导入。'],
+  ['模组', '启用、停用和排序正式版原生模组，导入完整目录或 ZIP，依赖检查与自动排序，保存前可撤销。'],
+  ['方案', '保存一组模组的启用和顺序，随时切换、应用到游戏，导入或导出方案清单。'],
+  ['创意工坊', '浏览、搜索 Probably Stolen 的创意工坊模组，查看详情和 AI 翻译介绍，通过 Steam 订阅和更新。'],
+  ['模组检查', '需要排查时手动检查模组文件：静态分析代码调用、对照声明的权限、比较版本变化，可让 AI 解读报告；不影响日常保存和启动。'],
   ['日志', '连续阅读游戏和 PSMM 日志，查找、只看错误，让 AI 分析原因并给出可确认的操作建议。'],
-  ['其他', '检查和安装 MelonLoader、保存后一键启动游戏、迁移数据目录、本地数据检查。'],
+  ['其他', '保存后一键启动游戏、恢复点、迁移数据目录、本地数据检查。'],
 ]
 </script>
 
@@ -55,7 +56,7 @@ const features = [
       <article class="garden-card">
         <h2><ShieldCheck :size="18" aria-hidden="true"/>版权与商标</h2>
         <ul class="plain">
-          <li>PSMM 是玩家社区的非官方工具，与 Probably Stolen 的开发商和发行商、Nexus Mods、MelonLoader 项目都没有隶属或合作关系。</li>
+          <li>PSMM 是玩家社区的非官方工具，与 Probably Stolen 的开发商和发行商、Valve（Steam）都没有隶属或合作关系。</li>
           <li>“Probably Stolen”及游戏素材的版权和商标归各自权利人所有。</li>
           <li>通过 PSMM 浏览和下载的 Mod 版权归原作者，使用和分享时请遵守作者的许可。</li>
           <li>AI 的翻译和分析结果仅供参考，可能存在错误。</li>
@@ -65,8 +66,8 @@ const features = [
         <h2><BadgeCheck :size="18" aria-hidden="true"/>数据与隐私</h2>
         <ul class="plain">
           <li>所有数据保存在本机的数据目录，删除程序不会删除它们。</li>
-          <li>只在三种情况下联网：访问 Nexus（使用你的 Key）、下载 MelonLoader、把内容发送给你配置的 AI 服务。</li>
-          <li>发送给 AI 的日志会先隐藏用户名等个人信息；密钥只保存在 Windows 凭据中。</li>
+          <li>只在这些情况下联网：读取 Steam 创意工坊的公开目录、详情和封面；通过本机 Steam 客户端订阅或更新；把你确认的内容发送给你配置的 AI 服务。PSMM 不自动检查自身更新。</li>
+          <li>发送给 AI 的日志和检查报告会先隐藏用户名、本机路径等个人信息；AI 密钥只保存在 Windows 凭据中。</li>
           <li>PSMM 不上传使用统计。</li>
         </ul>
       </article>

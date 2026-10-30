@@ -483,57 +483,193 @@
 .garden-shell .formal-ui .ws-cover .bl .tg {max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .garden-shell .formal-ui .ws-detail-hero .d-actions {flex-wrap:wrap;}
 
-/* Manual checking is an independent workspace using the existing garden system. */
-.garden-shell .formal-ui .native-security {min-width:0;font-size:13px;line-height:1.65}
-.garden-shell .formal-ui .security-conclusion {padding:14px;background:var(--g-mint);border:1px solid var(--g-line);border-radius:18px}
-.garden-shell .formal-ui .security-conclusion.bad {background:#fff3f1;border-color:#f4bdb5}
-.garden-shell .formal-ui .security-conclusion.pend {background:#fffbed;border-color:#f3df9b}
-.garden-shell .formal-ui .security-conclusion p {margin:8px 0}
-.garden-shell .formal-ui .security-conclusion>small {color:var(--g-text-3)}
-.garden-shell .formal-ui .security-conclusion ul,.garden-shell .formal-ui .security-gaps {padding-left:20px;margin:8px 0}
-.garden-shell .formal-ui .security-composition {display:grid;gap:10px}
-.garden-shell .formal-ui .security-composition>div {display:grid;grid-template-columns:1fr auto;gap:4px 10px}
-.garden-shell .formal-ui .security-composition .garden-solar {grid-column:1/-1;height:5px}
-.garden-shell .formal-ui .security-composition small {color:var(--g-text-3)}
-.garden-shell .formal-ui .security-tech {padding:10px 0;border-top:1px solid var(--g-line);margin-top:8px}
-.garden-shell .formal-ui .security-tech summary {cursor:pointer;font-weight:600;color:var(--g-ink)}
-.garden-shell .formal-ui .security-file {display:flex;gap:12px;justify-content:space-between;padding:6px 0;align-items:baseline}
-.garden-shell .formal-ui .security-file code {overflow-wrap:anywhere;min-width:0;font-size:11.5px;white-space:normal}
-.garden-shell .formal-ui .security-file>span {flex:none;color:var(--g-text-3);font-size:12px}
-.garden-shell .formal-ui .security-diff-counts {display:flex;gap:6px;flex-wrap:wrap}
-.garden-shell .formal-ui .security-finding {border:1px solid var(--g-line);border-radius:16px;padding:12px;margin:10px 0;background:#fff}
-.garden-shell .formal-ui .security-finding>div:first-child {display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
-.garden-shell .formal-ui .security-finding p {margin:7px 0;white-space:pre-wrap}
-.garden-shell .formal-ui .security-evidence {margin-top:10px;padding:10px;border-radius:10px;background:#f7faf8;overflow-wrap:anywhere}
-.garden-shell .formal-ui .security-evidence code,.garden-shell .formal-ui .security-hash {font-size:11px;overflow-wrap:anywhere;white-space:normal}
-.garden-shell .formal-ui .security-empty {padding:12px 0}
-.garden-shell .formal-ui .security-conclusion {scroll-margin-top:100px}
+/* Mod check page: an independent workspace in the garden style, sized for long mod lists and long reports. */
 .garden-shell .formal-ui .security-workspace {gap:12px;overflow:hidden}
 .garden-shell .formal-ui .security-workspace .garden-intro {margin-bottom:0;flex:none}
-.garden-shell .formal-ui .security-panel-tools {display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex:none;font-size:13px}
-.garden-shell .formal-ui .security-panel-tools .sp {flex:1}
-.garden-shell .formal-ui .security-panel-progress {padding:12px 15px;background:var(--g-mint);border-radius:16px;flex:none}
-.garden-shell .formal-ui .security-panel-progress>div {display:flex;justify-content:space-between;gap:10px}
-.garden-shell .formal-ui .security-panel-progress progress {width:100%;height:8px;accent-color:var(--g-leaf);display:block;margin:8px 0}
-.garden-shell .formal-ui .security-panel-progress p {margin:4px 0;overflow-wrap:anywhere}
-.garden-shell .formal-ui .security-panel-progress code {display:block;font-size:12px}
-.garden-shell .formal-ui .security-panel-layout {display:grid;grid-template-columns:minmax(220px,26%) minmax(0,1fr);gap:18px;min-height:0;flex:1}
-.garden-shell .formal-ui .security-report-sidebar {display:flex;flex-direction:column;min-height:0;background:#ffffffd9;border:1px solid var(--g-line);border-radius:24px;padding:14px 8px 12px 14px}
-.garden-shell .formal-ui .security-list-tools {display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:0 6px 12px 0;font-size:13px}
-.garden-shell .formal-ui .security-list-tools .garden-search {flex-basis:100%;height:36px}
-.garden-shell .formal-ui .security-report-list {overflow:auto;min-height:0;padding:3px 6px 3px 0}
-.garden-shell .formal-ui .security-report-entry {display:flex;align-items:flex-start;gap:6px;border:1px solid transparent;border-radius:16px;padding:12px;margin-bottom:6px}
-.garden-shell .formal-ui .security-report-entry.on {background:var(--g-mint);border-color:var(--g-leaf)}
-.garden-shell .formal-ui .security-report-entry input {flex:none;margin:3px 0 0;accent-color:var(--g-leaf-3)}
-.garden-shell .formal-ui .security-report-list button {min-width:0;flex:1;text-align:left;display:flex;align-items:flex-start;flex-direction:column;gap:5px;border:0;background:none;color:var(--g-text);padding:0;overflow-wrap:anywhere}
-.garden-shell .formal-ui .security-report-list button>span:not(.tg) {font-size:12px;color:var(--g-text-3)}
-.garden-shell .formal-ui .security-panel-report {overflow:auto;padding:20px;min-width:0;background:#ffffffed;border:1px solid var(--g-line);border-radius:24px}
-.garden-shell .formal-ui .security-report-head {display:flex;justify-content:space-between;gap:15px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
-.garden-shell .formal-ui .security-report-head h3 {color:var(--g-ink);margin:0;font-size:18px}
-.garden-shell .formal-ui .security-report-head small {color:var(--g-text-3);overflow-wrap:anywhere}
-.garden-shell .formal-ui .security-send-preview {border:1px solid var(--g-line);padding:12px;border-radius:14px;margin:12px 0;max-height:34vh;overflow:auto;background:#f7faf8}
-.garden-shell .formal-ui .security-ai pre {white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.6;margin:10px 0}
-.garden-shell .formal-ui .security-send-preview pre {font-size:12px}
+.garden-shell .formal-ui .security-workspace .garden-intro p {max-width:760px}
+.garden-shell .formal-ui .security-overview {display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:none}
+.garden-shell .formal-ui .security-overview .sp {flex:1}
+.garden-shell .formal-ui .security-overview .garden-chips {gap:6px}
+.garden-shell .formal-ui .security-overview .sky-chip {height:30px;padding:0 12px;border-radius:15px;border:1px solid #bae6fd;background:#f0f9ff;color:#0369a1;font-size:13px;opacity:1;cursor:default}
+.garden-shell .formal-ui .security-overview .sky-chip span {margin-left:6px}
+
+.garden-shell .formal-ui .security-panel-progress {display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;padding:10px 16px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:18px;flex:none;font-size:13px}
+.garden-shell .formal-ui .security-panel-progress.done {background:var(--g-mint);border-color:var(--g-line)}
+.garden-shell .formal-ui .security-panel-progress>b {color:#075985;white-space:nowrap}
+.garden-shell .formal-ui .security-panel-progress.done>b {color:var(--g-ink)}
+.garden-shell .formal-ui .security-panel-progress .garden-solar {flex:1 1 200px;height:8px;min-width:120px}
+.garden-shell .formal-ui .security-progress-count {font-variant-numeric:tabular-nums;font-weight:700;color:var(--g-text-2)}
+.garden-shell .formal-ui .security-progress-current {flex-basis:100%;min-width:0;color:var(--g-text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.garden-shell .formal-ui .security-progress-current code {margin-left:8px;font-size:12px;color:var(--g-text-3)}
+.garden-shell .formal-ui .security-progress-current.warn {color:#a16207;white-space:normal}
+.garden-shell .formal-ui .security-panel-progress small {color:var(--g-text-3)}
+
+.garden-shell .formal-ui .security-panel-layout {display:grid;grid-template-columns:minmax(290px,31%) minmax(0,1fr);gap:14px;min-height:0;flex:1}
+.garden-shell .formal-ui .security-report-sidebar {display:flex;flex-direction:column;min-height:0;background:rgba(246,248,246,.86);border:1px solid #dfe8e2;border-radius:24px;overflow:hidden}
+.garden-shell .formal-ui .security-list-tools {flex:none;display:flex;flex-direction:column;gap:8px;padding:12px 12px 8px}
+.garden-shell .formal-ui .security-list-tools .garden-search {height:36px}
+.garden-shell .formal-ui .security-list-tools .garden-search input {font-size:13.5px}
+.garden-shell .formal-ui .security-list-options {display:flex;align-items:center;gap:10px;font-size:13px}
+.garden-shell .formal-ui .security-list-options .sp {flex:1}
+.garden-shell .formal-ui .security-list-options select {height:30px}
+.garden-shell .formal-ui .security-toggle {display:flex;align-items:center;gap:5px;color:var(--g-text-2);white-space:nowrap;cursor:pointer}
+.garden-shell .formal-ui .security-toggle input {accent-color:var(--g-leaf-3)}
+.garden-shell .formal-ui .security-report-list {flex:1;overflow:auto;min-height:0;padding:2px 10px 10px;outline:none}
+.garden-shell .formal-ui .security-report-entry {position:relative;display:flex;align-items:flex-start;gap:8px;padding:8px 10px;margin:0 0 5px;border-radius:14px;background:#fff;border:1px solid transparent;box-shadow:0 4px 10px -8px rgba(20,83,45,.35);content-visibility:auto;contain-intrinsic-size:auto 58px;transition:border-color .25s,box-shadow .25s}
+.garden-shell .formal-ui .security-report-entry {scroll-margin:8px 0}
+.garden-shell .formal-ui .security-report-entry::before {content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:0 3px 3px 0;background:transparent}
+.garden-shell .formal-ui .security-report-entry.tone-bad::before {background:var(--g-rose)}
+.garden-shell .formal-ui .security-report-entry.tone-pend::before {background:var(--g-sun-2)}
+.garden-shell .formal-ui .security-report-entry.tone-sky::before {background:#38bdf8}
+.garden-shell .formal-ui .security-report-entry:hover {border-color:#bbf7d0}
+.garden-shell .formal-ui .security-report-entry.on {border-color:var(--g-leaf);box-shadow:0 0 0 3px rgba(74,222,128,.18);background:linear-gradient(90deg,#f0fdf4,#fff 70%)}
+.garden-shell .formal-ui .security-report-entry input {flex:none;margin:3px 0 0;width:15px;height:15px;accent-color:var(--g-leaf-3)}
+.garden-shell .formal-ui .security-report-entry>button {min-width:0;flex:1;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"name tag" "sub tag";align-items:center;gap:1px 8px;padding:0;border:0;background:none;text-align:left;color:var(--g-text)}
+.garden-shell .formal-ui .security-entry-name {grid-area:name;display:flex;align-items:center;gap:6px;min-width:0}
+.garden-shell .formal-ui .security-entry-name b {font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.garden-shell .formal-ui .security-on-dot {flex:none;width:7px;height:7px;border-radius:50%;background:var(--g-leaf-2);box-shadow:0 0 0 2px #dcfce7}
+.garden-shell .formal-ui .security-entry-sub {grid-area:sub;font-size:12px;color:var(--g-text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.garden-shell .formal-ui .security-report-entry .tg {grid-area:tag;height:22px;padding:0 8px;font-size:11.5px;max-width:110px;overflow:hidden;text-overflow:ellipsis}
+.garden-shell .formal-ui .security-report-list .garden-empty {margin-top:4px;padding:24px 12px}
+.garden-shell .formal-ui .security-list-foot {flex:none;display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px dashed var(--g-line);font-size:12.5px;color:var(--g-text-3);background:rgba(255,255,255,.6)}
+.garden-shell .formal-ui .security-list-foot .sp {flex:1}
+.garden-shell .formal-ui .security-list-foot b {color:var(--g-ink)}
+
+.garden-shell .formal-ui .security-panel-report {overflow:auto;padding:16px 20px 22px;min-width:0;background:rgba(255,255,255,.92);border:1px solid var(--g-line);border-radius:24px;box-shadow:var(--g-sh)}
+.garden-shell .formal-ui .security-panel-empty {display:grid;place-items:center}
+.garden-shell .formal-ui .security-panel-empty .garden-empty {border:0;background:none}
+.garden-shell .formal-ui .security-report-head {display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+.garden-shell .formal-ui .security-report-title {min-width:0;flex:1}
+.garden-shell .formal-ui .security-report-head h3 {margin:0;font-size:20px;font-weight:800;color:var(--g-ink);overflow-wrap:anywhere}
+.garden-shell .formal-ui .security-report-head small {display:block;margin-top:2px;font-size:12.5px;color:var(--g-text-3);overflow-wrap:anywhere}
+.garden-shell .formal-ui .security-report-head small code,.garden-shell .formal-ui .security-progress-current code,.garden-shell .formal-ui .security-finding-line code {display:inline}
+.garden-shell .formal-ui .security-report-head small code {font:12px var(--mono);color:var(--g-text-2)}
+.garden-shell .formal-ui .security-report-head small .garden-link {font-size:12.5px}
+.garden-shell .formal-ui .security-report-actions {display:flex;gap:8px;flex:none}
+.garden-shell .formal-ui .security-tabs {position:sticky;top:-16px;z-index:3;margin:10px -20px 12px;padding:10px 20px;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);border-bottom:1px solid #e3f5e9}
+.garden-shell .formal-ui .security-tabs button:disabled {opacity:.45;cursor:not-allowed}
+
+.garden-shell .formal-ui .native-security {display:flex;flex-direction:column;gap:14px;min-width:0;font-size:13.5px;line-height:1.65}
+.garden-shell .formal-ui .native-security>.sec {padding-top:12px;border-top:1px dashed var(--g-line)}
+.garden-shell .formal-ui .native-security>.sec:first-child {padding-top:0;border-top:0}
+.garden-shell .formal-ui .native-security .sec>h3 {display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:13px;color:var(--g-leaf-3);font-weight:700;letter-spacing:.04em}
+.garden-shell .formal-ui .native-security .sec>h3 small {color:var(--g-text-3);font-weight:500;letter-spacing:0}
+.garden-shell .formal-ui .native-security .sec>h3 .sp {flex:1}
+.garden-shell .formal-ui .native-security .note-act .sp {flex:1}
+.garden-shell .formal-ui .security-conclusion {padding:12px 16px 12px 18px;border-radius:6px 18px 18px 18px;background:var(--g-mint);border:1px solid var(--g-line);scroll-margin-top:100px}
+.garden-shell .formal-ui .security-conclusion.bad {background:#fff3f1;border-color:#f4bdb5}
+.garden-shell .formal-ui .security-conclusion.pend {background:#fffbed;border-color:#f3df9b}
+.garden-shell .formal-ui .security-conclusion.sky {background:#f0f9ff;border-color:#bae6fd}
+.garden-shell .formal-ui .security-conclusion-head {display:flex;align-items:center;gap:10px}
+.garden-shell .formal-ui .security-conclusion-head small {color:var(--g-text-3)}
+.garden-shell .formal-ui .security-conclusion p {margin:6px 0 0}
+.garden-shell .formal-ui .security-conclusion ul,.garden-shell .formal-ui .security-gaps {padding-left:20px;margin:6px 0 0}
+.garden-shell .formal-ui .security-empty {padding:8px 0}
+.garden-shell .formal-ui .security-metrics {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.garden-shell .formal-ui .security-metric {display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0;padding:9px 12px;border-radius:16px;border:1px solid #dcfce7;background:#f0fdf4;text-align:left;color:var(--g-text);transition:border-color .25s,transform .3s var(--g-ease)}
+.garden-shell .formal-ui .security-metric:hover {border-color:var(--g-leaf);transform:translateY(-1px)}
+.garden-shell .formal-ui .security-metric small {font-size:12px;color:var(--g-text-3)}
+.garden-shell .formal-ui .security-metric b {font-size:16px;font-weight:800;color:var(--g-moss);white-space:nowrap}
+.garden-shell .formal-ui .security-metric span {font-size:11.5px;color:var(--g-text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.garden-shell .formal-ui .security-metric.bad {background:#fff3f1;border-color:#fecaca}.garden-shell .formal-ui .security-metric.bad b {color:var(--g-rose)}
+.garden-shell .formal-ui .security-metric.pend {background:#fffbeb;border-color:#fde68a}.garden-shell .formal-ui .security-metric.pend b {color:#a16207}
+.garden-shell .formal-ui .security-metric.sky {background:#f0f9ff;border-color:#bae6fd}.garden-shell .formal-ui .security-metric.sky b {color:#0369a1}
+.garden-shell .formal-ui .security-finding-line {display:grid;grid-template-columns:auto minmax(0,auto) minmax(0,1fr);align-items:center;gap:10px;width:100%;padding:8px 12px;margin:0 0 6px;border-radius:14px;border:1px solid #edf5ef;background:#fff;text-align:left;color:var(--g-text)}
+.garden-shell .formal-ui .security-finding-line:hover {border-color:var(--g-leaf)}
+.garden-shell .formal-ui .security-finding-line b {white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.garden-shell .formal-ui .security-finding-line code {font:12px var(--mono);color:var(--g-text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.garden-shell .formal-ui .security-defender-row h3 .tg {letter-spacing:0}
+.garden-shell .formal-ui .security-subtools {display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.garden-shell .formal-ui .security-subtools .garden-search {flex:1 1 200px;height:34px}
+.garden-shell .formal-ui .garden-search.sm {height:30px;min-width:160px;max-width:260px;font-weight:400;letter-spacing:0}
+.garden-shell .formal-ui .garden-search.sm input {font-size:12.5px}
+.garden-shell .formal-ui .security-finding {border:1px solid #edf5ef;border-radius:16px;background:#fff;content-visibility:auto;contain-intrinsic-size:auto 48px}
+.garden-shell .formal-ui .security-finding.open {border-color:var(--g-line);box-shadow:0 8px 16px -12px rgba(34,197,94,.5)}
+.garden-shell .formal-ui .security-finding-head {display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;border:0;background:none;text-align:left;color:var(--g-text)}
+.garden-shell .formal-ui .security-finding-title {flex:1;min-width:0;display:flex;flex-direction:column}
+.garden-shell .formal-ui .security-finding-title b {overflow-wrap:anywhere}
+.garden-shell .formal-ui .security-finding-title code {display:block;font:11.5px var(--mono);color:var(--g-text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.garden-shell .formal-ui .security-finding-head small {color:var(--g-text-3);white-space:nowrap}
+.garden-shell .formal-ui .security-finding>p,.garden-shell .formal-ui .security-finding>.security-evidence,.garden-shell .formal-ui .security-finding>.note-act {margin-left:14px;margin-right:14px}
+.garden-shell .formal-ui .security-finding>p {margin-top:0;margin-bottom:6px;color:var(--g-text-2);white-space:pre-wrap}
+.garden-shell .formal-ui .security-finding>.note-act {margin-bottom:12px;align-items:center}
+.garden-shell .formal-ui .security-evidence {margin-top:6px;padding:8px 10px;border-radius:10px;background:#f7faf8;overflow-wrap:anywhere}
+.garden-shell .formal-ui .security-evidence code,.garden-shell .formal-ui .security-hash {font:11.5px var(--mono);overflow-wrap:anywhere;white-space:normal;color:var(--g-ink)}
+.garden-shell .formal-ui .security-evidence p {margin:3px 0 0;font-size:12.5px;color:var(--g-text-2)}
+.garden-shell .formal-ui .security-more {align-self:center}
+.garden-shell .formal-ui .security-stack {display:flex;height:12px;border-radius:999px;overflow:hidden;background:#eef4f0;margin-bottom:10px}
+.garden-shell .formal-ui .security-stack i,.garden-shell .formal-ui .security-composition i {display:block}
+.garden-shell .formal-ui .security-composition {display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px 18px}
+.garden-shell .formal-ui .security-composition>div {display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px dashed #e3f5e9}
+.garden-shell .formal-ui .security-composition span {display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.garden-shell .formal-ui .security-composition b {flex:none;white-space:nowrap}
+.garden-shell .formal-ui .security-composition span i {width:9px;height:9px;border-radius:3px;flex:none}
+.garden-shell .formal-ui .security-composition small {color:var(--g-text-3)}
+.garden-shell .formal-ui .k0 {background:var(--g-leaf-2)}.garden-shell .formal-ui .k1 {background:var(--g-sun)}.garden-shell .formal-ui .k2 {background:#38bdf8}
+.garden-shell .formal-ui .k3 {background:#a78bfa}.garden-shell .formal-ui .k4 {background:#fb923c}.garden-shell .formal-ui .k5 {background:#94a3b8}
+.garden-shell .formal-ui .security-files {display:flex;flex-direction:column;border-radius:14px;border:1px solid #edf5ef;background:#fff;overflow:hidden}
+.garden-shell .formal-ui .security-file {display:flex;gap:12px;justify-content:space-between;align-items:baseline;padding:5px 12px;border-top:1px solid #f1f7f3}
+.garden-shell .formal-ui .security-file:first-child {border-top:0}
+.garden-shell .formal-ui .security-file code {min-width:0;font:11.5px var(--mono);color:var(--g-text-2);overflow-wrap:anywhere;white-space:normal}
+.garden-shell .formal-ui .security-file>span {flex:none;color:var(--g-text-3);font-size:12px;text-align:right;max-width:55%}
+.garden-shell .formal-ui .security-file>span.warn {color:#a16207}
+.garden-shell .formal-ui .security-diff-counts {display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.garden-shell .formal-ui .security-diff-counts .muted {margin-left:6px}
+.garden-shell .formal-ui .security-tech {padding:10px 0 0;border-top:1px dashed var(--g-line)}
+.garden-shell .formal-ui .security-tech summary {cursor:pointer;font-weight:600;color:var(--g-ink)}
+
+.garden-shell .formal-ui .security-ai {display:flex;flex-direction:column;gap:10px;font-size:13.5px}
+.garden-shell .formal-ui .security-ai-scope {display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.garden-shell .formal-ui .security-ai-scope>span:first-child {font-weight:700;color:var(--g-leaf-3);margin-right:4px}
+.garden-shell .formal-ui .security-ai-scope .tg {border:0;cursor:pointer;max-width:320px;overflow:hidden;text-overflow:ellipsis}
+.garden-shell .formal-ui .security-ai-scope .tg button {display:inline-grid;place-items:center;margin-left:4px;padding:0;border:0;background:none;color:inherit}
+.garden-shell .formal-ui .security-send-preview {border:1px solid var(--g-line);padding:10px 12px;border-radius:14px;max-height:34vh;overflow:auto;background:#f7faf8}
+.garden-shell .formal-ui .security-ai pre {white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.6 var(--font-ui);margin:6px 0 10px}
 .garden-shell .formal-ui .security-ai .garden-facts dd {overflow-wrap:anywhere}
-.garden-shell .formal-ui .security-ai-reply {border-top:1px solid var(--g-line);margin-top:18px;padding-top:14px}
-@media(max-width:760px){.garden-shell .formal-ui .security-panel-layout{grid-template-columns:180px minmax(0,1fr);gap:12px}.garden-shell .formal-ui .security-panel-report{padding:14px}}
+.garden-shell .formal-ui .security-ai-reply {padding:14px 18px;border-radius:6px 22px 22px 22px;background:linear-gradient(170deg,#f0fdf4,#fff 55%);border:1px solid #dcfce7;line-height:1.75}
+.garden-shell .formal-ui .security-ai-reply h3 {margin:0 0 6px;font-size:13px;color:var(--g-leaf-3)}
+
+@media(max-width:1240px){.garden-shell .formal-ui .security-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1100px){.garden-shell .formal-ui .security-panel-layout{grid-template-columns:minmax(250px,34%) minmax(0,1fr);gap:12px}.garden-shell .formal-ui .security-report-entry .tg{max-width:84px}}
+@media(max-width:860px){.garden-shell .formal-ui .security-panel-layout{grid-template-columns:220px minmax(0,1fr)}.garden-shell .formal-ui .security-panel-report{padding:12px 14px}.garden-shell .formal-ui .security-tabs{margin:8px -14px 10px;padding:8px 14px}.garden-shell .formal-ui .security-entry-sub{display:none}}
+
+/* Mods page under heavy change: the beds keep a usable minimum height. Extra status rows
+   make the page scroll instead of squeezing the lists, and the basket stays pinned in view. */
+.garden-shell .formal-ui .native-page{overflow-y:auto;overflow-x:hidden}
+.garden-shell .formal-ui .native-page .beds{min-height:min(440px,62vh)}
+.garden-shell .formal-ui .native-page .basket-bar{position:sticky;bottom:0;z-index:6;flex-wrap:nowrap}
+.garden-shell .formal-ui .native-page .basket-head{min-width:0;flex:0 1 auto}
+.garden-shell .formal-ui .native-page .basket-head b,.garden-shell .formal-ui .native-page .basket-head small{overflow:hidden;text-overflow:ellipsis}
+.garden-shell .formal-ui .native-page .basket-pills{flex:0 1 auto;min-width:0;overflow:hidden}
+.garden-shell .formal-ui .native-page .basket-list .more{background:transparent;border:0;color:#a16207;font-weight:700;padding:0 4px}
+.garden-shell .formal-ui .native-page>.garden-notice,.garden-shell .formal-ui .native-page>.care-note{max-height:3.4em;overflow:hidden}
+.garden-shell .formal-ui .workshop-activity{max-height:150px}
+.garden-shell .formal-ui .workshop-activity:not([open]){padding:8px 16px}
+.garden-shell .formal-ui .workshop-activity summary small{font-weight:500;color:var(--g-text-3)}
+.garden-shell .formal-ui .workshop-activity summary small.warn{color:#a16207}
+
+/* AI explanation: readable sections, emphasis and finding IDs (the global reset removes all spacing). */
+.garden-shell .formal-ui .security-ai-reply h3 small{font-weight:500;color:var(--g-text-3)}
+.garden-shell .formal-ui .security-ai-md{font-size:14px;line-height:1.8;color:var(--g-text);overflow-wrap:anywhere}
+.garden-shell .formal-ui .security-ai-md>:first-child{margin-top:0}
+.garden-shell .formal-ui .security-ai-md p{margin:0 0 10px}
+.garden-shell .formal-ui .security-ai-md h1,.garden-shell .formal-ui .security-ai-md h2,.garden-shell .formal-ui .security-ai-md h3,.garden-shell .formal-ui .security-ai-md h4{display:flex;align-items:center;gap:8px;margin:18px 0 8px;font-size:15px;font-weight:800;color:var(--g-ink)}
+.garden-shell .formal-ui .security-ai-md h2::before,.garden-shell .formal-ui .security-ai-md h1::before{content:"";width:6px;height:16px;border-radius:3px;background:linear-gradient(180deg,var(--g-leaf),var(--g-leaf-2));flex:none}
+.garden-shell .formal-ui .security-ai-md h3,.garden-shell .formal-ui .security-ai-md h4{font-size:14px;color:var(--g-leaf-3)}
+.garden-shell .formal-ui .security-ai-md h2:first-child+p{padding:10px 14px;border-radius:6px 16px 16px 16px;background:#fff;border:1px solid #dcfce7;font-size:14.5px}
+.garden-shell .formal-ui .security-ai-md ul,.garden-shell .formal-ui .security-ai-md ol{margin:0 0 10px;padding-left:22px;display:flex;flex-direction:column;gap:6px}
+.garden-shell .formal-ui .security-ai-md li::marker{color:var(--g-leaf-2);font-weight:700}
+.garden-shell .formal-ui .security-ai-md li>p{margin:0}
+.garden-shell .formal-ui .security-ai-md strong{color:var(--g-moss);font-weight:800;background:linear-gradient(180deg,transparent 60%,rgba(253,224,71,.45) 60%)}
+.garden-shell .formal-ui .security-ai-md code{display:inline;padding:1px 6px;border-radius:6px;background:#eef7f1;border:1px solid #dcfce7;font:12px var(--mono);color:var(--g-ink);white-space:normal}
+.garden-shell .formal-ui .security-ai-md pre{padding:10px 12px;border-radius:12px;background:#f7faf8;border:1px solid var(--g-line);overflow:auto}
+.garden-shell .formal-ui .security-ai-md pre code{border:0;background:none;padding:0;white-space:pre}
+.garden-shell .formal-ui .security-ai-md blockquote{margin:0 0 10px;padding:6px 12px;border-left:3px solid var(--g-sun);background:#fffbeb;border-radius:0 10px 10px 0;color:var(--g-text-2)}
+.garden-shell .formal-ui .security-ai-md hr{border:0;border-top:1px dashed var(--g-line);margin:14px 0}
+.garden-shell .formal-ui .security-ai-md table{border-collapse:collapse;margin:0 0 10px;font-size:13px}
+.garden-shell .formal-ui .security-ai-md th,.garden-shell .formal-ui .security-ai-md td{border:1px solid var(--g-line);padding:4px 8px;text-align:left}
+
+/* garden.css still styles .basket-list as the old vertical side-panel list; the bottom bar
+   must stay one row, otherwise many changes stack up and push the mod lists out of view. */
+.garden-shell .formal-ui .basket-bar .basket-list{flex-direction:row;max-height:none;overflow:hidden;list-style:none}
+.garden-shell .formal-ui .native-page .basket-bar{max-height:88px;overflow:hidden}

@@ -16,6 +16,9 @@ function retainObserved(previous,current){
   return [...(current||[]).map(item=>{const old=previous[item.workshop_id];if(!old)return item;const value={...item};if(item.subscription_state==='unknown'||item.subscribed==null){value.subscription_state=old.subscription_state;value.subscribed=old.subscribed}if(item.download_state==='unknown'||item.needs_update==null){for(const key of ['needs_update','update_available','downloading','download_pending','download_state','bytes_downloaded','bytes_total','progress'])if(old[key]!=null)value[key]=old[key]}return value}),...Object.values(previous).filter(x=>!incoming.has(x.workshop_id))]
 }
 const awaitingProbe=value=>value?.runtime?.state==='stopped'&&value.session?.refreshing===true&&value.session.reason_code==='WORKSHOP_SESSION_CONNECTING'
+// Our own periodic read-only probe briefly holds the install lease. With a fresh, ready
+// session it is not a reason to grey out actions: a click waits for the probe to finish.
+export const backgroundProbe=value=>Boolean(value&&value.session?.state==='ready'&&value.session?.refreshing&&!value.session?.stale&&value.runtime?.state==='stopped'&&(value.runtime?.busy_owner==='workshop_probe'||value.session?.probe_owned_busy)&&(value.runtime?.blockers||[]).every(code=>code==='GUARD_LEASE_BUSY'))
 const observedStatus=value=>Boolean(value&&(value.session?.state==='ready'&&value.session?.observed_at||(value.items||[]).some(item=>[item.subscribed,item.needs_update,item.downloading,item.download_pending].some(x=>typeof x==='boolean'))))
 export function workshopStatusView(state={},action='subscribe',local={}){
   const value=state.status,runtime=value?.runtime||{},session=value?.session||{},capability=action==='update'?value?.capabilities?.direct_updates:value?.capabilities?.direct_subscription
@@ -29,6 +32,7 @@ export function workshopStatusView(state={},action='subscribe',local={}){
   if(['WORKSHOP_INSTALLATION_CHANGED','WORKSHOP_INSTALLATION_UNAVAILABLE','WORKSHOP_GUARD_UNAVAILABLE'].some(code=>codes.has(code)))return view('installation','安装暂不可写',capability?.reason||runtime.message||'请核对右上角的游戏安装位置和目录访问状态。',{action:'logs',actionLabel:'查看日志'})
   if((value.operations||[]).some(op=>op.state==='uncertain')||codes.has('WORKSHOP_OPERATION_BUSY'))return view('uncertain','工坊操作待核对',capability?.reason||session.message||'已有操作结果尚未确认，请刷新核对，不要重复提交。')
   if(state.pending||state.remainingCount||(value.operations||[]).some(op=>!operationDone.has(op.state)))return view('busy','Steam 正在处理操作','请等待下方操作记录中的回调和下载结果。')
+  if(backgroundProbe(value)&&local.writable!==false&&!(value.operations||[]).some(op=>op.state==='uncertain'))return view('ready','已连接本机 Steam','使用 Steam 客户端当前账号管理订阅；后台正在核对状态，提交操作时会先等核对完成。',{refreshLabel:'刷新连接'})
   if(awaitingProbe(value)||runtime.busy_owner==='workshop_probe'||capability?.reason_code==='WORKSHOP_SESSION_CONNECTING'||runtime.writable!==false&&session.reason_code==='WORKSHOP_SESSION_CONNECTING')return view('connecting','正在连接本机 Steam','正在后台核对 Steam 状态，完成后更新操作按钮。',{refreshLabel:'刷新连接'})
   if(runtime.writable===false||codes.has('WORKSHOP_INSTALLATION_BUSY')||codes.has('GUARD_BUSY'))return view('busy','安装暂不可写',capability?.reason||runtime.message||'安装目录正由其他操作占用，请等待完成后刷新。')
   if(session.state!=='ready')return view('steam','Steam 会话不可用',capability?.reason||session.message||session.last_error?.message||state.error||'请打开并登录 Steam 后刷新连接。',{refreshLabel:'刷新连接'})
@@ -44,13 +48,15 @@ export function createWorkshopRuntime(bridge,state={},options={}){
   const payload=()=>({installation_id:state.installationId})
   const items=()=>Object.fromEntries((state.status?.items||[]).map(x=>[x.workshop_id,x]))
   const busy=()=>state.pending||queued.length>0||(state.status?.operations||[]).some(x=>!operationDone.has(x.state))
-  const canDispatch=action=>Boolean(state.installationId&&!state.stale&&state.status?.session?.state==='ready'&&options.canWrite?.()!==false&&state.status?.runtime?.state==='stopped'&&state.status?.runtime?.writable!==false&&(action==='update'?state.status?.capabilities?.direct_updates:state.status?.capabilities?.direct_subscription)?.available)
+  const canDispatch=(action,{allowProbe=true}={})=>{const probe=allowProbe&&backgroundProbe(state.status);return Boolean(state.installationId&&!state.stale&&state.status?.session?.state==='ready'&&options.canWrite?.()!==false&&state.status?.runtime?.state==='stopped'&&(probe||state.status?.runtime?.writable!==false)&&(probe||(action==='update'?state.status?.capabilities?.direct_updates:state.status?.capabilities?.direct_subscription)?.available))}
+  // Wait (bounded) for our own background probe to release the lease before submitting.
+  async function settleProbe(token){for(let i=0;i<40&&backgroundProbe(state.status);i++){await new Promise(resolve=>setTimeout(resolve,500));if(disposed||token!==epoch)return false;await refresh()}return !disposed&&token===epoch}
   const available=action=>!busy()&&canDispatch(action)
   const statusView=(action='subscribe')=>workshopStatusView(state,action,{writable:options.canWrite?.(),message:options.blockReason?.()})
   function reason(action){const view=statusView(action);return view.kind==='ready'?'':view.message}
   function schedule(){clearTimeout(timer);if(disposed||!state.installationId)return;const active=busy()||state.status?.session?.refreshing||(state.status?.items||[]).some(x=>['downloading','download_pending'].includes(x.download_state));timer=setTimeout(()=>void refresh(),active?2000:15000)}
   function stopQueue(message){if(queued.length)state.queueNotice=`后续 ${queued.length} 个模组尚未提交：${message}`;queued=[];state.remainingCount=0;activeBatch=null}
-  async function submit(action,ids,token){state.pending=true;try{const result=await bridge.request('workshop.action',{...payload(),action,ids});if(disposed||token!==epoch)return null;const ops=state.status?.operations||[];state.status={...state.status,operations:[result,...ops.filter(x=>x.operation_id!==result.operation_id)]};return result}finally{if(token===epoch&&!disposed)state.pending=false}}
+  async function submit(action,ids,token){state.pending=true;try{if(!await settleProbe(token))return null;if(!canDispatch(action,{allowProbe:false}))throw new Error(reason(action)||'Steam 状态核对后暂不能提交，请刷新后重试。');const result=await bridge.request('workshop.action',{...payload(),action,ids});if(disposed||token!==epoch)return null;const ops=state.status?.operations||[];state.status={...state.status,operations:[result,...ops.filter(x=>x.operation_id!==result.operation_id)]};return result}finally{if(token===epoch&&!disposed)state.pending=false}}
   async function nextBatch(token){if(!queued.length||disposed||token!==epoch)return;if(!canDispatch('update')){stopQueue(state.status?.capabilities?.direct_updates?.reason||'Steam 会话或游戏状态不允许继续，请检查后重新更新。');return}const batch=queued.splice(0,100);state.remainingCount=queued.length;try{const result=await submit('update',batch,token);if(result)activeBatch=result.operation_id}catch(e){if(token===epoch&&!disposed){queued.unshift(...batch);stopQueue(e.message||'提交失败，请重试。')}}}
   async function refresh(force=false){
     if(!state.installationId||disposed||requesting===epoch)return false

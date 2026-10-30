@@ -1,6 +1,6 @@
 """Product constants only; no legacy settings, credentials or network access."""
 APP_NAME = 'PSModManager'
-APP_VERSION = '0.3.3'
+APP_VERSION = '0.3.5'
 APP_USER_MODEL_ID = 'PSModManager.Desktop'
 KEYRING_SERVICE = 'PSModManager'
 UPDATE_SOURCE = None

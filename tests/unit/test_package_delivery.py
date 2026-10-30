@@ -77,7 +77,8 @@ def test_delivery_copies_current_documents_and_catalog_materials(checkout, tmp_p
     'docs/development/mod-security-implementation-2026-10-30.md',
     'docs/development/interaction-reliability-fix-2026-10-30.md',
     'docs/development/manual-mod-check-2026-10-30.md',
-    'docs/development/standalone-mod-check-2026-10-29.md'])
+    'docs/development/standalone-mod-check-2026-10-29.md',
+    'docs/development/mod-check-ui-2026-10-30.md'])
 def test_missing_resource_stops_before_output_or_build(checkout, monkeypatch, missing):
     root, _ = checkout
     (root/missing).unlink()

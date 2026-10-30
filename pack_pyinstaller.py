@@ -30,7 +30,9 @@ DELIVERY_DOCUMENTS = ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'docs/development/kno
                       'docs/development/mod-security-implementation-2026-10-30.md',
                       'docs/development/interaction-reliability-fix-2026-10-30.md',
                       'docs/development/manual-mod-check-2026-10-30.md',
-                      'docs/development/standalone-mod-check-2026-10-29.md']
+                      'docs/development/standalone-mod-check-2026-10-29.md',
+                      'docs/development/mod-check-ui-2026-10-30.md',
+                      'docs/development/ui-fixes-2026-10-30.md']
 HISTORICAL_NOTICE_TEXTS = {'licenses/Cpp2IL/Cpp2IL-LICENSE.txt',
                            'licenses/UnityDependencies/UnityDependencies-README.md'}
 

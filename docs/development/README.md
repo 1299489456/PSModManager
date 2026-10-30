@@ -181,9 +181,9 @@ Remove-Item Env:PSMM_PORTABLE_ROOT, Env:PSMM_PORTABLE_ZIP, Env:PSMM_FINAL_DELIVE
 确认该提交的 Actions 构建成功，再推送相同版本的标签，例如：
 
 ```powershell
-# 示例仅适用于已更新为 0.3.3 的提交；标签与源码版本必须一致。
-git tag -a v0.3.3 -m "Release PSModManager 0.3.3"
-git push origin v0.3.3
+# 示例仅适用于已更新为 0.3.5 的提交；标签与源码版本必须一致。
+git tag -a v0.3.5 -m "Release PSModManager 0.3.5"
+git push origin v0.3.5
 ```
 
 CI 固定 Windows 2022 x64、uv `0.10.0`、Python `3.11.14`、Node `24.19.0`、.NET SDK `10.0.400`；通过 `uv sync --locked`、`npm ci` 和 runtime `10.0.11` 准备干净构建环境。第三方 Actions 固定到提交。升级构建版本时，同时更新工作流和许可基线；不要绕过打包器的版本检查。

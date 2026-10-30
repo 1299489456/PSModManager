@@ -81,13 +81,16 @@ export function createGameLaunchRuntime(bridge, state = {}, {
   }
 
   function canLaunch() {
-    return !disposed && Boolean(state.installationId) && !state.busy && !state.refreshing && ['not_started','exited','failed'].includes(state.snapshot?.state)
+    // A periodic status poll keeps the last known state usable; only the first read gates launching.
+    return !disposed && Boolean(state.installationId) && !state.busy && !(state.refreshing && !state.snapshot) && ['not_started','exited','failed'].includes(state.snapshot?.state)
   }
 
   async function launch(prepare) {
     if (!canLaunch()) return false
     stopPolling()
     const token = ++sequence, id = state.installationId
+    // Launching supersedes an in-flight poll; its late reply is ignored by sequence.
+    state.refreshing = false
     state.busy = true
     state.phase = prepare ? 'preparing' : 'launching'
     clearError()

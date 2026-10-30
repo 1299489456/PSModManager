@@ -35,6 +35,8 @@ Object.assign(reasons, {
   no_deobfuscation:'未进行反混淆。',
   no_runtime_generated_code:'无法检查运行时生成的代码。',
   WORKER_PROTOCOL_INVALID:'静态解析器协议不匹配；请重启管理器后重新检查。',
+  undeclared_capability_static:'代码中存在需要这项权限的调用，但模组清单没有声明它。调用指令不代表一定会执行，请结合模组用途判断。',
+  declared_without_static_use:'清单声明了这项权限，但静态分析没有找到对应调用。可能通过反射或动态方式使用，也可能是多申请了权限。',
 })
 export function nativeScanLabel(scan) {
   if(!scan)return {label:'尚未检查',tone:'off'}

@@ -232,3 +232,28 @@ def test_existing_log_diagnostic_prompt_stays_separate_from_security_report(nati
         assert '这次是日志排错' in messages[0]['content']
         assert 'isolated-manager-diagnostic-evidence' in messages[1]['content']
         assert '已生成的 Mod 手动检查报告' not in messages[0]['content']
+
+
+def test_focused_preview_keeps_selected_evidence_and_sends_exactly_that(app):
+    context, identity, detail, _, _ = app
+    evidence = [dict(path='Main.dll', method='Example::Send', offset=i, detail=f'call #{i}') for i in range(14)]
+    detail['report']['findings'].append(dict(id='F0002', rule='combo', severity='high', title='Combination',
+                                             basis='same_method_static_combination', evidence=evidence))
+    report_id = detail['report']['report_id']
+    value = ok(context, 'security.ai.preview', installation_id=identity, id='test.core', report_id=report_id, finding_ids=['F0001'])
+    assert value['finding_ids'] == ['F0001']
+    projected = value['report']
+    assert projected['focus_finding_ids'] == ['F0001'] and projected['findings'][0]['id'] == 'F0001'
+    assert '重点解释' in value['messages'][-1]['content']
+    focused = ok(context, 'security.ai.preview', installation_id=identity, id='test.core', report_id=report_id, finding_ids=['F0002'])
+    assert len(focused['report']['findings'][0]['evidence']) == 12 and focused['report']['findings'][0]['evidence_total'] == 14
+    whole = preview(app)
+    assert whole['finding_ids'] == [] and whole['report']['findings'][0]['id'] == 'F0002'
+    assert len(whole['report']['findings'][0]['evidence']) == 3 and '重点解释' not in whole['messages'][-1]['content']
+    missing = rpc(context, 'security.ai.preview', installation_id=identity, id='test.core', report_id=report_id, finding_ids=['F9999'])
+    assert missing['error']['code'] == 'AI_SECURITY_REPORT_CHANGED'
+    with SyntheticAIProvider(chunks=['只解释所选证据。']) as provider:
+        configured(context, provider)
+        value = ok(context, 'security.ai.preview', installation_id=identity, id='test.core', report_id=report_id, finding_ids=['F0002'])
+        finish(context.api, send(context, value))
+        assert provider.requests[0]['body']['messages'] == value['messages']

@@ -25,7 +25,10 @@ const workspaceTab = ref('mods')
 const aiOpened = ref(false)
 const workshopOpened = ref(false)
 const securityOpened=ref(false),securityMutating=ref(false)
+const securityFocus=ref(null)
 function openSecurity(){securityOpened.value=true;workspaceTab.value='security'}
+// From a mod's menu: open the check page on that mod. Selecting never starts a scan.
+function inspectMod(id){securityFocus.value={id,seq:(securityFocus.value?.seq||0)+1};openSecurity()}
 const workshopPanel = ref(null)
 const nativeSnapshot = ref(null)
 const importActive = ref(false)
@@ -173,10 +176,10 @@ onUnmounted(cleanup)
       <GameLaunchButton v-if="workspaceReady" ref="launcher" class="canopy-launch" :bridge="bridge" :installation="selectedInstallation" :disabled="modState.locked || !modState.loaded || steam.busy() || securityMutating" :before-launch="saveBeforeLaunch" :preparation-phase="modState.phase" @status="processStatus=$event" @busy="launchBusy=$event" :save-first="modState.dirty" :pending="modState.changes" @launch-checked="launchChecked"/>
     </header>
     <div class="garden-bed">
-      <ModWorkspace v-if="workspaceReady" v-show="workspaceTab === 'mods'" ref="modManager" :active="workspaceTab === 'mods'" :process-status="processStatus" :launch-busy="launchBusy" @saved="saved" :bridge="bridge" :steam="steam" :steam-state="steamState" :installation="selectedInstallation" @logs="openDiagnostics" @ai-settings="openAiSettings" @workshop="openWorkshop" @busy="workspaceBusy = $event" @state="modState = $event" @snapshot="nativeSnapshot = $event" @launch="launcher?.launch()"/>
+      <ModWorkspace v-if="workspaceReady" v-show="workspaceTab === 'mods'" ref="modManager" :active="workspaceTab === 'mods'" :process-status="processStatus" :launch-busy="launchBusy" @saved="saved" :bridge="bridge" :steam="steam" :steam-state="steamState" :installation="selectedInstallation" @logs="openDiagnostics" @ai-settings="openAiSettings" @workshop="openWorkshop" @inspect="inspectMod" @busy="workspaceBusy = $event" @state="modState = $event" @snapshot="nativeSnapshot = $event" @launch="launcher?.launch()"/>
       <ProfilePanel v-if="workspaceReady" v-show="workspaceTab === 'profiles'" ref="profilePanel" :active="workspaceTab === 'profiles'" :bridge="bridge" :installation="selectedInstallation" :mods="nativeSnapshot?.mods || []" :current-order="nativeSnapshot?.enabled_ids || []" :current-rules="nativeSnapshot?.rules || []" :workspace-dirty="modState.dirty" :inert="workspaceBusy || undefined" @busy="profileBusy = $event" @apply="applyProfile" @reveal="revealMod" @recovery="showRecovery"/>
       <WorkshopPanel v-if="workspaceReady && workshopOpened" v-show="workspaceTab === 'workshop'" ref="workshopPanel" :active="workspaceTab === 'workshop'" :bridge="bridge" :steam="steam" :steam-state="steamState" :installation="selectedInstallation" :mods="nativeSnapshot?.mods || []" @ai-settings="openAiSettings" @logs="openDiagnostics" :ai-revision="aiRevision" @import="openImport" @reveal="revealMod" @refresh-mods="modManager?.refreshInventory()"/>
-      <SecurityWorkspace v-if="workspaceReady && securityOpened" v-show="workspaceTab==='security'" :active="workspaceTab==='security'" :bridge="bridge" :installation="selectedInstallation" :mods="nativeSnapshot?.mods||[]" :native-runtime="nativeSnapshot?.runtime" :dirty="modState.dirty" :busy="workspaceBusy||profileBusy||steam.busy()||launchBusy" @mutating="securityMutating=$event" @changed="modManager?.refreshInventory()" @settings="openAiSettings"/>
+      <SecurityWorkspace v-if="workspaceReady && securityOpened" v-show="workspaceTab==='security'" :active="workspaceTab==='security'" :bridge="bridge" :installation="selectedInstallation" :mods="nativeSnapshot?.mods||[]" :enabled-ids="nativeSnapshot?.enabled_ids||[]" :focus="securityFocus" :native-runtime="nativeSnapshot?.runtime" :dirty="modState.dirty" :busy="workspaceBusy||profileBusy||steam.busy()||launchBusy" @mutating="securityMutating=$event" @changed="modManager?.refreshInventory()" @settings="openAiSettings" @reveal="revealMod"/>
       <LogDiagnosticsWorkspace v-if="workspaceReady && aiOpened" v-show="workspaceTab === 'ai'" :active="workspaceTab === 'ai'" :bridge="bridge" :installation="selectedInstallation" :settings-revision="aiRevision" @settings="openAiSettings" @mod-changed="modManager?.refresh()" @reveal-mod="revealMod"/>
       <section v-if="appInfo" v-show="storageGated || workspaceTab === 'settings'" class="garden-settings app-info" :class="{ 'storage-gated': storageGated }" aria-label="设置">
         <div v-if="!storageGated" class="garden-intro"><div><h1>设置</h1><p>PSMM v{{ appInfo.version }} · 数据位置、模组更新、AI 服务与应用信息。</p></div></div>

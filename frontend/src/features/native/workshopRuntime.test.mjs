@@ -83,3 +83,19 @@ test('workshop bridge bounds direct actions and identity-only translation',async
   const calls=[];const bridge=createBridge({transport:async r=>{calls.push(r);return{request_id:r.request_id,ok:true,data:{}}}});await bridge.request('workshop.action',{installation_id:installation,action:'update',ids:['1','2']});await bridge.request('workshop.translate',{installation_id:installation,workshop_id:'1'});assert.equal(calls.length,2);for(const payload of [{installation_id:installation,action:'delete',ids:['1']},{installation_id:installation,action:'update',ids:['1','1']},{installation_id:installation,action:'update',ids:Array.from({length:101},(_,i)=>String(i+1))}])await assert.rejects(()=>bridge.request('workshop.action',payload));await assert.rejects(()=>bridge.request('workshop.translate',{workshop_id:'1',text:'private data'}));await bridge.dispose()
 })
 test('workshop status bridge accepts explicit refresh only as a boolean',async()=>{const calls=[],bridge=createBridge({transport:async r=>{calls.push(r);return {request_id:r.request_id,ok:true,data:{}}}});try{await bridge.request('workshop.status',{installation_id:installation,refresh:true});assert.equal(calls[0].payload.refresh,true);await assert.rejects(()=>bridge.request('workshop.status',{installation_id:installation,refresh:'true'}))}finally{await bridge.dispose()}})
+
+test('our own background probe on a fresh ready session does not grey out actions; submit waits for it',async()=>{
+  const probing=()=>({...ready(),runtime:{state:'stopped',writable:false,blockers:['GUARD_LEASE_BUSY'],busy_owner:'workshop_probe'},session:{state:'ready',refreshing:true,stale:false},capabilities:{direct_updates:{available:false},direct_subscription:{available:false}}})
+  let current=probing(),reads=0;const calls=[],state={}
+  const runtime=createWorkshopRuntime({request:async(c,p)=>{if(c==='workshop.status'){if(++reads>=3)current=ready();return structuredClone(current)}calls.push(p);return {operation_id:'s',action:p.action,state:'running',items:[]}}},state,{canWrite:()=>true})
+  try{
+    await runtime.setInstallation(installation)
+    assert.equal(runtime.statusView('subscribe').kind,'ready')
+    assert.equal(runtime.available('subscribe'),true)
+    await runtime.act('subscribe',['1'])
+    assert.equal(calls.length,1,'submitted once the probe released the lease')
+    assert.ok(reads>=3)
+  }finally{runtime.dispose()}
+  const stale={...probing(),session:{state:'ready',refreshing:true,stale:true}}
+  assert.notEqual(workshopStatusView({installationId:installation,status:stale,stale:true}).kind,'ready')
+})

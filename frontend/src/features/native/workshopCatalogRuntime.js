@@ -61,6 +61,10 @@ export function createWorkshopCatalogRuntime(bridge,state={}){
     }catch(e){if(token===detailEpoch&&!disposed){state.error=e.message;state.detailLoading=false}return null}
     finally{if(token===detailEpoch&&!disposed&&!state.selected?.source_pending)state.detailLoading=false}
   }
+  // Warm the backend detail cache (including the slow community page) when a card is hovered.
+  let prefetchTimer=null,prefetching=null
+  function prefetch(item){clearTimeout(prefetchTimer);const id=typeof item==='string'?item:item?.workshop_id,key=`${state.installationId||'public'}:${id}`;if(!id||cache.has(key)||pending.has(key)||prefetching)return;prefetchTimer=setTimeout(()=>{prefetching=bridge.request('workshop.detail',{...scope(),workshop_id:id}).then(value=>{if(!value.source_pending&&!value.refreshing)cache.set(key,{value,at:Date.now()})}).catch(()=>{}).finally(()=>{prefetching=null})},250)}
+  function cancelPrefetch(){clearTimeout(prefetchTimer)}
   function back(){++detailEpoch;clearTimeout(detailTimer);state.selected=null;state.detailLoading=false;state.error=''}
-  return {browse,select,back,setInstallation,dispose(){disposed=true;++epoch;++detailEpoch;clearTimeout(detailTimer);clearTimeout(listTimer);cache.clear();lists.clear()}}
+  return {browse,select,back,setInstallation,prefetch,cancelPrefetch,dispose(){disposed=true;++epoch;++detailEpoch;clearTimeout(detailTimer);clearTimeout(listTimer);clearTimeout(prefetchTimer);cache.clear();lists.clear()}}
 }

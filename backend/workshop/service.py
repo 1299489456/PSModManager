@@ -138,6 +138,10 @@ class WorkshopService:
             # status probes immediately, while offline rows keep their age.
             self._steam_cache[key] = (0.0, value)
 
+    # Probe Steam often only while something is changing; idle sessions are rechecked less
+    # often, and a cached observation is stale only well after the next probe was due.
+    PROBE_BUSY_SECONDS, PROBE_IDLE_SECONDS, STALE_SECONDS = 30, 120, 180
+
     def _steam_snapshot(self, installation, runtime, ids=(), *, refresh=False, probe=True):
         key = self._key(installation)
         if workshop_root(installation) is None:
@@ -164,7 +168,12 @@ class WorkshopService:
             value['session'].update(state='unavailable', reason_code=code, message=MESSAGES[code])
         elif probe and not active and not probing:
             known = {row['workshop_id'] for row in value['items']}
-            if refresh or not cached or age >= 30 or not set(ids).issubset(known):
+            changing = active or any(row.get('downloading') or row.get('download_pending') for row in value['items'])
+            with self._lock:
+                changing = changing or any(owner == key and operation['state'] not in ('completed', 'partial', 'failed')
+                                           for owner, operation in self._operations.values())
+            interval = self.PROBE_BUSY_SECONDS if changing else self.PROBE_IDLE_SECONDS
+            if refresh or not cached or age >= interval or not set(ids).issubset(known):
                 with self._lock:
                     if key not in self._active and key not in self._probes and not self._foreground.get(key) and not self._closed.is_set():
                         self._probes.add(key)
@@ -175,7 +184,7 @@ class WorkshopService:
                         self._threads.append(thread)
                         thread.start()
                         probing = True
-        value['session'].update(refreshing=probing, stale=not allowed or observed_age is None or observed_age >= 30 or value['session']['state'] != 'ready',
+        value['session'].update(refreshing=probing, stale=not allowed or observed_age is None or observed_age >= self.STALE_SECONDS or value['session']['state'] != 'ready',
                                 age_seconds=round(observed_age, 1) if observed_age is not None else None,
                                 probe_owned_busy=probing and not runtime['writable'])
         return value
@@ -799,11 +808,11 @@ class WorkshopService:
                     network_error=next((m['network_error'] for m in metadata if m['network_error']), None),
                     retry_after_ms=750 if refreshing else None)
 
-    def query(self, workshop_ids, installation=None, *, refresh=False):
+    def query(self, workshop_ids, installation=None, *, refresh=False, _local_rows=None):
         if not isinstance(workshop_ids, (tuple, list)) or not 1 <= len(workshop_ids) <= 30 or type(refresh) is not bool:
             raise WorkshopError('WORKSHOP_INVALID_QUERY', '每次可查询 1 至 30 个工坊条目。')
         ids = list(dict.fromkeys(item_id(value) for value in workshop_ids))
-        local = self._local(installation)
+        local = self._local(installation) if _local_rows is None else _local_rows
         try:
             items, meta = self._public_query(ids, refresh)
             return dict(items=[self._decorate(item, local) for item in items], source='steam_public_api', **meta)
@@ -815,12 +824,13 @@ class WorkshopService:
 
     def detail(self, workshop_id, installation=None, *, refresh=False):
         identity = item_id(workshop_id)
-        response = self.query([identity], installation, refresh=refresh)
+        targeted = self.status(installation, workshop_id=identity, _probe=False) if installation else None
+        response = self.query([identity], installation, refresh=refresh,
+                              _local_rows=({row['workshop_id']: row for row in targeted['items']} if targeted else None))
         result = response['items'][0]
         result.update({name: response[name] for name in ('stale', 'network_error', 'cache_hit', 'refreshing', 'source_updated_at')})
         result['source_pending'] = result.get('description_scope') != 'detail' and response['source'] != 'local_manifest'
         if installation:
-            targeted = self.status(installation, workshop_id=identity, _probe=False)
             result['local'] = targeted['items'][0] if targeted['items'] else result.get('local')
             result['native_mod_id'] = result['local'].get('native_mod_id') if result.get('local') else None
             result['capabilities'] = targeted['capabilities']

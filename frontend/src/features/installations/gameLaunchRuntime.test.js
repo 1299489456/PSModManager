@@ -271,3 +271,18 @@ test('background polling does not erase an actionable launch failure before expl
   assert.equal(app.state.errorCode,'GUARD_LEASE_BUSY');assert.ok(app.state.error)
   app.runtime.clearError();assert.equal(app.state.error,'')
 })
+
+test('a background status poll keeps the launch button usable', async () => {
+  const gate = deferred()
+  let polls = 0
+  const app = setup(command => command === 'game.launch' ? snapshot('running') : ++polls > 1 ? gate.promise : snapshot())
+  await app.runtime.setInstallation('one')
+  assert.equal(app.runtime.canLaunch(), true)
+  const poll = app.tick()
+  assert.equal(app.state.refreshing, true)
+  assert.equal(app.runtime.canLaunch(), true, 'last known stopped state stays launchable while polling')
+  assert.equal(await app.runtime.launch(), true)
+  gate.resolve(snapshot('exited'))
+  await poll
+  assert.equal(app.state.snapshot.state, 'running', 'a late poll reply cannot overwrite the launch result')
+})
