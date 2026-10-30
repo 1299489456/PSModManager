@@ -7,7 +7,8 @@ import time
 from types import SimpleNamespace
 
 from backend.app.identity import DATABASE_APPLICATION_ID
-from backend.games.probably_stolen.layout import identity, safe_path
+from backend.app.paths import reject_reparse
+from backend.games.probably_stolen.layout import approved_root, identity, safe_path
 from backend.runtime.jobs import RuntimePolicyError
 from backend.storage import Store
 from .evidence import EvidenceRepository
@@ -32,8 +33,9 @@ def user_log_path(value):
 
 
 class LogService:
-    def __init__(self,paths):
+    def __init__(self,paths,*,user_data_resolver=None):
         self.paths=paths
+        self.user_data_resolver=user_data_resolver
         self._lock=threading.RLock()
         self._active={}
         self._closed=False
@@ -96,6 +98,33 @@ class LogService:
         result += [(name,'user') for name in names]
         return result,errors
 
+    def source_specs(self,installation,names=()):
+        """Resolve fixed native sources separately from the game installation.
+
+        The no-resolver contract remains available for historical evidence readers;
+        the formal product supplies its native persistent-data resolver.
+        """
+        root=Path(installation['canonical_root'])
+        if self.user_data_resolver is None:
+            paths,errors=self._paths(root,names)
+            return [dict(root=root,relative_path=p,kind=k) for p,k in paths],errors
+        data=Path(self.user_data_resolver(installation))
+        reject_reparse(data)
+        data=approved_root(data)
+        if data==self.paths.root or data in self.paths.root.parents or self.paths.root in data.parents:
+            raise RuntimePolicyError('LOG_ROOT_CONFLICT')
+        return ([dict(root=data,relative_path='Player.log',kind='latest'),
+                 dict(root=data,relative_path='Player-prev.log',kind='archive')]
+                + [dict(root=root,relative_path=user_log_path(name),kind='user') for name in names]),[]
+
+    def runtime_summary(self,installation_id,configured_ids=(),mod_ids=(),not_before=None,*,check=lambda:None):
+        from .native_log import read_runtime_summary
+        db,installation=self._reader(installation_id);db.close()
+        if self.user_data_resolver is None:
+            return None
+        return read_runtime_summary(self.user_data_resolver(installation),configured_ids,mod_ids,
+                                    not_before,check=check)
+
     def _watch(self,installation,names,task):
         root=Path(installation['canonical_root']);installation_id=installation['installation_id']
         if root==self.paths.root or root in self.paths.root.parents or self.paths.root in root.parents:
@@ -107,14 +136,15 @@ class LogService:
                 task.check_cancelled();self.paths.check_owned_paths()
                 if identity(root)!=installation['file_identity']:
                     raise RuntimePolicyError('LOG_INSTALLATION_CHANGED')
-                paths,errors=self._paths(root,names)
-                for relative,kind in paths:
+                paths,errors=self.source_specs(installation,names)
+                for spec in paths:
+                    relative,kind=spec['relative_path'],spec['kind']
                     task.check_cancelled()
                     if relative not in readers:
                         sid=repo.register_source(installation_id,relative,kind)
                         source=next(s for s in repo.sources(installation_id) if s['source_id']==sid)
                         checkpoint=source['state'] or {}
-                        readers[relative]=(sid,Tailer(root,relative,state=checkpoint.get('tailer'),
+                        readers[relative]=(sid,Tailer(spec['root'],relative,state=checkpoint.get('tailer'),
                                                      cancelled=lambda: task.cancelled))
                         trackers[relative]=SessionTracker(sid,state=checkpoint.get('sessions'))
                     sid,reader=readers[relative];result=reader.poll()

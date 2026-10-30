@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { Gamepad2 } from 'lucide-vue-next'
 import { canSelect, createInstallationController, issueText } from './controller.js'
-const props = defineProps({ bridge: { type: Object, required: true } })
+const props = defineProps({ bridge: { type: Object, required: true }, identity: { type: Object, default: null } })
 const emit = defineEmits(['selected'])
 const state = reactive({})
 const dialog = ref(null), trigger = ref(null)
@@ -18,7 +18,7 @@ onUnmounted(() => controller.dispose())
 
 <template>
   <div class="installation-selector">
-    <button ref="trigger" class="installation-trigger garden-sign" data-testid="installation-open" :data-selected-id="state.selectedId || ''" :aria-label="selected ? `Probably Stolen · ${channel(selected.channel)}，切换游戏安装` : '选择游戏安装'" @click="open"><span class="sign-art" aria-hidden="true"><Gamepad2 :size="18"/></span><span class="sign-text"><span data-testid="active-installation">{{ selected ? `Probably Stolen · ${channel(selected.channel)}` : '选择游戏安装' }}</span><small aria-hidden="true">{{ selected ? '切换安装' : '点这里开始' }}</small></span></button>
+    <button ref="trigger" class="installation-trigger garden-sign" data-testid="installation-open" :data-selected-id="state.selectedId || ''" :aria-label="selected ? `Probably Stolen · ${channel(selected.channel)}，切换游戏安装` : '选择游戏安装'" @click="open"><span class="sign-art" aria-hidden="true"><Gamepad2 :size="18"/></span><span class="sign-text"><span data-testid="active-installation">{{ selected ? `Probably Stolen · ${channel(selected.channel)}` : '选择游戏安装' }}</span><small aria-hidden="true">{{ selected ? identity?.display_version || '切换安装' : '点这里开始' }}</small></span></button>
     <dialog ref="dialog" class="installation-dialog" aria-labelledby="installation-title" @cancel.prevent="close">
       <header><h2 id="installation-title">选择游戏安装</h2><button aria-label="关闭安装选择器" @click="close">×</button></header>
       <p class="installation-hint">启动时自动查找 Steam 中的游戏。也可以选择其他 Steam 库或直接选择 Probably Stolen 游戏目录。</p>
@@ -26,6 +26,7 @@ onUnmounted(() => controller.dispose())
       <div class="installation-content">
         <section v-if="state.installations.length"><h3>已保存的安装</h3><div v-for="item in state.installations" :key="item.installation_id" class="installation-row"><div><strong>Probably Stolen · {{ channel(item.channel) }}</strong><span v-if="item.installation_id === state.selectedId"> · 已选</span><details><summary>查看目录</summary><code>{{ item.canonical_root }}</code></details></div><button :disabled="state.busy" @click="controller.use(item.installation_id)">切换到此安装</button></div></section>
         <section v-if="state.candidates.length"><h3>发现的安装</h3><div v-for="candidate in state.candidates" :key="candidate.candidate_id" class="installation-row"><div><strong>Probably Stolen · {{ channel(candidate.channel) }}</strong><code>{{ candidate.canonical_root }}</code><p v-if="!canSelect(candidate)" class="installation-error">无法使用此目录</p><ul v-if="candidate.issues?.length"><li v-for="(issue, index) in candidate.issues" :key="index">{{ issueText(issue) }}</li></ul></div><button :disabled="state.busy || !canSelect(candidate)" data-testid="installation-select" @click="controller.select(candidate)">使用此安装</button></div></section>
+        <section v-if="identity" class="native-identity"><h3>识别结果</h3><dl class="garden-facts wide"><dt>游戏版本</dt><dd>{{ identity.display_version || '菜单版本未识别' }}</dd><dt>Steam Build</dt><dd>{{ identity.steam_build_id || '未识别' }}</dd><dt>兼容版本</dt><dd>{{ identity.application_version || '当前版本未核实' }}<template v-if="!identity.application_version && identity.last_run_application_version"> · 最近启动 {{ identity.last_run_application_version }}</template></dd><dt>运行方式</dt><dd>{{ identity.runtime === 'mono' ? 'Mono（原生模组加载器）' : identity.runtime === 'il2cpp' ? 'IL2CPP（旧版）' : '未识别' }}</dd><dt>Unity</dt><dd>{{ identity.unity_version || '未识别' }}</dd><dt v-if="identity.workshop_root">创意工坊</dt><dd v-if="identity.workshop_root"><code>{{ identity.workshop_root }}</code></dd><dt v-if="identity.persistent_root">用户数据</dt><dd v-if="identity.persistent_root"><code>{{ identity.persistent_root }}</code></dd><dt>旧版残留</dt><dd>{{ identity.legacy_remnants?.length ? identity.legacy_remnants.join('、') : identity.legacy_remnants ? '未发现旧版加载器文件' : '待检查' }}</dd></dl></section>
         <p v-if="!state.installations.length && !state.candidates.length && !state.busy" class="installation-hint">尚无安装记录，请选择目录。</p>
       </div>
       <footer><div role="status"><span v-if="state.busy">{{ phase }}<template v-if="state.task?.total != null"> · {{ state.task.completed }} / {{ state.task.total }}</template></span><span v-else>{{ state.notice }}</span></div><button v-if="state.busy && state.task" :disabled="state.task.state === 'cancelling'" @click="controller.cancel">取消</button><button v-else @click="close">关闭</button></footer>

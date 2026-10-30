@@ -14,6 +14,7 @@ from backend.app.composition import DesktopContext
 from backend.app.paths import resolve_paths
 from tests.integration.harness.ai_provider import SyntheticAIProvider
 from tests.integration.harness.transaction_recovery import request
+from tests.integration.test_native_desktop_api import app as native_app
 
 
 class MemoryCredentials:
@@ -455,29 +456,41 @@ def test_real_win_vault_owned_key_survives_reopen_and_clear(tmp_path_factory, mo
             original_delete(WinVaultKeyring(), target)
 
 
-def test_provider_failure_does_not_block_actual_basic_mod_actions_or_upload_library(tmp_path_factory):
-    from tests.integration.harness.transaction_recovery import TransactionFixture
-    fixture = TransactionFixture(tmp_path_factory.mktemp('ai'))
-    release = fixture.publish({'Mods/selected.png': b'opaque-library-file-not-question'}, 'Unselected library metadata')
-    try:
-        with SyntheticAIProvider(mode='500') as provider:
-            configured(fixture.context, provider, key='owned-unrelated-key')
-            failure = fixture.call('ai.chat.send', {'question': 'Why failed?'})
-            assert failure.get('error_code') and failure.get('message'), failure
-            outgoing = json.dumps(provider.requests[0]['body'])
-            assert_absent(['opaque-library-file-not-question', 'Unselected library metadata',
-                           'isolated-save-never-deployed', str(fixture.game), str(fixture.data)], outgoing)
-            for action, state in [('install', 'enabled'), ('disable', 'disabled'),
-                                  ('enable', 'enabled'), ('uninstall', 'not_installed')]:
-                result = fixture.call('mod.action', {'installation_id': fixture.installation,
-                    'release_id': release['release_id'], 'manifest_hash': release['manifest_hash'],
-                    'action': action, 'idempotency_key': str(uuid4())})
-                assert result.get('completed') and result['state'] == state, result
-                assert (fixture.game / 'Mods/selected.png').exists() == (state == 'enabled')
-            assert len(provider.requests) == 1
-            fixture.assert_sentinels()
-    finally:
-        fixture.close()
+def test_provider_failure_does_not_block_actual_native_actions_or_upload_mod_files(native_app, tmp_path):
+    from tests.native_mods.test_native_service import package
+    context, installation_id, game, persistent = native_app
+    source = package(tmp_path / 'selected', 'test.imported')
+    (source / 'private-note.txt').write_text('opaque-library-file-not-question')
+    sentinel = persistent / 'save_1.es3'
+    sentinel.write_bytes(b'isolated-save-never-deployed')
+    context.choose_import_source = lambda kind: str(source)
+    with SyntheticAIProvider(mode='500') as provider:
+        configured(context, provider, key='owned-unrelated-key')
+        failure = call(context, 'ai.chat.send', {'question': 'Why failed?'})
+        assert failure.get('error_code') and failure.get('message'), failure
+        outgoing = json.dumps(provider.requests[0]['body'])
+        assert_absent(['opaque-library-file-not-question', 'test.imported',
+                       'isolated-save-never-deployed', str(game), str(persistent)], outgoing)
+        payload = dict(installation_id=installation_id)
+        grant = call(context, 'native.import.choose', payload | dict(kind='directory'))
+        preview = call(context, 'native.import.preview', payload | dict(source_handle=grant['source_handle']))
+        result = call(context, 'native.import.commit', payload | dict(
+            preview_id=preview['preview_id'], expected_revision=preview['revision']))
+        assert result['enabled_ids'] == [] and result['recovery_id']
+        recovery = None
+        for enabled in [['test.imported'], [], ['test.imported']]:
+            result = call(context, 'native.save', payload | dict(
+                expected_revision=result['revision'], enabled_ids=enabled))
+            assert result['saved'] and result['enabled_ids'] == enabled
+            recovery = recovery or result['recovery_id']
+            imported = next(row for row in result['mods'] if row['id'] == 'test.imported')
+            assert imported['approval']['state'] != 'approved' and imported['run']['state'] != 'running'
+            assert (game / 'Mods/test.imported/Main.dll').read_bytes() == (source / 'Main.dll').read_bytes()
+        restored = call(context, 'native.recovery.restore', payload | dict(
+            id=recovery, expected_revision=result['revision']))
+        assert restored['enabled_ids'] == []
+        assert len(provider.requests) == 1 and sentinel.read_bytes() == b'isolated-save-never-deployed'
+        assert json.loads((persistent / 'SaveFile.es3').read_text())['unrelated']['value'] == 'preserve gameplay preferences'
 
 
 def test_disconnected_local_endpoint_is_explained_without_raw_exception(active):

@@ -8,6 +8,7 @@ from uuid import NAMESPACE_URL, uuid5
 _TIME = re.compile(r"^\[?(?P<value>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})|\d{2}:\d{2}:\d{2}(?:\.\d+)?)\]?(?:\s+|$)")
 _BANNER = re.compile(r"^(?:MelonLoader\s+v?\d+\.\d+\.\d+(?:[\w.+-]*)|(?:Version:\s*|v)\d+\.\d+\.\d+(?:[\w.+-]*))(?:\s+(?:Open-Beta|Alpha|Beta|Release))?\s*$", re.I)
 _PID = re.compile(r"^(?:Process ID|PID)\s*[:=]\s*(\d{1,10})\s*$", re.I)
+_UNITY_START = re.compile(r'^Initialize engine version: \S+')
 _EXCEPTION = re.compile(r"^(?:[\w.`+]+(?:Exception|Error))\s*:")
 _CONTINUATION = re.compile(r"^\s*(?:at\s+\S|--->\s|--- End of (?:inner exception|stack trace)|Caused by:\s)")
 MAX_GROUP_LINES = 128
@@ -82,7 +83,7 @@ class SessionTracker:
                 banner = _BANNER.fullmatch(body) and (body.lower().startswith("melonloader") or melon_prefix)
                 pid_match = _PID.fullmatch(body)
                 pid = int(pid_match[1]) if pid_match and 0 < int(pid_match[1]) <= 4294967295 else None
-                if banner:
+                if banner or _UNITY_START.match(body):
                     state.update(session=self._session(epoch, offset, reason="log_start_marker_unverified",
                                                        started_at=_utc(source_time)), stage="bootstrap",
                                  group=None, stack=False, group_lines=0)
@@ -91,7 +92,16 @@ class SessionTracker:
                         state.update(session=self._session(epoch, offset, pid=pid,
                                                            reason="log_declared_unverified", started_at=_utc(source_time)),
                                      stage="unknown", group=None, stack=False, group_lines=0)
-                if re.match(r"^Loading (?:assembly|assemblies|Mods|Plugins|UserLibs)(?:\s|:|\.|$)", body, re.I):
+                if row['text'].startswith('[ModLoader] audit: game '):
+                    if state['session']['reason']=='no_explicit_start_marker':
+                        state.update(session=self._session(epoch,offset,reason='native_audit_marker_unverified'),
+                                     group=None,stack=False,group_lines=0)
+                    state['stage']='native_audit'
+                elif re.match(r'^Loading: .+\.dll$',body,re.I):
+                    state['stage']='assembly_loading'
+                elif re.match(r'^Initialized:',body):
+                    state['stage']='initialization'
+                elif re.match(r"^Loading (?:assembly|assemblies|Mods|Plugins|UserLibs)(?:\s|:|\.|$)", body, re.I):
                     state["stage"] = "assembly_loading"
                 elif re.match(r"^(?:Initializing|Initialization(?: started| complete)?)(?:\s|:|\.|$)", body, re.I):
                     state["stage"] = "initialization"

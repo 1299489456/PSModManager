@@ -1,0 +1,7 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { selectIds,toggleAll,boxIds,intersects } from './listSelection.js'
+test('select all applies to visible list and deselect preserves hidden selections',()=>{const selected=toggleAll({list:'en',ids:['hidden'],anchor:null},'en',['a','b']);assert.deepEqual(selected.ids,['hidden','a','b']);assert.deepEqual(toggleAll(selected,'en',['a','b']).ids,['hidden']);assert.deepEqual(toggleAll(selected,'avail',['c']).ids,['c'])})
+test('Ctrl toggles, Shift ranges and Ctrl Shift adds without mixing lists',()=>{const s={list:'en',ids:['a'],anchor:'a'};assert.deepEqual(selectIds(s,'en','c',['a','b','c'],{shiftKey:true}).ids,['a','b','c']);assert.deepEqual(selectIds(s,'en','a',['a','b'],{ctrlKey:true}).ids,[]);assert.deepEqual(selectIds(s,'avail','d',['d'],{ctrlKey:true}).ids,['d'])})
+test('box selection replaces, adds or toggles from the fixed starting set',()=>{assert.deepEqual(boxIds(['a'],['b']),['b']);assert.deepEqual(boxIds(['a'],['b'],{shiftKey:true}),['a','b']);assert.deepEqual(boxIds(['a','b'],['b','c'],{ctrlKey:true}),['a','c']);assert.equal(intersects({left:0,right:20,top:0,bottom:20},{left:10,right:30,top:10,bottom:30}),true)})
+test('Ctrl+A always selects all, including when the list is already fully selected',()=>{const s={list:'en',ids:['a','b'],anchor:'a'};assert.deepEqual(toggleAll(s,'en',['a','b'],true).ids,['a','b'])})

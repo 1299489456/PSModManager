@@ -9,7 +9,7 @@ import re
 import threading
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
-from backend.diagnostics.service import LogService, user_log_path
+from backend.diagnostics.service import user_log_path
 from backend.games.probably_stolen.layout import identity, safe_path
 from backend.games.probably_stolen.update_state import game_files_modified_at, timestamp
 from .gateway import AIError
@@ -19,13 +19,14 @@ from .tool_policy import ToolScope
 LOG_BYTES = 8192
 CONTEXT_BYTES = 6000
 ERROR_LINE = re.compile(r'\b(error|exception|fatal|failed|failure)\b|错误|异常|失败', re.I)
-STARTUP_LINE = re.compile(r'^(?:\[[^\]\r\n]+\]\s*)*(?:MelonLoader v\S+|Game (?:Name|Type|Version):|Unity Version:)', re.I)
+STARTUP_LINE = re.compile(r'^(?:\[[^\]\r\n]+\]\s*)*(?:Initialize engine version:|Mono path\[|audit: (?:game |[A-Za-z0-9_.-]+ v)|MelonLoader v\S+|Game (?:Name|Type|Version):|Unity Version:)', re.I)
+STARTUP_BANNER = re.compile(r'^(?:\[[^\]\r\n]+\]\s*)*(?:Initialize engine version:|MelonLoader v\S+)', re.I)
 GENERATION_LINE = re.compile(r'^(?:\[[^\]\r\n]+\]\s*)*\[Il2CppAssemblyGenerator\]', re.I)
 
 
 def startup_indices(lines):
     """Reserve a small part of the existing budget for the latest visible startup."""
-    banners = [i for i, line in enumerate(lines) if STARTUP_LINE.match(line) and 'MelonLoader v' in line]
+    banners = [i for i, line in enumerate(lines) if STARTUP_BANNER.match(line)]
     start = banners[-1] if banners else 0
     environment = [i for i in range(start, len(lines)) if STARTUP_LINE.match(lines[i])]
     generation = [i for i in range(start, len(lines)) if GENERATION_LINE.match(lines[i])]
@@ -36,6 +37,21 @@ def startup_indices(lines):
             selected.add(index)
             used += cost
     return selected, used
+
+
+def clean_log_text(text, secrets=(), manager_root=None):
+    """One privacy projection for notebook, selected evidence and AI previews."""
+    text = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', text)
+    text = redact(text, secrets, partial=True)
+    if manager_root is not None:
+        for value in (str(manager_root), str(manager_root).replace('\\', '/')):
+            text = text.replace(value, '[管理器数据目录]')
+    text = re.sub(r'(?i)\b[A-Z]:[\\/]Users[\\/][^\\/\r\n]+', '%USERPROFILE%', text)
+    text = re.sub(r'\bowner=\S+', 'owner=[已隐藏]', text)
+    text = re.sub(r'\bhash(?:=| )[^\s,]+', 'hash=[已隐藏]', text)
+    text = re.sub(r'(?i)\b(steam(?:id|_id|userid|accountid)|ownerid)(\s*[:=]\s*)[0-9]+', r'\1\2[已隐藏]', text)
+    text = re.sub(r'\b7656119\d{10}\b', '[Steam 账号已隐藏]', text)
+    return text
 
 
 class LogDiagnostics:
@@ -67,10 +83,13 @@ class LogDiagnostics:
                 records.append(('manager', self.context.paths.root, relative, f'管理器日志 · 上次 {number}', False))
         warnings = []
         if root is not None:
-            paths, errors = LogService._paths(root, ())
-            warnings += ['部分 MelonLoader 归档未能列出。'] if errors else []
-            for relative, kind in paths:
-                records.append(('game', root, relative, '游戏 / MelonLoader · ' + relative.split('/')[-1], kind == 'latest'))
+            db, installation = self.context.logs._reader(installation_id)
+            db.close()
+            paths, errors = self.context.logs.source_specs(installation)
+            warnings += ['部分游戏归档未能列出。'] if errors else []
+            for spec in paths:
+                relative, kind = spec['relative_path'], spec['kind']
+                records.append(('game', spec['root'], relative, '游戏日志 · ' + relative.split('/')[-1], kind == 'latest'))
             # Reuse only explicitly registered Mod log sources, never walk UserData.
             for row in self.context.logs.sources(installation_id)['sources']:
                 if row['kind'] == 'user':
@@ -87,12 +106,19 @@ class LogDiagnostics:
             except (OSError, ValueError):
                 status = 'unreadable'
             sources[source_id] = dict(source_id=source_id, kind=kind, label=label, relative_path=relative,
-                status=status, bytes_total=size, default=default and status == 'available', _root=base)
+                status=status, bytes_total=size, default=default and status == 'available', _root=base, _game_root=root)
         return sources, warnings
 
     def sources(self, installation_id=None):
         sources, warnings = self._sources(installation_id)
-        return dict(sources=[{key: value for key, value in row.items() if key != '_root'} for row in sources.values()], warnings=warnings)
+        reconciliation = None
+        native = getattr(self.context, 'native_mods', None)
+        if installation_id and native is not None:
+            db, installation = self.context.logs._reader(installation_id)
+            db.close()
+            reconciliation = native.snapshot(installation).get('runtime_reconciliation')
+        return dict(sources=[{key: value for key, value in row.items() if not key.startswith('_')} for row in sources.values()],
+                    warnings=warnings, runtime_reconciliation=reconciliation)
 
     def _secrets(self):
         ai = self.context.ai
@@ -102,13 +128,7 @@ class LogDiagnostics:
         return tuple(ai.credentials.secrets)
 
     def _clean(self, text, secrets):
-        text = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', text)
-        text = redact(text, secrets, partial=True)
-        text = re.sub(r'(?i)\b[A-Z]:[\\/]Users[\\/][^\\/\s]+', '%USERPROFILE%', text)
-        # Local root names are not useful to a remote diagnostic model.
-        for value in (str(self.context.paths.root), str(self.context.paths.root).replace('\\', '/')):
-            text = text.replace(value, '[管理器数据目录]')
-        return text
+        return clean_log_text(text,secrets,self.context.paths.root)
 
     def _read_window(self, row, secrets, *, maximum, end=None, include_startup=False):
         root, relative = row['_root'], row['relative_path']
@@ -153,12 +173,16 @@ class LogDiagnostics:
                         raw = b''
                 text = raw.decode(encoding, errors='replace').lstrip('\ufeff')
                 # A cut first line may begin in the middle of a secret assignment.
-                text = self._clean(text, secrets)
-                if row['kind'] != 'manager':
-                    text = text.replace(str(root), '[游戏目录]').replace(str(root).replace('\\', '/'), '[游戏目录]')
+                game_root = row.get('_game_root') or root
+                def clean_window(value):
+                    if row['kind'] != 'manager':
+                        for base,label in ((root,'[游戏日志目录]'),(game_root,'[游戏目录]')):
+                            value=value.replace(str(base),label).replace(str(base).replace('\\','/'),label)
+                    return self._clean(value,secrets)
+                text=clean_window(text)
                 if startup_text is not None:
-                    startup_text = self._clean(startup_text, secrets).replace(str(root), '[游戏目录]').replace(str(root).replace('\\', '/'), '[游戏目录]')
-                game_modified = game_files_modified_at(root) if row['kind'] != 'manager' else None
+                    startup_text=clean_window(startup_text)
+                game_modified = game_files_modified_at(game_root) if row['kind'] != 'manager' else None
                 freshness = ('predates_game_files' if before.st_mtime < game_modified else 'not_older_than_game_files') if game_modified is not None else 'unknown'
                 return dict(source_id=row['source_id'], label=row['label'], relative_path=relative, text=text,
                     bytes_total=before.st_size, byte_start=offset, byte_end=end, bytes_read=end-original_offset,
@@ -191,7 +215,7 @@ class LogDiagnostics:
         startup = None
         # A log larger than the tail window still needs its boot environment.
         # Keep it separately labelled; its line numbers are not tail offsets.
-        if startup_window is not None and not any('MelonLoader v' in lines[i] for i in indices):
+        if startup_window is not None and not any(STARTUP_BANNER.match(lines[i]) for i in indices):
             head_lines = startup_window.splitlines()
             head_indices, head_used = startup_indices(head_lines)
             if head_indices:
@@ -227,6 +251,34 @@ class LogDiagnostics:
         tools = self.context.ai.tools
         scope = ToolScope(installation_id)
         result, warnings = {}, []
+        if getattr(tools, 'native', None) is not None:
+            for name, label, arguments in (
+                ('get_installation_summary', 'installation', {}),
+                ('get_mod_workspace', 'mods', {'limit': 20}),
+                ('get_runtime_reconciliation', 'runtime_reconciliation', {'limit': 20}),
+            ):
+                try:
+                    result[label] = json.loads(tools.execute(name, json.dumps(arguments), scope, lambda: None, secrets))['data']
+                except (AIError, KeyError, ValueError):
+                    warnings.append({'installation':'游戏信息暂不可读。','mods':'Mod 状态暂不可读。',
+                                     'runtime_reconciliation':'本次启动对账暂不可读。'}[label])
+            # Drop whole entries, not JSON bytes; retain counts and an explicit cursor.
+            clipped = False
+            for label in ('mods', 'runtime_reconciliation'):
+                value = result.get(label, {})
+                while value.get('items') and len(json.dumps(result, ensure_ascii=False).encode('utf-8')) > CONTEXT_BYTES:
+                    value['items'].pop()
+                    value['truncated'] = True
+                    value['next_offset'] = len(value['items'])
+                    clipped = True
+                if value.get('enabled_ids') and len(json.dumps(result, ensure_ascii=False).encode('utf-8')) > CONTEXT_BYTES:
+                    value['enabled_ids_total'] = len(value['enabled_ids'])
+                    while value['enabled_ids'] and len(json.dumps(result, ensure_ascii=False).encode('utf-8')) > CONTEXT_BYTES:
+                        value['enabled_ids'].pop()
+                        value['enabled_ids_truncated'] = clipped = True
+            if clipped:
+                warnings.append('上下文过长，模组明细已缩减；完整数量保留在摘要中，可继续分页查询。')
+            return result, warnings
         for name, label, arguments in (
             ('get_installation_summary', 'installation', {}),
             ('get_installed_mods', 'mods', {}),
@@ -246,7 +298,7 @@ class LogDiagnostics:
                     value = json.loads(tools.execute(name, json.dumps(arguments), scope, lambda: None, secrets))['data']
                     result[label] = value
             except (AIError, KeyError, ValueError):
-                warnings.append('游戏与 Loader 信息暂不可读。' if label == 'installation' else 'Mod 状态暂不可读。')
+                warnings.append('游戏信息暂不可读。' if label == 'installation' else 'Mod 状态暂不可读。')
         # Never cut JSON into an invalid or misleading partial inventory.
         if 'mods' in result:
             clipped = False
@@ -268,6 +320,7 @@ class LogDiagnostics:
         context, notes = self._context(installation_id, secrets) if include_context else ({}, [])
         snapshot = dict(snapshot_id=str(uuid4()), installation_id=installation_id, include_context=include_context,
                         logs=logs, context=context, warnings=warnings + notes,
+                        runtime_reconciliation=context.get('runtime_reconciliation'),
                         captured_at=datetime.now(timezone.utc).isoformat(), redacted=True)
         with self._lock:
             self._snapshots[snapshot['snapshot_id']] = snapshot
@@ -285,7 +338,7 @@ class LogDiagnostics:
             raise AIError('AI_LOG_EMPTY')
         sections = ['诊断资料快照：' + snapshot['captured_at']]
         if snapshot['context']:
-            sections.append('游戏、Loader 与 Mod 上下文：\n' + json.dumps(snapshot['context'], ensure_ascii=False))
+            sections.append('游戏与 Mod 上下文：\n' + json.dumps(snapshot['context'], ensure_ascii=False))
         for log in snapshot['logs']:
             sections.append(f"日志：{log['label']} ({log['relative_path']})；文件最后写入：{log['source_modified_at']}；"
                             + (f"当前游戏文件最近修改：{log['game_files_modified_at']}；" if log['game_files_modified_at'] else '')

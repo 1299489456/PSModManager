@@ -34,6 +34,10 @@ class CredentialStore:
 
     def account(self, config):
         value = str(self.paths.root.resolve()).casefold()+'\0'+config['provider']+'\0'+config['base_url']
+        # The migrated default retains the existing record byte-for-byte.
+        # Other profiles may deliberately use different keys at one endpoint.
+        if config.get('_provider_id', 'default') != 'default':
+            value += '\0' + config['_provider_id']
         return 'ai-'+hashlib.sha256(value.encode('utf-8')).hexdigest()
 
     @property
@@ -65,8 +69,12 @@ class CredentialStore:
         return '密钥已保存到独立的 Windows 凭据记录。'
 
     def clear(self, config):
-        self._backend.delete_password(KEYRING_SERVICE, self.account(config))
-        self._cache.pop(self.account(config), None)
+        account = self.account(config)
+        # Session-only profiles need not have a Windows record to delete.
+        # A failed vault read remains an error, never a successful deletion.
+        if self._backend.get_password(KEYRING_SERVICE, account) is not None:
+            self._backend.delete_password(KEYRING_SERVICE, account)
+        self._cache.pop(account, None)
 
     def close(self):
         self._cache.clear()

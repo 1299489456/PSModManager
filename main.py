@@ -15,30 +15,17 @@ def main(argv=None):
     parser.add_argument('--psmm-data-root', help='独立数据目录（绝对路径）')
     parser.add_argument('--psmm-protected-root', action='append', default=[],
                         help='禁止与数据目录重叠的游戏或包来源目录，可重复指定')
-    parser.add_argument('--nxm', help='接收 Nexus 官网管理器下载链接')
     argv = list(sys.argv[1:] if argv is None else argv)
-    if any(value.startswith('--nxm') for value in argv):
-        # The URL is the final single argument in our registered command. Reject
-        # quote/argument injection instead of allowing it to override the data root.
-        if len(argv) < 2 or argv[-2] != '--nxm' or argv.count('--nxm') != 1:
-            parser.error('invalid protocol arguments')
     args = parser.parse_args(argv)
     from backend.app.composition import run_desktop
     from backend.app.storage_location import startup_paths, locator_path, relaunch
-    from backend.online.nxm_protocol import start_or_forward
-    inbox = None
     try:
         paths = startup_paths(args.psmm_data_root, args.psmm_protected_root)
-        inbox = start_or_forward(paths.root, args.nxm)
-        if inbox is None:
-            return 0
-        options = {'nxm_inbox': inbox}
+        options = {}
         if args.psmm_data_root is None:
             options['storage_locator'] = locator_path()
         result = run_desktop(str(paths.root), args.psmm_protected_root, **options)
         if isinstance(result, dict) and result.get('restart_root'):
-            inbox.close()
-            inbox = None
             relaunch(result['restart_root'], args.psmm_protected_root)
             return 0
         return result
@@ -52,10 +39,11 @@ def main(argv=None):
             import ctypes
             ctypes.windll.user32.MessageBoxW(None, message, 'PSModManager', 0x10)
         return 2
-    finally:
-        if inbox is not None:
-            inbox.close()
 
 
 if __name__ == '__main__':
+    # PyInstaller's spawn helper must dispatch before desktop argument parsing.
+    # Steam UGC runs in its own process and never loads its DLL into WebView2.
+    import multiprocessing
+    multiprocessing.freeze_support()
     raise SystemExit(main())

@@ -204,7 +204,7 @@ class DeploymentExecutor:
         return records, header
 
     def probe(self, installation, permit=None):
-        """All apply/rollback/launch checks reject foreign or unresolved state."""
+        """Reject unresolved target state and journals whose owner cannot be verified."""
         trusted = (isinstance(permit,_Permit) and permit in self._permits and permit.owner is self
                    and permit.installation == str(installation.installation_id))
         marker = self._marker(installation)
@@ -251,16 +251,40 @@ class DeploymentExecutor:
                         if not ((own and transaction.state == 'approved' and transaction.last_sequence == 0)
                                 or transaction.state in {'cancelled','failed'} and transaction.last_sequence==0):
                             raise ExecutionRejected('EXEC_RECOVERY_REQUIRED') from None
+                journal_directory_opened = False
                 try:
                     with private_dir(self.paths.root, 'deployments/journals') as directory:
+                        journal_directory_opened = True
                         entries = list((self.paths.root/'deployments/journals').iterdir())
                         if len(entries)>MAX_TRANSACTIONS:
                             raise ExecutionRejected('EXEC_LIMIT')
-                        if any(p.name != str(UUID(p.stem))+'.jsonl' or p.stem not in indexed for p in entries):
-                            raise ExecutionRejected('EXEC_JOURNAL_INVALID')
+                        for path in entries:
+                            if path.name != str(UUID(path.stem))+'.jsonl':
+                                raise ExecutionRejected('EXEC_JOURNAL_INVALID')
+                            if path.stem in indexed:
+                                continue
+                            # The journal directory is shared by every registered
+                            # game. Authenticate another installation's ownership
+                            # instead of treating its history as an orphan here.
+                            foreign = store.get('Transaction', path.stem)
+                            plan = store.get('ActionPlan', foreign.plan_id)
+                            owner = store.get('Installation', plan.installation_id)
+                            if (str(foreign.transaction_id) != path.stem or plan.plan_id != foreign.plan_id
+                                    or owner.installation_id != plan.installation_id):
+                                raise ExecutionRejected('EXEC_JOURNAL_INVALID')
+                            current_root = Path(installation.canonical_root)
+                            owner_root = Path(owner.canonical_root)
+                            if (owner.file_identity == installation.file_identity
+                                    or current_root == owner_root or current_root in owner_root.parents
+                                    or owner_root in current_root.parents):
+                                raise ExecutionRejected('EXEC_JOURNAL_INVALID')
+                            _, header = self._header(Journal(self.paths.root, foreign.transaction_id), foreign, plan)
+                            if header['installation_identity'] != owner.file_identity:
+                                raise ExecutionRejected('EXEC_JOURNAL_INVALID')
                         directory.check()
-                except FileNotFoundError:
-                    pass
+                except FileNotFoundError as exc:
+                    if journal_directory_opened:
+                        raise ExecutionRejected('EXEC_JOURNAL_INVALID') from exc
                 if marker and not trusted:
                     transaction = indexed[marker['transaction_id']]
                     if transaction.state not in TERMINAL:

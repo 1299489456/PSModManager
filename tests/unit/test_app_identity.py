@@ -43,6 +43,15 @@ def test_default_namespace_and_no_initialization(tmp_path):
     assert not paths.root.exists()
 
 
+@pytest.mark.parametrize('position', ['same', 'child', 'parent'])
+def test_native_persistent_data_is_protected(tmp_path, position):
+    persistent = tmp_path / 'AppData/LocalLow/Questing Goose Studio/Probably Stolen'
+    target = {'same': persistent, 'child': persistent / 'PSMM', 'parent': persistent.parent}[position]
+    with pytest.raises(ValueError):
+        resolve_paths(str(target), environ={'USERPROFILE': str(tmp_path)})
+    assert not target.exists()
+
+
 @pytest.mark.parametrize('root', ['relative', 'C:\\', '//server/share/root', str(REFERENCE_ROOT), str(REFERENCE_ROOT / 'data'), str(REFERENCE_ROOT.parent), str(KNOWN_GAME_ROOT / 'data'), str(ROOT), str(ROOT / 'data')])
 def test_protected_default_roots(root):
     with pytest.raises(ValueError):

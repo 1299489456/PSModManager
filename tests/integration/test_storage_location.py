@@ -6,6 +6,7 @@ import sqlite3
 from types import SimpleNamespace
 import threading
 import time
+from uuid import uuid4
 
 import pytest
 
@@ -31,7 +32,6 @@ def context(tmp_path):
     value = DesktopContext(resolve_paths(str(tmp_path / 'source')))
     value.ai_credentials_backend = MemoryCredentials()
     value.initialize()
-    value.nexus.credentials._backend = value.ai_credentials_backend
     try:
         yield value
     finally:
@@ -91,11 +91,30 @@ def test_redirect_loop_and_nonempty_target_are_preserved(context, tmp_path):
 
 def test_complete_migration_gates_writes_keeps_original_and_reopens(context, tmp_path):
     source = context.paths.root
-    for name, data in {'library/a.bin': b'mod bytes', 'logs/extra.log': b'log',
-                       'downloads/offline.zip': b'cached data', 'sharing/retained.json': b'{}'}.items():
+    ai = dict(provider='openai_compatible', base_url='https://example.invalid/v1', model='owned-migration')
+    context.preferences.update('ai', ai)
+    context.ai.credentials.set(ai, 'owned-full-migration-key', True)
+    credential_backend = context.ai.credentials._backend
+    owned_files = {'library/a.bin': b'mod bytes', 'logs/extra.log': b'log',
+                   'downloads/offline.zip': b'cached data', 'sharing/retained.json': b'{}'}
+    for name, data in owned_files.items():
         path = source / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
+    # Exercise native producers and consumers, not just a directory named native-mods.
+    # These isolated, nonexistent game paths never resolve to the user's game/data.
+    installation = dict(installation_id=str(uuid4()), canonical_root=str(tmp_path/'owned-game'),
+                        persistent_root=str(tmp_path/'owned-game-data'))
+    created = context.native_mods.profile_create(installation, 'Before migration', ['owned_mod'])
+    changed = context.native_mods.profile_update(installation, created['profile']['id'],
+                                               'Current plan', ['owned_mod', 'another_mod'])
+    expected_profiles = context.native_mods.profile_list(installation)
+    expected_recovery = context.native_mods.recovery_list(installation)
+    native_files = {path.relative_to(source): path.read_bytes()
+                    for path in (source/'native-mods').rglob('*') if path.is_file()}
+    assert any(path.name == 'profiles.json' for path in native_files)
+    assert any(path.name == 'before.bin' for path in native_files)
+    assert len(expected_recovery['items']) == 2
     # A locked Chromium cache is disposable, not an excuse to lose real data.
     (source / 'webview2/cache.tmp').write_bytes(b'not copied')
     target = tmp_path / 'other-disk-data'
@@ -106,14 +125,23 @@ def test_complete_migration_gates_writes_keeps_original_and_reopens(context, tmp
     started = request(api, 'app.storage.start', {'target': str(target)})
     assert started['ok'], started
     assert request(api, 'app.theme.set', {'theme_id': 'graphite-ash'})['error']['code'] == 'STORAGE_BUSY'
+    assert request(api, 'native.save', dict(installation_id=installation['installation_id'],
+        expected_revision='owned-before-migration', enabled_ids=['owned_mod']))['error']['code'] == 'STORAGE_BUSY'
+    assert request(api, 'native.profile.create', dict(installation_id=installation['installation_id'],
+        name='Blocked during migration', enabled_ids=[]))['error']['code'] == 'STORAGE_BUSY'
     context.storage.wait()
     state = request(api, 'app.storage.status')['data']
     assert state['phase'] == 'ready', state
     assert state['total'] == state['completed']
     assert storage.startup_paths(str(source)).root == target
     assert storage._read(locator) == str(target)
-    assert (source / 'library/a.bin').read_bytes() == (target / 'library/a.bin').read_bytes() == b'mod bytes'
-    assert (target / 'downloads/offline.zip').read_bytes() == b'cached data'
+    for name, data in {**owned_files, **native_files}.items():
+        assert (source/name).read_bytes() == (target/name).read_bytes() == data
+    copied_source = {path.relative_to(source) for path in source.rglob('*') if path.is_file()
+                     and path.relative_to(source).parts[0] != 'webview2'
+                     and path.name not in {storage.REDIRECT, 'psmodmanager.sqlite3-wal',
+                                           'psmodmanager.sqlite3-shm', 'psmodmanager.sqlite3-journal'}}
+    assert {path.relative_to(target) for path in target.rglob('*') if path.is_file()} == copied_source
     assert not (target / 'webview2').exists()
     selected = []
     context.request_restart = selected.append
@@ -121,15 +149,27 @@ def test_complete_migration_gates_writes_keeps_original_and_reopens(context, tmp
     assert selected == [str(target)]
     context.close()
     reopened = DesktopContext(resolve_paths(str(target)))
+    reopened.ai_credentials_backend = credential_backend
     reopened.initialize()
     try:
         assert not reopened.storage.status()['first_run']
         assert reopened.storage.status()['previous_root'] == str(source)
         assert all(Path(row['path']).is_relative_to(target) for row in reopened.storage.status()['locations'])
+        assert str(target/'native-mods') in {row['path'] for row in reopened.storage.status()['locations']}
+        assert reopened.ai.credentials.get(ai) == ('owned-full-migration-key', 'saved')
+        assert b'owned-full-migration-key' not in (target/'config.json').read_bytes()
         reopened.preferences.set_theme('graphite-ash')
         assert json.loads((source / 'config.json').read_text('utf-8')).get('theme_id') is None
         assert reopened.store.connection.execute('PRAGMA integrity_check').fetchone()[0] == 'ok'
         assert not reopened.store.connection.execute('PRAGMA foreign_key_check').fetchall()
+        assert reopened.native_mods.profile_list(installation) == expected_profiles
+        assert reopened.native_mods.recovery_list(installation) == expected_recovery
+        restored = reopened.native_mods.recovery_restore(installation, changed['recovery_id'], 'unused-for-profile')
+        assert restored['items'] == [created['profile']]
+        assert len(reopened.native_mods.recovery_list(installation)['items']) == 3
+        assert all((source/name).read_bytes() == data for name, data in native_files.items())
+        assert not (tmp_path/'owned-game').exists()
+        assert not (tmp_path/'owned-game-data').exists()
     finally:
         reopened.close()
 
@@ -212,23 +252,86 @@ def test_minimal_old_root_keeps_forwarding_even_if_locator_was_not_updated(conte
     assert storage.startup_paths(environ={'LOCALAPPDATA': str(local)}).root == context.paths.root
 
 
-def test_only_remembered_credentials_rebind_without_plaintext(context, tmp_path):
+@pytest.mark.parametrize('remember', [True, False], ids=['remembered-ai', 'session-only-ai'])
+def test_only_remembered_credentials_rebind_without_plaintext(context, tmp_path, remember):
     from backend.ai.credentials import CredentialStore
     from backend.app.paths import AppPaths
     source = context.paths.root
     backend = context.ai.credentials._backend
     ai = {'provider': 'openai_compatible', 'base_url': 'https://example.invalid/v1', 'model': 'synthetic'}
     context.preferences.update('ai', ai)
-    context.ai.credentials.set(ai, 'synthetic-saved', True)
-    context.nexus.credentials.set(context.nexus.config, 'synthetic-session', False)
+    key = 'owned-ai-saved' if remember else 'owned-ai-session'
+    context.ai.credentials.set(ai, key, remember)
+    original_records = dict(backend.values)
     target = tmp_path / 'credential-target'
     assert storage.copy_saved_credentials(context, target)
     copied = CredentialStore(AppPaths(target), backend)
-    assert copied.get(ai) == ('synthetic-saved', 'saved')
-    assert copied.get(context.nexus.config) == (None, 'missing')
-    assert context.ai.credentials.get(ai)[0] == 'synthetic-saved'
-    assert b'synthetic-saved' not in (source / 'config.json').read_bytes()
+    assert copied.get(ai) == ((key, 'saved') if remember else (None, 'missing'))
+    assert context.ai.credentials.get(ai) == (key, 'saved' if remember else 'session')
+    assert all(backend.values[record] == value for record, value in original_records.items())
+    assert len(backend.values) == (2 if remember else 0)
+    assert key.encode() not in (source / 'config.json').read_bytes()
     assert not target.exists()
+
+
+def test_session_override_does_not_replace_remembered_key_during_migration(context, tmp_path):
+    from backend.ai.credentials import CredentialStore
+    from backend.app.paths import AppPaths
+    ai = dict(provider='openai_compatible', base_url='https://example.invalid/v1', model='owned')
+    context.preferences.update('ai', ai)
+    credentials = context.ai.credentials
+    credentials.set(ai, 'owned-remembered-key', True)
+    credentials.set(ai, 'owned-session-override', False)
+    target = tmp_path/'credential-override-target'
+    assert storage.copy_saved_credentials(context, target)
+    assert CredentialStore(AppPaths(target), credentials._backend).get(ai) == ('owned-remembered-key', 'saved')
+    assert credentials.get(ai) == ('owned-session-override', 'session')
+    assert CredentialStore(context.paths, credentials._backend).get(ai) == ('owned-remembered-key', 'saved')
+    assert not target.exists()
+
+
+def test_multiple_provider_credentials_migrate_separately_at_same_endpoint(context, tmp_path):
+    from backend.ai.credentials import CredentialStore
+    from backend.app.paths import AppPaths
+    base = dict(provider='openai_compatible', base_url='https://example.invalid/v1', model='owned')
+    ids = ['default', 'a'*32, 'b'*32]
+    context.preferences.update('ai_providers', dict(version=1,
+        providers=[dict(id=identity, name='Owned '+identity, **base) for identity in ids],
+        bindings=dict(analysis=ids[0], translation=ids[1])))
+    for identity in ids:
+        context.ai.credentials.set(dict(base, _provider_id=identity), 'owned-key-'+identity, identity != ids[2])
+    target = tmp_path/'multi-provider-target'
+    assert storage.copy_saved_credentials(context, target)
+    copied = CredentialStore(AppPaths(target), context.ai.credentials._backend)
+    for identity in ids:
+        expected = (None, 'missing') if identity == ids[2] else ('owned-key-'+identity, 'saved')
+        assert copied.get(dict(base, _provider_id=identity)) == expected
+    assert b'owned-key-' not in context.paths.config.read_bytes()
+
+
+def test_failed_ai_credential_copy_preserves_data_and_reports_reentry(context, tmp_path, monkeypatch):
+    from backend.ai.credentials import CredentialStore
+    from backend.app.paths import AppPaths
+    ai = dict(provider='openai_compatible', base_url='https://example.invalid/v1', model='owned')
+    context.preferences.update('ai', ai)
+    backend = context.ai.credentials._backend
+    context.ai.credentials.set(ai, 'owned-recovery-key', True)
+    def unavailable(*_):
+        raise PermissionError('owned credential store unavailable')
+    monkeypatch.setattr(backend, 'set_password', unavailable)
+    target = tmp_path/'credential-warning-target'
+    context.storage.start(str(target))
+    context.storage.wait()
+    result = context.storage.status()
+    assert result['phase'] == 'ready', result
+    assert 'AI' in result['message'] and '重新填写' in result['message']
+    assert 'Nexus' not in result['message']
+    assert storage.startup_paths(str(context.paths.root)).root == target
+    assert CredentialStore(context.paths, backend).get(ai) == ('owned-recovery-key', 'saved')
+    assert CredentialStore(AppPaths(target), backend).get(ai) == (None, 'missing')
+    assert context.paths.database.exists() and (target/'psmodmanager.sqlite3').exists()
+    assert b'owned-recovery-key' not in (target/'config.json').read_bytes()
+    assert 'owned-recovery-key' not in json.dumps(result)
 
 
 def test_publish_collision_never_merges_or_deletes_unrelated_files(context, tmp_path):

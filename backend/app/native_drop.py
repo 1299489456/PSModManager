@@ -71,15 +71,11 @@ def _grant_path(context, selected):
         raise policy.ImportRejected('IMPORT_PATH_INVALID')
     if path.is_dir():
         kind = 'directory'
-    elif path.suffix.lower() in ('.dll', '.zip'):
-        kind = path.suffix[1:].lower()
-    elif path.suffix.lower() == '.json':
-        kind = 'modpack'
+    elif path.suffix.lower() == '.zip':
+        kind = 'zip'
     else:
         raise policy.ImportRejected('IMPORT_FORMAT_UNSUPPORTED')
-    if kind == 'zip' and _is_modpack(path, context.paths):
-        kind = 'modpack'
-    grant = context.profile_sharing.grant(selected) if kind == 'modpack' else context.imports.grant(kind, selected)
+    grant = context.native_commands.grant(selected, kind)
     return dict(grant, kind=kind)
 
 
@@ -115,8 +111,8 @@ def install_native_drop(window, context):
 
     The page receives ``psmm-native-import`` with ``detail.sources`` containing
     picker-equivalent {source_handle, display_name, kind} records and
-    ``detail.errors`` containing {code, display_name}. Kinds are dll, directory,
-    zip, or modpack. The consumer must preview and confirm each source; this
+    ``detail.errors`` containing {code, display_name}. Kinds are directory or
+    zip. The consumer must preview and confirm each source; this
     adapter never publishes a package, changes a profile, or deploys anything.
     """
     if getattr(window, '_psmm_native_drop_installed', False):

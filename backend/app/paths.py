@@ -6,6 +6,8 @@ import stat
 
 REFERENCE_ROOT = Path('E:/WorkSpace/GitHub/RimCrow')
 KNOWN_GAME_ROOT = Path('E:/Entertainment/Steam/steamapps/common/Probably Stolen Demo')
+FORMAL_GAME_ROOT = Path('E:/Entertainment/Steam/steamapps/common/Probably Stolen')
+FORMAL_WORKSHOP_ROOT = Path('E:/Entertainment/Steam/steamapps/workshop/content/4348910')
 
 
 def overlaps(a, b):
@@ -60,7 +62,9 @@ def resolve_paths(value=None, protected_roots=(), *, environ=None):
     # Expand Windows short-name aliases before protection/identity checks. The
     # deployment path contract deliberately rejects ambiguous ~1 spellings.
     candidate = candidate.resolve()
-    forbidden = [REFERENCE_ROOT, KNOWN_GAME_ROOT, *map(Path, protected_roots)]
+    forbidden = [REFERENCE_ROOT, KNOWN_GAME_ROOT, FORMAL_GAME_ROOT, FORMAL_WORKSHOP_ROOT, *map(Path, protected_roots)]
+    if env.get('USERPROFILE'):
+        forbidden.append(Path(env['USERPROFILE']) / 'AppData/LocalLow/Questing Goose Studio/Probably Stolen')
     workspace = Path(__file__).resolve().parents[2]
     forbidden += [workspace / name for name in ('data', 'mods', 'toolmods', 'updates')]
     for base in (env.get('LOCALAPPDATA'), env.get('APPDATA')):
@@ -76,7 +80,8 @@ def resolve_paths(value=None, protected_roots=(), *, environ=None):
     for ancestor in (candidate, *candidate.parents):
         if ancestor == Path(ancestor.anchor):
             break
-        if (ancestor / 'MelonLoader').exists() or (ancestor / 'GameAssembly.dll').exists() or (ancestor / 'il2cpp_data').exists():
+        if any((ancestor / name).exists() for name in ('Probably Stolen.exe', 'Probably Stolen_Data',
+                'MelonLoader', 'GameAssembly.dll', 'il2cpp_data')):
             raise ValueError('数据目录位于游戏安装目录内')
     paths = AppPaths(candidate)
     paths.check_owned_paths()

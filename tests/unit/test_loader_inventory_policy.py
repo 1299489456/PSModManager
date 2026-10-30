@@ -8,6 +8,22 @@ from backend.loaders.melonloader.v073 import choose_candidates, manifest_parse, 
 OPTIONS = {"DisableSubFolderLoad": False, "DisableSubFolderManifest": False}
 
 
+def test_retired_import_reexports_the_same_pure_historical_contract():
+    from backend.loaders.melonloader import v073
+    from backend.scanning import legacy_loader_rules
+    for name in ('RULE_VERSION', 'MANIFEST_NAME', 'OPTION_KEYS', 'STAGES',
+                 'supports_version', 'manifest_parse', 'predict', 'choose_candidates',
+                 '_version', '_result'):
+        assert getattr(v073,name) is getattr(legacy_loader_rules,name)
+    assert v073._version('1.2') == (1,2,-1,-1)
+
+
+def test_history_consumers_bind_to_scanning_rules_not_retired_package():
+    from backend.profiles import graph
+    from backend.scanning import inventory, legacy_loader_rules
+    assert graph.v073 is inventory.v073 is legacy_loader_rules
+
+
 def policy(path, *, options=None, manifests=None, version="0.7.3"):
     return predict(path, loader_version=version, options=OPTIONS if options is None else options,
                    manifests={} if manifests is None else manifests)

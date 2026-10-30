@@ -46,12 +46,12 @@ test('opening prepares locally readable logs and exact context without sending t
   assert.equal(calls.some(row => row.command === 'ai.logs.list'), false)
 })
 
-test('default reader prefers available Latest.log and falls back to manager without changing selection or sending scope', async () => {
+test('default reader prefers available Player.log and falls back to manager without changing selection or sending scope', async () => {
   const managerId = '66666666-6666-4666-8666-666666666666'
   for (const hasGameLog of [true, false]) {
     const sources = [
       { source_id: managerId, kind: 'manager', label: '管理器日志', relative_path: 'logs/psmodmanager.log', status: 'available', default: true },
-      { source_id: source, kind: 'game', label: '游戏日志', relative_path: 'MelonLoader/Latest.log', status: hasGameLog ? 'available' : 'missing', default: hasGameLog },
+      { source_id: source, kind: 'game', label: '游戏日志', relative_path: 'Player.log', status: hasGameLog ? 'available' : 'missing', default: hasGameLog },
     ]
     const chosen = sources.filter(row => row.default).map(row => row.source_id)
     const app = setup((command, payload) => {
@@ -67,6 +67,22 @@ test('default reader prefers available Latest.log and falls back to manager with
     assert.equal(app.calls.find(row => row.command === 'ai.diagnostics.read').payload.source_id, hasGameLog ? source : managerId)
     assert.equal(app.calls.some(row => row.command.endsWith('.send')), false)
   }
+})
+
+test('a failed installation refresh cannot display the prior runtime reconciliation', async () => {
+  let fail = false
+  const evidence = { status: 'available', running_count: 2, unknown_count: 0 }
+  const app = setup(command => {
+    if (command !== 'ai.diagnostics.sources') return
+    if (fail) throw new Error('unreadable')
+    return { sources: [], warnings: [], runtime_reconciliation: evidence }
+  })
+  await app.runtime.load({ installation_id: game })
+  assert.deepEqual(app.state.reconciliation, evidence)
+  fail = true
+  await app.runtime.load(null)
+  assert.equal(app.state.reconciliation, null)
+  assert.ok(app.state.error)
 })
 
 test('analysis starts a real diagnostic task, streams a result and follows up with same snapshot', async () => {

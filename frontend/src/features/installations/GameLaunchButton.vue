@@ -33,7 +33,7 @@ defineExpose({ launch })
   <div class="game-launch" :class="{ running }" :aria-busy="state.busy || state.refreshing">
     <button type="button" class="sun-button" data-testid="game-launch" :disabled="disabled || preparing || !runtime.canLaunch()" :title="state.installationId ? '启动当前选定安装的游戏程序' : '请先选择游戏安装'" @click="launch">
       <span class="sun-disc" aria-hidden="true"><svg class="sun-rays" viewBox="0 0 62 62"><line v-for="(ray, index) in rays" :key="index" :x1="ray.x1" :y1="ray.y1" :x2="ray.x2" :y2="ray.y2"/></svg><Gamepad2 v-if="running" :size="18"/><Play v-else :size="18"/></span>
-      <span class="sun-label">{{ preparing ? '正在准备…' : saveFirst ? '保存并启动' : '启动游戏' }}</span>
+      <span class="sun-label">{{ running ? '游戏运行中' : preparing ? '正在准备…' : saveFirst ? '保存并启动' : '启动游戏' }}</span>
     </button>
     <div class="sun-meta">
       <span v-if="state.installationId" role="status" class="game-launch-status" data-testid="game-launch-status" :data-state="state.busy ? 'starting' : state.snapshot?.state || 'not_started'">{{ saveFirst && !running && pending ? `先应用 ${pending} 项更改` : statusText }}</span>

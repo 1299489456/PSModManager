@@ -1,4 +1,5 @@
 """The sole desktop bridge: a closed command table, never object reflection."""
+from contextlib import contextmanager
 import json
 import sqlite3
 import threading
@@ -24,6 +25,14 @@ class WindowPayload(Empty):
 
 class ThemePayload(Empty):
     theme_id: Literal['obsidian-cyan', 'graphite-ash', 'win11-mica']
+
+
+class WorkshopSettingsPayload(Empty):
+    auto_update: StrictBool
+
+
+class ExternalLink(Empty):
+    url: str = Field(min_length=1, max_length=2048)
 
 
 class StorageTarget(Empty):
@@ -320,8 +329,6 @@ MESSAGES = {
 from backend.ai.desktop_runtime import MESSAGES as AI_MESSAGES
 MESSAGES.update(AI_MESSAGES)
 MESSAGES.update(WORKSPACE_MESSAGES)
-from backend.online.nexus import MESSAGES as NEXUS_MESSAGES
-MESSAGES.update(NEXUS_MESSAGES)
 from .storage_location import MESSAGES as STORAGE_MESSAGES
 MESSAGES.update(STORAGE_MESSAGES)
 
@@ -331,6 +338,8 @@ class DesktopApi:
         self._context = context
         self._owner = str(uuid4())
         self._lock = threading.RLock()
+        self._read_idle = threading.Condition(self._lock)
+        self._active_reads = 0
         self._closed = False
         self._latest_check_task_id = None
         self._commands = {
@@ -372,6 +381,7 @@ class DesktopApi:
             'assistant.propose_plan': (PlanProposal, self._assistant_propose_plan),
             'assistant.inspect_plan': (PlanPage, self._assistant_inspect_plan),
             'app.info': (Empty, lambda request_id, payload: self._app_info()),
+            'app.open_link': (ExternalLink, lambda _, p: self._open_link(p.url)),
             'app.storage.status': (Empty, lambda _,p: context.storage.status()),
             'app.storage.choose': (Empty, lambda _,p: {'target': context.choose_storage_folder()}),
             'app.storage.accept': (Empty, lambda _,p: context.storage.accept()),
@@ -380,6 +390,8 @@ class DesktopApi:
             'app.theme.get': (Empty, lambda _, p: context.preferences.theme()),
             'window.control': (WindowPayload, lambda _, p: self._window_control(p.op)),
             'app.theme.set': (ThemePayload, lambda _, p: context.preferences.set_theme(p.theme_id)),
+            'app.workshop.settings.get': (Empty, lambda _, p: context.workshop_updates.settings()),
+            'app.workshop.settings.set': (WorkshopSettingsPayload, lambda _, p: context.workshop_updates.set(p.auto_update)),
             'app.check': (Empty, self._check),
             'installation.choose': (ChooseInstallationPayload, self._installation_choose),
             'installation.discover': (DiscoverInstallationPayload, lambda request_id, p: context.installations.discover(self._jobs(), request_id, [str(value) for value in p.source_handles])),
@@ -388,12 +400,6 @@ class DesktopApi:
             'installation.use': (UseInstallationPayload, lambda request_id, p: context.installations.use(self._jobs(), request_id, str(p.installation_id))),
             'installation.list': (Empty, lambda _, p: context.installations.list()),
             'deployment.guard_status': (UseInstallationPayload, lambda _, p: context.deployment_guards.status(str(p.installation_id))),
-            'loader.status': (UseInstallationPayload, lambda rid,p: self._loader_job(rid, lambda task: context.loader.status(str(p.installation_id), check=task.check_cancelled))),
-            'loader.choose': (UseInstallationPayload, lambda _,p: self._loader_choose(str(p.installation_id))),
-            'loader.install': (UseInstallationPayload, lambda rid,p: self._loader_install(rid,p)),
-            'loader.install_local': (LoaderLocalPayload, lambda rid,p: self._loader_install(rid,p)),
-            'loader.repair': (UseInstallationPayload, lambda rid,p: self._loader_job(rid, lambda task: context.loader.repair(
-                str(p.installation_id), check=task.check_cancelled, progress=task.progress, commit=task.commit))),
             'package.adopt_preview': (UseInstallationPayload, self._package_preview),
             'package.adopt_files': (AdoptionPagePayload, lambda _,p: context.packages.preview_page(str(p.snapshot_id),p.offset,p.limit)),
             'package.adopt': (AdoptPackagePayload, self._package_adopt),
@@ -437,12 +443,25 @@ class DesktopApi:
         }
         from backend.ai.diagnostics_api import diagnostic_commands
         self._commands.update(diagnostic_commands(context))
-        from backend.profiles.transfer_api import commands as profile_transfer_commands
-        from backend.catalog.update_api import commands as package_update_commands
-        from backend.online.api import commands as nexus_commands
-        self._commands.update(profile_transfer_commands(context))
-        self._commands.update(package_update_commands(context))
-        self._commands.update(nexus_commands(context))
+        # Legacy libraries stay readable for migration, but their physical-file
+        # enable/disable, loader installation and Nexus routes are retired. The
+        # formal-release desktop has one write owner: NativeModService.
+        retired = ('mod.', 'config.', 'plan.', 'profile.', 'package.', 'inventory.', 'compatibility.',
+                   'assistant.', 'deployment.')
+        self._commands = {name: definition for name, definition in self._commands.items()
+                          if not name.startswith(retired) or name == 'deployment.guard_status'}
+        from .native_api import NativeCommands
+        if getattr(context, 'native_commands', None) is None:
+            context.native_commands = NativeCommands(context)
+        self._commands.update(context.native_commands.commands())
+        from .workshop_api import commands as workshop_commands
+        self._commands.update(workshop_commands(context))
+        from .ai_provider_api import commands as provider_commands
+        self._commands.update(provider_commands(context))
+        from backend.native_mods import MESSAGES as NATIVE_MESSAGES
+        from backend.workshop import MESSAGES as WORKSHOP_MESSAGES
+        MESSAGES.update(NATIVE_MESSAGES)
+        MESSAGES.update(WORKSHOP_MESSAGES)
         # This is constructor injection for the real desktop test harness only.
         # It has no request flag, environment toggle or command to enable it.
         for name, definition in (test_commands or {}).items():
@@ -453,34 +472,28 @@ class DesktopApi:
     def dispatch(self, request):
         from backend.contracts import ErrorDTO
         from backend.runtime.jobs import RuntimePolicyError
+        from backend.workshop import WorkshopError
         request_id = request.get('request_id') if isinstance(request, dict) else None
         valid_id = isinstance(request_id, str) and 0 < len(request_id) <= 128 and bool(request_id.strip()) and all(32 <= ord(c) < 127 for c in request_id)
-        def failure(code):
+        def failure(code, *, retryable=False):
             # Never echo invalid payloads, exception text, credentials or paths.
             public_code = code if code in MESSAGES else 'INTERNAL_ERROR'
             return {'request_id': request_id if valid_id else None, 'ok': False,
-                    'error': ErrorDTO(code=public_code, message=MESSAGES[public_code], retryable=False,
+                    'error': ErrorDTO(code=public_code, message=MESSAGES[public_code], retryable=retryable,
                                       details={}, evidence_ids=[]).model_dump(mode='json', exclude={'schema_version'})}
         try:
             if (not isinstance(request, dict) or set(request) != {'schema_version', 'request_id', 'command', 'payload'}
                     or type(request['schema_version']) is not int or request['schema_version'] != 1
                     or not valid_id or not isinstance(request['command'], str) or type(request['payload']) is not dict
-                    or len(json.dumps(request, ensure_ascii=False, allow_nan=False).encode('utf-8')) > (32768 if request.get('command')=='ai.chat.send' else 16384)):
+                    or len(json.dumps(request, ensure_ascii=False, allow_nan=False).encode('utf-8')) >
+                    (1048576 if request.get('command') == 'native.config.save' else
+                     262144 if str(request.get('command', '')).startswith('native.') else
+                     32768 if request.get('command') == 'ai.chat.send' else 16384)):
                 return failure('INVALID_REQUEST')
-            with self._lock:
-                if self._closed:
-                    return failure('RUNTIME_CLOSED')
-                storage = getattr(self._context, 'storage', None)
-                if (storage is not None and storage.blocked and request['command'] not in
-                        {'app.storage.status', 'app.storage.restart', 'window.control'}):
-                    return failure('STORAGE_BUSY')
-                if request['command'] not in self._commands:
-                    return failure('UNSUPPORTED_COMMAND')
-                schema, handler = self._commands[request['command']]
-                payload = schema.model_validate(request['payload'])
+            with self._admit(request) as (handler, payload):
                 data = handler(request_id, payload)
                 response = {'request_id': request_id, 'ok': True, 'data': data}
-                if request['command'] in ('compatibility.check', 'profile.commit', 'package.import_preview', 'package.import_commit', 'package.list', 'package.detail', 'package.adopt_preview', 'package.adopt', 'app.check', 'installation.discover', 'installation.auto_discover', 'installation.select', 'installation.use', 'inventory.inspect', 'inventory.scan', 'logs.watch', 'assistant.propose_plan', 'assistant.inspect_plan') or request['command'].startswith(('test.', 'plan.', 'loader.', 'profile.', 'package.update_', 'package.import_version', 'nexus.')):
+                if request['command'] in ('workshop.translate', 'workshop.action', 'compatibility.check', 'profile.commit', 'package.import_preview', 'package.import_commit', 'package.list', 'package.detail', 'package.adopt_preview', 'package.adopt', 'app.check', 'installation.discover', 'installation.auto_discover', 'installation.select', 'installation.use', 'inventory.inspect', 'inventory.scan', 'logs.watch', 'assistant.propose_plan', 'assistant.inspect_plan') or request['command'].startswith(('test.', 'plan.', 'loader.', 'profile.', 'package.update_', 'package.import_version', 'nexus.')):
                     if isinstance(data, dict) and 'task_id' in data:
                         response['task_id'] = data['task_id']
                 return response
@@ -490,14 +503,63 @@ class DesktopApi:
             code = {'TASK_LIMIT': 'CAPACITY_EXCEEDED', 'SUBSCRIPTION_LIMIT': 'CAPACITY_EXCEEDED',
                     'INVALID_SEQUENCE': 'INVALID_CURSOR', 'SUBSCRIPTION_NOT_FOUND': 'SUBSCRIPTION_EXPIRED'}.get(exc.code, exc.code)
             return failure(code)
+        except WorkshopError as exc:
+            return failure(exc.code, retryable=exc.retryable)
         except Exception:
             return failure('INTERNAL_ERROR')
+
+    @contextmanager
+    def _admit(self, request):
+        """Remote public reads must not hold the desktop's command mutex.
+
+        Mutating commands retain their previous serialization. Close drains
+        admitted reads; data migration cannot move their cache underneath them.
+        """
+        from backend.runtime.events import RuntimePolicyError
+        command = request['command']
+        with self._lock:
+            if self._closed:
+                raise RuntimePolicyError('RUNTIME_CLOSED')
+            storage = getattr(self._context, 'storage', None)
+            if (storage is not None and storage.blocked and command not in
+                    {'app.storage.status', 'app.storage.restart', 'window.control'}):
+                raise RuntimePolicyError('STORAGE_BUSY')
+            if command not in self._commands:
+                raise RuntimePolicyError('UNSUPPORTED_COMMAND')
+            if command == 'app.storage.start' and self._active_reads:
+                raise RuntimePolicyError('STORAGE_OPERATIONS_RUNNING')
+            schema, handler = self._commands[command]
+            payload = schema.model_validate(request['payload'])
+            if command not in {'workshop.browse', 'workshop.query', 'workshop.detail', 'workshop.image', 'ai.translation.cache'}:
+                yield handler, payload
+                return
+            self._active_reads += 1
+        try:
+            yield handler, payload
+        finally:
+            with self._read_idle:
+                self._active_reads -= 1
+                self._read_idle.notify_all()
 
     def _window_control(self, operation):
         frame = getattr(self._context, 'window_frame', None)
         if frame is None:
             raise RuntimeError('window controls unavailable')
         return frame.control(operation)
+
+    @staticmethod
+    def _open_link(value):
+        from urllib.parse import urlsplit
+        import webbrowser
+        try:
+            target = urlsplit(value)
+            if (target.scheme not in ('https', 'http') or not target.hostname or
+                    target.username or target.password or target.port not in (None, 80, 443) or
+                    any(ord(c) < 32 for c in value) or '\\' in value):
+                raise ValueError('Invalid external link')
+        except ValueError:
+            raise ValueError('Invalid external link') from None
+        return {'opened': bool(webbrowser.open(value))}
 
     def _jobs(self):
         if self._context.jobs is None:
@@ -532,35 +594,6 @@ class DesktopApi:
                         'conflicts':getattr(exc,'conflicts',[])}
             except (ValueError, OSError, KeyError, sqlite3.Error):
                 return {'error_code': 'PLAN_INPUT_INVALID', 'message': '计划输入无法完整校验，请重新保存方案并预览。'}
-        return self._jobs().start(request_id, work)
-
-    def _loader_choose(self, installation_id):
-        from backend.loaders.melonloader.service import LoaderError
-        try:
-            return self._context.loader.grant(installation_id, self._context.choose_loader_source())
-        except LoaderError as exc:
-            return {'error_code': exc.code, 'message': str(exc)}
-
-    def _loader_install(self, request_id, payload):
-        return self._loader_job(request_id, lambda task: self._context.loader.install(
-            str(payload.installation_id), str(payload.source_handle) if isinstance(payload, LoaderLocalPayload) else None,
-            check=task.check_cancelled, progress=task.progress, commit=task.commit))
-
-    def _loader_job(self, request_id, action):
-        def work(task):
-            from backend.loaders.melonloader.service import LoaderError
-            from backend.deployments.paths import GuardRejected
-            try:
-                return action(task)
-            except LoaderError as exc:
-                return {'error_code': exc.code, 'message': str(exc)}
-            except GuardRejected as exc:
-                return {'error_code': exc.code, 'message': '暂时无法操作此游戏目录，请关闭游戏和其他占用程序后重试。'}
-            except (OSError, ValueError, KeyError) as exc:
-                reason = getattr(exc, 'winerror', None)
-                message = '加载器文件无法读写，请检查目录权限和占用后重试。'
-                if reason in (32,33): message = '加载器文件被占用，请关闭游戏或占用程序后重试。'
-                return {'error_code': 'LOADER_FILE_OPERATION_FAILED', 'message': message}
         return self._jobs().start(request_id, work)
 
     def _mod_job(self, request_id, action):
@@ -831,7 +864,9 @@ class DesktopApi:
             self._owner = str(uuid4())
 
     def _close(self):
-        with self._lock:
+        with self._read_idle:
             self._closed = True
+            while self._active_reads:
+                self._read_idle.wait()
             if self._context.jobs is not None:
                 self._context.jobs.close_owner(self._owner)

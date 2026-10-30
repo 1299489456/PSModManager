@@ -1,0 +1,484 @@
+/* Approved greenhouse prototype tokens and layout. Scoped to the formal-release pages. */
+
+/* Layout and tokens from the approved formal-release prototype.
+   The existing shell, settings and notebook continue to use garden.css. */
+.garden-shell .formal-ui{--g-leaf:#4ade80;--g-leaf-2:#22c55e;--g-leaf-3:#16a34a;--g-ink:#166534;--g-moss:#14532d;--g-sun:#fbbf24;--g-sun-2:#f59e0b;--g-sun-ink:#78350f;--g-mint:#f0fdf4;--g-cream:#fffbeb;--g-paper:#fffdf6;--g-line:#bbf7d0;--g-line-2:#a7e3bd;--g-text:#1f2a24;--g-text-2:#3f5047;--g-text-3:#5b6f64;--g-rose:#dc2626;
+  --g-sh:0 10px 15px -3px rgba(134,239,172,.3),0 4px 6px -4px rgba(134,239,172,.3);--g-sh-lg:0 22px 30px -8px rgba(110,200,140,.38),0 8px 12px -6px rgba(134,239,172,.35);--g-ease:cubic-bezier(.22,1,.36,1);--g-pop:cubic-bezier(.34,1.56,.64,1);
+  --font-ui:"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif;--mono:Consolas,"Cascadia Mono",monospace}
+.garden-shell .formal-ui *{box-sizing:border-box}
+.garden-shell .formal-ui button,.garden-shell .formal-ui input,.garden-shell .formal-ui select,.garden-shell .formal-ui textarea{font:inherit;color:inherit}
+.garden-shell .formal-ui button{cursor:pointer}
+.garden-shell .formal-ui h1,.garden-shell .formal-ui h2,.garden-shell .formal-ui h3,.garden-shell .formal-ui h4,.garden-shell .formal-ui p{margin:0}
+.garden-shell .formal-ui svg.i{width:17px;height:17px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.garden-shell .formal-ui svg.i.sm{width:15px;height:15px}.garden-shell .formal-ui svg.i.xs{width:13px;height:13px}.garden-shell .formal-ui svg.i.lg{width:22px;height:22px}
+@keyframes garden-sway{0%,100%{transform:rotate(-1deg)}50%{transform:rotate(1deg)}}
+@keyframes garden-spin{to{transform:rotate(360deg)}}
+@keyframes garden-fade-up{from{opacity:0;transform:translateY(10px)}}
+@keyframes garden-draw{from{stroke-dashoffset:140}}
+@keyframes garden-leaf-in{from{opacity:0}}
+@keyframes garden-bounce{40%{transform:scale(1.05) rotate(-1.5deg)}}
+@keyframes garden-arrive{0%{opacity:0;transform:scale(.9)}35%{opacity:1;transform:scale(1.02);box-shadow:0 0 0 6px rgba(251,191,36,.35)}100%{transform:none}}
+@keyframes garden-sheet-up{from{transform:translateY(100%)}}
+@keyframes garden-grow{from{transform:scaleY(.6)}to{transform:scaleY(1.1)}}
+
+/* ---------- shared controls ---------- */
+.garden-shell .formal-ui .garden-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:40px;padding:0 18px;border-radius:20px;border:1px solid var(--g-line);background:#fff;color:var(--g-ink);font-size:14px;font-weight:600;white-space:nowrap;transition:transform .3s var(--g-ease),box-shadow .3s,background .3s,border-color .3s}
+.garden-shell .formal-ui .garden-btn:hover:not(:disabled){border-color:var(--g-leaf);background:var(--g-mint);transform:translateY(-1px)}
+.garden-shell .formal-ui .garden-btn:active:not(:disabled){transform:scale(.97)}
+.garden-shell .formal-ui .garden-btn:disabled{opacity:.45;cursor:not-allowed}
+.garden-shell .formal-ui .garden-btn.green{border:0;background:linear-gradient(90deg,#22c55e,#10b981);color:#fff;box-shadow:0 10px 16px -6px rgba(34,197,94,.55)}
+.garden-shell .formal-ui .garden-btn.green:hover:not(:disabled){background:linear-gradient(90deg,#16a34a,#059669);transform:scale(1.03)}
+.garden-shell .formal-ui .garden-btn.amber{border:0;background:linear-gradient(90deg,var(--g-sun),#eab308);color:var(--g-sun-ink);box-shadow:0 10px 16px -6px rgba(245,158,11,.5)}
+.garden-shell .formal-ui .garden-btn.soft{background:transparent;border-color:transparent;color:var(--g-text-2)}
+.garden-shell .formal-ui .garden-btn.soft:hover:not(:disabled){background:rgba(74,222,128,.12);border-color:transparent}
+.garden-shell .formal-ui .garden-btn.clay{color:var(--g-rose);border-color:#fecaca}
+.garden-shell .formal-ui .garden-btn.clay:hover:not(:disabled){background:#fef2f2;border-color:#fca5a5}
+.garden-shell .formal-ui .garden-btn.sm{height:32px;padding:0 13px;font-size:13px;border-radius:16px}
+.garden-shell .formal-ui .garden-btn.xs{height:28px;padding:0 11px;font-size:12.5px;border-radius:14px}
+.garden-shell .formal-ui .garden-btn.icon{width:40px;padding:0}.garden-shell .formal-ui .garden-btn.icon.sm{width:32px}.garden-shell .formal-ui .garden-btn.icon.xs{width:28px}
+.garden-shell .formal-ui .garden-btn kbd{font:11px/1 var(--font-ui);padding:2px 6px;border-radius:6px;border:1px solid var(--g-line);color:var(--g-text-3);background:#fff;font-weight:500}
+.garden-shell .formal-ui .garden-link{border:0;background:none;padding:0;color:var(--g-leaf-3);font-weight:600;display:inline-flex;align-items:center;gap:4px;font-size:inherit;cursor:pointer}
+.garden-shell .formal-ui .garden-link:hover{text-decoration:underline;text-decoration-style:wavy;text-underline-offset:4px}
+.garden-shell .formal-ui .garden-chips{display:flex;gap:8px;flex-wrap:wrap}
+.garden-shell .formal-ui .garden-chips button{height:36px;padding:0 16px;border-radius:18px;border:1px solid var(--g-line);background:#fff;color:var(--g-text-2);font-size:14px;font-weight:500;transition:all .4s var(--g-ease)}
+.garden-shell .formal-ui .garden-chips button span{margin-left:6px;color:var(--g-text-3);font-size:12.5px}
+.garden-shell .formal-ui .garden-chips button:hover{border-color:var(--g-leaf)}
+.garden-shell .formal-ui .garden-chips button.on{border-radius:20px 4px 20px 4px;background:linear-gradient(90deg,#dcfce7,#bbf7d0);border-color:var(--g-leaf);color:var(--g-ink);box-shadow:0 6px 12px -6px rgba(74,222,128,.7)}
+.garden-shell .formal-ui .garden-chips button.on span{color:var(--g-leaf-3)}
+.garden-shell .formal-ui .garden-chips button.care span{color:var(--g-rose)}
+.garden-shell .formal-ui .garden-chips.sm button{height:30px;padding:0 12px;font-size:13px;border-radius:15px}
+.garden-shell .formal-ui .garden-chips.sm button.on{border-radius:16px 4px 16px 4px}
+.garden-shell .formal-ui .garden-search{display:flex;align-items:center;gap:8px;height:40px;padding:0 8px 0 14px;border-radius:20px;border:1.5px solid var(--g-line-2);background:#fff;color:var(--g-leaf-3);box-shadow:0 6px 14px -10px rgba(34,197,94,.6);transition:border-color .3s,box-shadow .3s;min-width:0}
+.garden-shell .formal-ui .garden-search:focus-within{border-color:var(--g-leaf);box-shadow:0 0 0 4px rgba(74,222,128,.16)}
+.garden-shell .formal-ui .garden-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:14px;color:var(--g-text)}
+.garden-shell .formal-ui .garden-search input::placeholder{color:#86a896}
+.garden-shell .formal-ui .garden-search kbd{font:11px/1 var(--font-ui);padding:3px 7px;border-radius:7px;border:1px solid var(--g-line);color:var(--g-text-3);background:var(--g-mint);margin-right:4px}
+.garden-shell .formal-ui .search-clear{display:none;width:26px;height:26px;padding:0;border-radius:50%;border:0;background:#dcfce7;color:var(--g-ink);place-items:center}
+.garden-shell .formal-ui .garden-search.has .search-clear{display:grid}
+.garden-shell .formal-ui .garden-select select{height:34px;padding:0 10px;border-radius:17px;border:1px solid var(--g-line);background:#fff;color:var(--g-ink);font-weight:500;cursor:pointer;font-size:13px}
+.garden-shell .formal-ui .garden-view-switch{display:flex;gap:2px;padding:3px;border-radius:18px;background:#dcfce7}
+.garden-shell .formal-ui .garden-view-switch button{width:32px;height:28px;padding:0;border:0;border-radius:14px;background:transparent;color:var(--g-text-2);display:grid;place-items:center}
+.garden-shell .formal-ui .garden-view-switch button:hover:not(:disabled){background:#fff;color:var(--g-ink)}
+.garden-shell .formal-ui .garden-view-switch button:disabled{opacity:.35;cursor:not-allowed}
+.garden-shell .formal-ui .tg{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 10px;border-radius:12px;font-size:12px;font-weight:600;white-space:nowrap}
+.garden-shell .formal-ui .tg svg{width:12px;height:12px}
+.garden-shell .formal-ui .tg.on{background:#dcfce7;color:var(--g-leaf-3)}.garden-shell .formal-ui .tg.off{background:#f1f5f2;color:var(--g-text-3)}.garden-shell .formal-ui .tg.pend{background:#fef3c7;color:#a16207}.garden-shell .formal-ui .tg.bad{background:#fee2e2;color:var(--g-rose)}.garden-shell .formal-ui .tg.sky{background:#e0f2fe;color:#0369a1}.garden-shell .formal-ui .tg.lilac{background:#ede9fe;color:#6d28d9}.garden-shell .formal-ui .tg.dark{background:var(--g-ink);color:#fff}.garden-shell .formal-ui .tg.ghost{background:#fff;border:1px solid var(--g-line);color:var(--g-text-2)}
+.garden-shell .formal-ui .leaf-switch{position:relative;flex:none;width:50px;height:28px;padding:0;border-radius:999px;background:#e3ebe5;border:1px solid #d1ddd4;transition:background .4s var(--g-ease)}
+.garden-shell .formal-ui .leaf-switch:hover:not(:disabled){background:#d8e6dc}
+.garden-shell .formal-ui .leaf-switch span{position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50% 0 50% 50%;background:#fff;box-shadow:0 2px 5px rgba(20,83,45,.25);transform:rotate(-45deg);transition:transform .5s var(--g-pop)}
+.garden-shell .formal-ui .leaf-switch[aria-pressed=true]{background:linear-gradient(90deg,var(--g-leaf),#10b981);border-color:transparent}
+.garden-shell .formal-ui .leaf-switch[aria-pressed=true] span{transform:translateX(22px) rotate(135deg)}
+.garden-shell .formal-ui .leaf-switch:disabled{opacity:.45;cursor:not-allowed}
+.garden-shell .formal-ui .garden-pot{width:42px;height:42px;flex:none;border-radius:60% 40% 55% 45%/45% 55% 45% 55%;display:grid;place-items:center;background:#dcfce7;color:var(--g-leaf-3);font-weight:800;font-size:13px;letter-spacing:-.5px}
+.garden-shell .formal-ui .garden-solar{height:10px;border-radius:999px;background:rgba(229,231,235,.7);border:1px solid rgba(134,239,172,.45);overflow:hidden}
+.garden-shell .formal-ui .garden-solar i{display:block;height:100%;border-radius:999px;background:repeating-linear-gradient(90deg,var(--g-leaf-2) 0,var(--g-leaf-2) 18px,var(--g-moss) 18px,var(--g-moss) 20px);transition:width .25s}
+.garden-shell .formal-ui .garden-facts{display:grid;grid-template-columns:84px 1fr;gap:8px 12px;margin:0;font-size:13.5px}
+.garden-shell .formal-ui .garden-facts dt{color:var(--g-text-3)}.garden-shell .formal-ui .garden-facts dd{margin:0;overflow-wrap:anywhere}
+.garden-shell .formal-ui .garden-facts code,.garden-shell .formal-ui .mono{font:12.5px var(--mono);color:var(--g-ink)}
+.garden-shell .formal-ui .copy{border:0;background:none;color:var(--g-text-3);padding:0 0 0 4px;vertical-align:-2px}
+.garden-shell .formal-ui .copy:hover{color:var(--g-ink)}
+
+/* notes: the same shapes as garden-care-note / garden-sign-banner */
+.garden-shell .formal-ui .care-note{position:relative;padding:11px 14px 11px 18px;border-radius:6px 18px 18px 18px;background:#fef2f2;border:1px solid #fecaca;color:#7f1d1d;font-size:13.5px;line-height:1.6}
+.garden-shell .formal-ui .care-note b{color:#991b1b}
+.garden-shell .formal-ui .sign-note{position:relative;padding:11px 14px 11px 18px;border-radius:6px 18px 18px 18px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fde68a;color:var(--g-sun-ink);font-size:13.5px;line-height:1.6}
+.garden-shell .formal-ui .mint-note{position:relative;padding:11px 14px 11px 18px;border-radius:6px 18px 18px 18px;background:var(--g-mint);border:1px solid #dcfce7;color:var(--g-text-2);font-size:13.5px;line-height:1.6}
+.garden-shell .formal-ui .care-note::before,.garden-shell .formal-ui .sign-note::before,.garden-shell .formal-ui .mint-note::before{content:"";position:absolute;left:-1px;top:10px;bottom:10px;width:4px;border-radius:4px}
+.garden-shell .formal-ui .care-note::before{background:linear-gradient(180deg,#f87171,#ef4444,#f59e0b)}
+.garden-shell .formal-ui .sign-note::before{background:linear-gradient(180deg,var(--g-sun),var(--g-sun-2),#f97316)}
+.garden-shell .formal-ui .mint-note::before{background:linear-gradient(180deg,var(--g-leaf),var(--g-leaf-2))}
+.garden-shell .formal-ui .note-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.garden-shell .formal-ui .garden-sign-banner{position:relative;display:flex;align-items:center;gap:14px;margin:0 0 14px;padding:12px 18px 12px 22px;border-radius:6px 22px 22px 22px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fcd34d;color:var(--g-sun-ink);transform:rotate(-.4deg);box-shadow:0 10px 18px -10px rgba(217,119,6,.5);animation:garden-fade-up .5s var(--g-ease);flex:none}
+.garden-shell .formal-ui .garden-sign-banner::before{content:"";position:absolute;left:-1px;top:12px;bottom:12px;width:5px;border-radius:5px;background:linear-gradient(180deg,var(--g-sun),var(--g-sun-2),#f97316)}
+.garden-shell .formal-ui .garden-sign-banner .grow{flex:1;min-width:0;font-size:14px}
+
+/* ---------- pages ---------- */
+.garden-shell .formal-ui .garden-bed{position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column}
+.garden-shell .formal-ui .page{display:none;flex:1;min-height:0;flex-direction:column;padding:4px 12px 14px;animation:garden-fade-up .5s var(--g-ease)}
+.garden-shell .formal-ui .page.on{display:flex}
+.garden-shell .formal-ui .page.scroll{overflow:auto;padding-bottom:30px}
+.garden-shell .formal-ui .garden-intro{flex:none;display:flex;align-items:flex-end;gap:18px;margin-bottom:12px}
+.garden-shell .formal-ui .garden-intro h1{font-size:30px;font-weight:800;letter-spacing:.01em}
+.garden-shell .formal-ui .garden-intro p{margin:2px 0 0;color:var(--g-text-3);font-size:14px}
+.garden-shell .formal-ui .garden-intro p b{color:var(--g-leaf-3)}
+.garden-shell .formal-ui .garden-intro-actions{margin-left:auto;display:flex;gap:10px;align-items:center}
+.garden-shell .formal-ui .garden-notice{flex:none;margin:-4px 0 10px;font-size:13.5px;color:var(--g-leaf-3);font-weight:500;display:flex;gap:10px;align-items:center;min-height:20px}
+.garden-shell .formal-ui .garden-notice:empty{display:none}
+.garden-shell .formal-ui .garden-notice.care{color:var(--g-rose)}
+.garden-shell .formal-ui .garden-bed-label{display:flex;align-items:center;gap:8px;margin:8px 4px 8px;font-size:13px;font-weight:700;color:var(--g-leaf-3);letter-spacing:.04em}
+.garden-shell .formal-ui .garden-bed-label span{color:var(--g-text-3);font-weight:500}
+.garden-shell .formal-ui .garden-bed-label::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--g-line),transparent)}
+.garden-shell .formal-ui .garden-card{padding:20px 22px;border-radius:26px;background:rgba(255,255,255,.9);border:1px solid var(--g-line);box-shadow:var(--g-sh)}
+.garden-shell .formal-ui .garden-card h2{font-size:17px;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.garden-shell .formal-ui .garden-card>p{margin:0 0 14px;font-size:13.5px;color:var(--g-text-3)}
+.garden-shell .formal-ui .garden-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;color:var(--g-text-3);padding:36px 16px;border:2px dashed var(--g-line-2);border-radius:24px;background:rgba(255,255,255,.5);font-size:13.5px}
+.garden-shell .formal-ui .garden-empty b{color:var(--g-ink);font-size:16px}
+.garden-shell .formal-ui .garden-empty .garden-pot{width:56px;height:56px;animation:garden-sway 3s ease-in-out infinite}
+
+/* ---------- mods workbench: three beds ---------- */
+.garden-shell .formal-ui .beds{flex:1;min-height:0;display:grid;grid-template-columns:minmax(270px,.92fr) minmax(330px,1.1fr) minmax(360px,1.12fr);gap:14px}
+.garden-shell .formal-ui .bed{min-width:0;min-height:0;display:flex;flex-direction:column;border-radius:24px;border:1px solid var(--g-line);overflow:hidden}
+.garden-shell .formal-ui .bed.avail{background:rgba(246,248,246,.86);border-color:#dfe8e2}
+.garden-shell .formal-ui .bed.enabled{background:linear-gradient(180deg,rgba(240,253,244,.95),rgba(236,253,243,.8))}
+.garden-shell .formal-ui .bed-head{flex:none;display:flex;align-items:center;gap:8px;padding:14px 14px 10px 16px}
+.garden-shell .formal-ui .bed-head h2{font-size:15px;display:flex;align-items:center;gap:7px;color:var(--g-ink)}
+.garden-shell .formal-ui .bed.avail .bed-head h2{color:var(--g-text-2)}
+.garden-shell .formal-ui .bed-count{min-width:28px;height:24px;padding:0 8px;border-radius:12px;background:#fff;font-size:12.5px;color:var(--g-text-3);display:grid;place-items:center;font-weight:600}
+.garden-shell .formal-ui .bed-head .sp{flex:1}
+.garden-shell .formal-ui .bed-tools{flex:none;display:flex;align-items:center;gap:8px;padding:0 12px 10px}
+.garden-shell .formal-ui .bed-tools .garden-search{flex:1;height:36px}
+.garden-shell .formal-ui .bed-tools .garden-search input{font-size:13.5px}
+.garden-shell .formal-ui .bed .garden-chips{padding:0 12px 8px;gap:6px}
+.garden-shell .formal-ui .bed-list{flex:1;min-height:0;overflow:auto;padding:2px 10px 12px;position:relative;outline:none}
+.garden-shell .formal-ui .selection-box{position:absolute;z-index:20;pointer-events:none;border:1px solid var(--g-green);background:rgba(74,222,128,.15);border-radius:6px;box-shadow:0 0 0 1px rgba(255,255,255,.7) inset}
+.garden-shell .formal-ui .select-all{font-size:12px;white-space:nowrap;flex:none}
+.garden-shell .formal-ui .bed-foot{flex:none;display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:12.5px;color:var(--g-text-3);border-top:1px dashed var(--g-line)}
+.garden-shell .formal-ui .bed-foot .sp{flex:1}
+.garden-shell .formal-ui .bed-filter{flex:none;margin:0 12px 8px;padding:7px 12px;border-radius:14px;background:#e0f2fe;color:#075985;font-size:12.5px;display:flex;gap:8px;align-items:center}
+.garden-shell .formal-ui .bed-filter .garden-link{margin-left:auto;color:#0369a1}
+
+.garden-shell .formal-ui .row{position:relative;display:flex;align-items:center;gap:10px;padding:8px 10px 8px 8px;margin:0 0 6px;border-radius:16px;background:#fff;border:1px solid transparent;box-shadow:0 4px 10px -8px rgba(20,83,45,.35);user-select:none;cursor:default;transition:border-color .25s,box-shadow .25s,transform .3s var(--g-ease)}
+.garden-shell .formal-ui .row:hover{border-color:#bbf7d0;box-shadow:0 8px 16px -10px rgba(34,197,94,.55)}
+.garden-shell .formal-ui .row.sel{border-color:var(--g-leaf);box-shadow:0 0 0 3px rgba(74,222,128,.18)}
+.garden-shell .formal-ui .row.focus{background:linear-gradient(90deg,#f0fdf4,#fff 60%)}
+.garden-shell .formal-ui .row.dragging{opacity:.4}
+.garden-shell .formal-ui .row.arrive{animation:garden-arrive 1.1s var(--g-ease)}
+.garden-shell .formal-ui .row.off-row{background:rgba(255,255,255,.75)}
+.garden-shell .formal-ui .row.ghost{background:repeating-linear-gradient(135deg,rgba(255,255,255,.8) 0 8px,rgba(254,242,242,.8) 8px 16px);border:1.5px dashed #fca5a5;box-shadow:none}
+.garden-shell .formal-ui .pick{display:none;width:20px;height:20px;flex:none;border-radius:50%;border:1.5px solid #9fdcb4;background:#fff;display:grid;place-items:center;color:#fff;padding:0}
+.garden-shell .formal-ui .row:hover .pick,.garden-shell .formal-ui .row.sel .pick,.garden-shell .formal-ui .multi .pick,.garden-shell .formal-ui .pf-cols .pick{display:grid}
+.garden-shell .formal-ui .row.sel .pick{background:var(--g-leaf-2);border-color:var(--g-leaf-2)}
+.garden-shell .formal-ui .ord{width:24px;flex:none;text-align:center;font-size:12px;font-weight:800;color:var(--g-leaf-3);font-variant-numeric:tabular-nums}
+.garden-shell .formal-ui .row .garden-pot{width:34px;height:34px;font-size:12px}
+.garden-shell .formal-ui .row .meta{flex:1;min-width:0;display:flex;flex-direction:column}
+.garden-shell .formal-ui .row .nm{font-size:14px;font-weight:700;color:var(--g-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.garden-shell .formal-ui .row .sub{font-size:12px;color:var(--g-text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:5px}
+.garden-shell .formal-ui .row .tags{display:flex;gap:4px;flex:none;align-items:center}
+.garden-shell .formal-ui .row .tags .tg{height:22px;padding:0 8px;font-size:11.5px}
+.garden-shell .formal-ui .row .moves{display:none;gap:2px;flex:none}
+.garden-shell .formal-ui .row:hover .moves,.garden-shell .formal-ui .row.sel .moves{display:flex}
+.garden-shell .formal-ui .row:hover .tags.hideable{display:none}
+.garden-shell .formal-ui .row .moves button{width:26px;height:26px;padding:0;border-radius:13px;border:1px solid var(--g-line);background:#fff;color:var(--g-ink);display:grid;place-items:center}
+.garden-shell .formal-ui .row .moves button:hover{background:var(--g-mint);border-color:var(--g-leaf)}
+.garden-shell .formal-ui .perm-dot{display:inline-flex;align-items:center;gap:2px;height:22px;padding:0 7px;border-radius:11px;font-size:11.5px;font-weight:700}
+.garden-shell .formal-ui .perm-dot.high{background:#ffedd5;color:#c2410c}.garden-shell .formal-ui .perm-dot.mid{background:#e0f2fe;color:#0369a1}
+.garden-shell .formal-ui .drop-line{position:absolute;left:14px;right:14px;height:3px;border-radius:3px;background:var(--g-leaf-2);box-shadow:0 0 0 3px rgba(34,197,94,.18);pointer-events:none;display:none;z-index:4}
+.garden-shell .formal-ui .bed-list.drop-target{background:rgba(74,222,128,.08)}
+
+/* detail bed */
+.garden-shell .formal-ui .detail{background:rgba(255,255,255,.9);box-shadow:var(--g-sh)}
+.garden-shell .formal-ui .detail .d-scroll{flex:1;min-height:0;overflow:auto;padding:16px 16px 22px}
+.garden-shell .formal-ui .d-hero{position:relative;height:clamp(96px,9vw,150px);border-radius:20px;overflow:hidden;box-shadow:0 14px 22px -14px rgba(34,197,94,.55)}
+.garden-shell .formal-ui .cover{position:absolute;inset:0;display:grid;place-items:center;color:var(--g-leaf-2)}
+.garden-shell .formal-ui .cover .ct{position:absolute;left:16px;bottom:12px;font-weight:800;font-size:13px;letter-spacing:.12em;color:rgba(20,83,45,.55)}
+.garden-shell .formal-ui .d-hero .hero-tools{position:absolute;right:10px;top:10px;display:flex;gap:6px}
+.garden-shell .formal-ui .d-hero .hero-tools button{width:32px;height:32px;border-radius:16px;border:1px solid rgba(255,255,255,.8);background:rgba(255,255,255,.75);color:var(--g-ink);display:grid;place-items:center;backdrop-filter:blur(6px)}
+.garden-shell .formal-ui .d-hero .hero-tools button:hover{background:#fff}
+.garden-shell .formal-ui .d-tags{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 6px}
+.garden-shell .formal-ui .d-title{font-size:21px;font-weight:800;line-height:1.3;color:var(--g-ink);word-break:break-word}
+.garden-shell .formal-ui .d-by{margin-top:4px;font-size:13.5px;color:var(--g-text-3);display:flex;gap:6px 12px;flex-wrap:wrap;align-items:center}
+.garden-shell .formal-ui .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:14px 0 0}
+.garden-shell .formal-ui .stat{padding:8px 12px;border-radius:16px;background:#f0fdf4;border:1px solid #dcfce7;min-width:0}
+.garden-shell .formal-ui .stat small{display:block;font-size:12px;color:var(--g-text-3)}
+.garden-shell .formal-ui .stat b{display:block;font-size:15px;font-weight:800;color:var(--g-moss);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.garden-shell .formal-ui .stat b.ok{color:var(--g-leaf-3)}
+.garden-shell .formal-ui .d-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:14px 0 4px}
+.garden-shell .formal-ui .d-actions .on-label{display:flex;align-items:center;gap:8px;margin-right:4px;font-weight:700;color:var(--g-ink);font-size:14px}
+/* growth path: install → enable → approve → run */
+.garden-shell .formal-ui .growth{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:16px 0 4px;padding:12px 8px 10px;border-radius:20px;background:linear-gradient(170deg,#fffbeb,#fff 70%);border:1px solid #fef3c7}
+.garden-shell .formal-ui .growth::before{content:"";position:absolute;left:12%;right:12%;top:31px;height:2px;background:repeating-linear-gradient(90deg,#a7e3bd 0 6px,transparent 6px 10px)}
+.garden-shell .formal-ui .stone{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0}
+.garden-shell .formal-ui .stone i{width:40px;height:40px;border-radius:60% 40% 55% 45%/45% 55% 45% 55%;display:grid;place-items:center;font-style:normal;background:#f1f5f2;color:var(--g-text-3);border:2px solid #fff;box-shadow:0 4px 8px -4px rgba(20,83,45,.3)}
+.garden-shell .formal-ui .stone b{margin-top:6px;font-size:13px;color:var(--g-text-3)}
+.garden-shell .formal-ui .stone small{font-size:11.5px;color:var(--g-text-3);line-height:1.35;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.garden-shell .formal-ui .stone.ok i{background:linear-gradient(140deg,#bbf7d0,#4ade80);color:#fff}.garden-shell .formal-ui .stone.ok b{color:var(--g-ink)}
+.garden-shell .formal-ui .stone.wait i{background:linear-gradient(140deg,#fef3c7,#fbbf24);color:var(--g-sun-ink)}.garden-shell .formal-ui .stone.wait b{color:#a16207}
+.garden-shell .formal-ui .stone.bad i{background:linear-gradient(140deg,#fee2e2,#f87171);color:#fff}.garden-shell .formal-ui .stone.bad b{color:var(--g-rose)}
+.garden-shell .formal-ui .d-tabs{position:sticky;top:-16px;z-index:3;margin:14px -16px 0;padding:10px 16px 10px;background:rgba(255,255,255,.94);backdrop-filter:blur(8px)}
+.garden-shell .formal-ui .d-tabs.garden-chips button .b{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:5px;padding:0 5px;border-radius:9px;background:#f1f5f2;font-size:11px;color:var(--g-text-3)}
+.garden-shell .formal-ui .d-tabs.garden-chips button .b.warn{background:#fef3c7;color:#a16207}.garden-shell .formal-ui .d-tabs.garden-chips button .b.bad{background:#fee2e2;color:var(--g-rose)}
+.garden-shell .formal-ui .d-body{display:flex;flex-direction:column;gap:14px;padding-top:4px}
+.garden-shell .formal-ui .d-body .col{display:contents}
+.garden-shell .formal-ui .d-body .o1{order:-2}.garden-shell .formal-ui .d-body .o2{order:-1}
+.garden-shell .formal-ui .sec{padding-top:14px;border-top:1px dashed var(--g-line)}
+.garden-shell .formal-ui .d-body>.sec:first-child,.garden-shell .formal-ui .d-body>.col:first-child>.sec:first-child{border-top:0;padding-top:0}
+.garden-shell .formal-ui .sec>h3{display:flex;align-items:baseline;gap:8px;margin:0 0 10px;font-size:13px;color:var(--g-leaf-3);font-weight:700;letter-spacing:.04em}
+.garden-shell .formal-ui .sec>h3 small{color:var(--g-text-3);font-weight:500;letter-spacing:0}
+.garden-shell .formal-ui .sec>h3 .sp{flex:1}
+.garden-shell .formal-ui .sec>h3 .garden-link{font-size:12.5px;letter-spacing:0}
+.garden-shell .formal-ui .desc{font-size:14px;line-height:1.75;color:var(--g-text-2);white-space:pre-line}
+/* permissions */
+.garden-shell .formal-ui .perm-head{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:18px;background:#fff;border:1px solid var(--g-line)}
+.garden-shell .formal-ui .perm-head.high{background:linear-gradient(135deg,#fff7ed,#fff);border-color:#fed7aa}
+.garden-shell .formal-ui .perm-head.mid{background:linear-gradient(135deg,#f0f9ff,#fff);border-color:#bae6fd}
+.garden-shell .formal-ui .perm-head .garden-pot{width:46px;height:46px}
+.garden-shell .formal-ui .perm-head.high .garden-pot{background:#ffedd5;color:#c2410c}.garden-shell .formal-ui .perm-head.mid .garden-pot{background:#e0f2fe;color:#0369a1}
+.garden-shell .formal-ui .perm-head h4{font-size:15px;color:var(--g-text)}
+.garden-shell .formal-ui .perm-head p{font-size:12.5px;color:var(--g-text-3);margin-top:2px}
+.garden-shell .formal-ui .perm-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.garden-shell .formal-ui .perm-chip{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 11px;border-radius:14px;font-size:12.5px;font-weight:600}
+.garden-shell .formal-ui .perm-chip.high{background:#ffedd5;color:#9a3412}.garden-shell .formal-ui .perm-chip.mid{background:#e0f2fe;color:#075985}
+.garden-shell .formal-ui .caps{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.garden-shell .formal-ui .cap{display:grid;grid-template-columns:36px 1fr auto;gap:12px;align-items:center;padding:9px 12px 9px 9px;border-radius:16px;background:#fff;border:1px solid #edf5ef}
+.garden-shell .formal-ui .cap .garden-pot{width:36px;height:36px}
+.garden-shell .formal-ui .cap.high .garden-pot{background:#ffedd5;color:#c2410c}.garden-shell .formal-ui .cap.mid .garden-pot{background:#e0f2fe;color:#0369a1}
+.garden-shell .formal-ui .cap b{font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.garden-shell .formal-ui .cap b code{font:11.5px var(--mono);color:var(--g-text-3);font-weight:400}
+.garden-shell .formal-ui .cap p{font-size:12.5px;color:var(--g-text-3);margin-top:1px}
+.garden-shell .formal-ui .cap.added{background:linear-gradient(90deg,#fff7ed,#fff);border-color:#fed7aa}
+.garden-shell .formal-ui .trust{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+.garden-shell .formal-ui .trust>div{padding:9px 12px;border-radius:16px;background:#f6f8f6;min-width:0}
+.garden-shell .formal-ui .trust small{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--g-text-3)}
+.garden-shell .formal-ui .trust b{display:block;margin-top:2px;font-size:14px}
+.garden-shell .formal-ui .trust span{display:block;font-size:12px;color:var(--g-text-3)}
+.garden-shell .formal-ui .trust .ok{background:#f0fdf4}.garden-shell .formal-ui .trust .ok b{color:var(--g-leaf-3)}
+.garden-shell .formal-ui .trust .wait{background:#fffbeb}.garden-shell .formal-ui .trust .wait b{color:#a16207}
+/* lists in detail */
+.garden-shell .formal-ui .lst{display:flex;flex-direction:column;gap:6px}
+.garden-shell .formal-ui .li{display:flex;align-items:center;gap:10px;padding:8px 12px 8px 8px;border-radius:16px;background:#fff;border:1px solid #edf5ef;font-size:13.5px}
+.garden-shell .formal-ui .li .garden-pot{width:32px;height:32px;font-size:11px}
+.garden-shell .formal-ui .li .ln{flex:1;min-width:0}
+.garden-shell .formal-ui .li .ln b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.garden-shell .formal-ui .li .ln span{display:block;font-size:12px;color:var(--g-text-3)}
+.garden-shell .formal-ui .li.miss{border:1.5px dashed #fca5a5;background:#fff}
+.garden-shell .formal-ui .vinegraph{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:14px;border-radius:18px;background:var(--g-mint)}
+.garden-shell .formal-ui .vnode{padding:6px 14px;border-radius:16px 4px 16px 4px;background:#fff;border:1px solid var(--g-line);font-size:13px;font-weight:600;max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.garden-shell .formal-ui .vnode.me{background:linear-gradient(90deg,#22c55e,#10b981);color:#fff;border:0}
+.garden-shell .formal-ui .vnode.miss{border:1.5px dashed #fca5a5;color:var(--g-rose)}
+.garden-shell .formal-ui .vcol{display:flex;flex-direction:column;gap:6px;align-items:center}
+.garden-shell .formal-ui .kv{width:100%;border-collapse:separate;border-spacing:0 6px;font-size:13.5px}
+.garden-shell .formal-ui .kv td{padding:0 6px}
+.garden-shell .formal-ui .kv td:first-child{font:12.5px var(--mono);color:var(--g-text-2);width:42%}
+.garden-shell .formal-ui .kv input{width:100%;height:34px;border:1px solid var(--g-line);border-radius:14px;padding:0 12px;background:#fff;font:12.5px var(--mono)}
+.garden-shell .formal-ui .kv .ty{font-size:11.5px;color:var(--g-text-3);white-space:nowrap}
+.garden-shell .formal-ui .garden-tree{border-radius:16px;background:var(--g-mint);border:1px dashed var(--g-line-2);padding:8px 14px;font:12.5px/2 var(--mono);color:var(--g-text-2);overflow:auto}
+.garden-shell .formal-ui .garden-tree div{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.garden-shell .formal-ui .garden-tree .in1{padding-left:18px}
+.garden-shell .formal-ui .garden-tree .tg{font-family:var(--font-ui);height:20px;font-size:11px}
+.garden-shell .formal-ui .path{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:14px;background:#f6f8f6;font-size:13px}
+.garden-shell .formal-ui .path .pk{width:72px;flex:none;color:var(--g-text-3);font-size:12.5px}
+.garden-shell .formal-ui .path code{flex:1;min-width:0;font:12px var(--mono);color:var(--g-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.garden-shell .formal-ui .timeline{display:flex;flex-direction:column;padding-left:6px}
+.garden-shell .formal-ui .timeline .ev{position:relative;padding:6px 0 10px 22px;border-left:2px solid #dcfce7;font-size:13px;color:var(--g-text-2)}
+.garden-shell .formal-ui .timeline .ev::before{content:"";position:absolute;left:-7px;top:9px;width:12px;height:12px;border-radius:50% 0 50% 50%;transform:rotate(-45deg);background:var(--g-leaf)}
+.garden-shell .formal-ui .timeline .ev.warn::before{background:var(--g-sun)}
+.garden-shell .formal-ui .timeline .ev time{display:block;font-size:12px;color:var(--g-text-3)}
+.garden-shell .formal-ui .logline{font:12px/1.75 var(--mono);background:var(--g-paper);border:1px solid #ece3c8;border-radius:6px 16px 16px 16px;padding:8px 12px;color:#33413a;white-space:pre-wrap;word-break:break-all}
+
+/* change basket, laid out as a bar along the bottom */
+.garden-shell .formal-ui .basket-bar{flex:none;position:relative;display:flex;align-items:center;gap:14px;margin-top:14px;min-height:64px;padding:10px 12px 10px 12px;border-radius:24px;background:rgba(255,255,255,.82);border:1px solid var(--g-line);box-shadow:var(--g-sh)}
+.garden-shell .formal-ui .basket-bar.dirty{border-radius:28px 28px 28px 10px;background:linear-gradient(170deg,#fffbeb,#fff);border-color:#fde68a;box-shadow:0 18px 28px -14px rgba(217,119,6,.45)}
+.garden-shell .formal-ui .basket-bar.bounce{animation:garden-bounce .5s cubic-bezier(.34,1.8,.5,1)}
+.garden-shell .formal-ui .basket-icon{width:42px;height:42px;flex:none;border-radius:50% 50% 50% 12px;background:linear-gradient(140deg,#dcfce7,#86efac);display:grid;place-items:center;color:var(--g-ink)}
+.garden-shell .formal-ui .basket-bar.dirty .basket-icon{background:linear-gradient(140deg,#fde68a,var(--g-sun));color:var(--g-sun-ink)}
+.garden-shell .formal-ui .basket-head b{display:block;font-size:15px;color:var(--g-ink);white-space:nowrap}
+.garden-shell .formal-ui .basket-bar.dirty .basket-head b{color:var(--g-sun-ink)}
+.garden-shell .formal-ui .basket-head small{display:block;font-size:12.5px;color:var(--g-text-3);white-space:nowrap}
+.garden-shell .formal-ui .basket-bar.dirty .basket-head small{color:#a16207}
+.garden-shell .formal-ui .basket-list{flex:1;min-width:0;display:flex;gap:6px;overflow:hidden;align-items:center;flex-wrap:nowrap}
+.garden-shell .formal-ui .basket-list>span{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px 0 6px;border-radius:14px;background:#fff;border:1px solid #fef3c7;font-size:13px;white-space:nowrap;flex:none;animation:garden-fade-up .35s var(--g-ease)}
+.garden-shell .formal-ui .basket-list .v{font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:10px}
+.garden-shell .formal-ui .basket-list .v.on{background:#dcfce7;color:var(--g-leaf-3)}.garden-shell .formal-ui .basket-list .v.off{background:#f1f5f2;color:var(--g-text-3)}.garden-shell .formal-ui .basket-list .v.ord{background:#e0f2fe;color:#0369a1}
+.garden-shell .formal-ui .basket-pills{display:flex;gap:6px;flex:none}
+.garden-shell .formal-ui .basket-pills button{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px;border-radius:15px;border:0;font-size:12.5px;font-weight:600}
+.garden-shell .formal-ui .bp-bad{background:#fee2e2;color:var(--g-rose)}.garden-shell .formal-ui .bp-pend{background:#fef3c7;color:#a16207}.garden-shell .formal-ui .bp-off{background:#f1f5f2;color:var(--g-text-3)}.garden-shell .formal-ui .bp-on{background:#dcfce7;color:var(--g-leaf-3)}
+.garden-shell .formal-ui .basket-actions{display:flex;gap:8px;align-items:center;flex:none;margin-left:auto}
+.garden-shell .formal-ui .garden-flyleaf{position:fixed;z-index:200;width:22px;height:22px;pointer-events:none;color:var(--g-leaf-2)}
+
+/* ---------- workshop ---------- */
+.garden-shell .formal-ui .ws-howto{flex:none;display:flex;align-items:center;gap:18px;padding:16px 22px;margin-bottom:12px}
+.garden-shell .formal-ui .ws-howto h2{font-size:16px;color:var(--g-ink)}
+.garden-shell .formal-ui .ws-howto p{font-size:13.5px;color:var(--g-text-3);margin-top:3px}
+.garden-shell .formal-ui .ws-howto details{margin-top:6px;font-size:13.5px;color:var(--g-leaf-3);font-weight:600}
+.garden-shell .formal-ui .ws-howto details p{font-weight:400}
+.garden-shell .formal-ui .ws-howto .grow{flex:1;min-width:0}
+.garden-shell .formal-ui .ws-toolbar{flex:none;display:flex;align-items:center;gap:12px;margin:0 -12px 12px;padding:10px 12px;background:rgba(240,253,244,.9);border-radius:0 0 22px 22px;flex-wrap:wrap}
+.garden-shell .formal-ui .ws-toolbar .garden-search{flex:1 1 280px;max-width:480px;height:42px}
+.garden-shell .formal-ui .ws-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.garden-shell .formal-ui .ws-card{border-radius:24px;overflow:hidden;background:rgba(255,255,255,.92);border:1px solid var(--g-line);box-shadow:var(--g-sh);cursor:pointer;display:flex;flex-direction:column;transition:box-shadow .4s var(--g-ease),transform .45s var(--g-ease)}
+.garden-shell .formal-ui .ws-card:hover{box-shadow:var(--g-sh-lg);transform:translateY(-2px) rotate(-.4deg)}
+.garden-shell .formal-ui .ws-cover{position:relative;height:150px}
+.garden-shell .formal-ui .ws-cover .tl{position:absolute;left:10px;top:10px}.garden-shell .formal-ui .ws-cover .tr{position:absolute;right:10px;top:10px}
+.garden-shell .formal-ui .ws-cover .bl{position:absolute;left:10px;bottom:10px}
+.garden-shell .formal-ui .ws-body{padding:12px 16px 16px}
+.garden-shell .formal-ui .ws-body b{display:block;font-size:16px;color:var(--g-text);line-height:1.35}
+.garden-shell .formal-ui .ws-body small{display:block;font-size:13px;color:var(--g-text-3);margin-top:2px}
+.garden-shell .formal-ui .ws-body p{font-size:13.5px;color:var(--g-text-2);margin-top:8px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.garden-shell .formal-ui .ws-detail-hero{display:grid;grid-template-columns:minmax(260px,420px) 1fr;gap:26px;align-items:center;padding:20px}
+.garden-shell .formal-ui .ws-detail-hero .ws-cover{height:230px;border-radius:22px;overflow:hidden;box-shadow:0 18px 26px -16px rgba(34,197,94,.55)}
+.garden-shell .formal-ui .ws-detail-hero h1{font-size:28px;font-weight:800;margin:10px 0 6px}
+.garden-shell .formal-ui .ws-detail-hero .stats{grid-template-columns:repeat(4,auto);justify-content:start;gap:10px}
+.garden-shell .formal-ui .ws-detail-hero .stat{padding:10px 16px}
+.garden-shell .formal-ui .ws-cols{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;margin-top:16px;align-items:start}
+.garden-shell .formal-ui .quote{border-left:4px solid var(--g-leaf-2);padding:2px 0 2px 14px;font-weight:600;margin:6px 0 12px}
+.garden-shell .formal-ui .queue-card{display:flex;align-items:center;gap:12px;font-size:13.5px}
+.garden-shell .formal-ui .queue-card .garden-solar{flex:1}
+
+/* ---------- profiles (as shipped) ---------- */
+.garden-shell .formal-ui .pf{flex:1;min-height:0;display:grid;grid-template-columns:250px 1fr;gap:20px}
+.garden-shell .formal-ui .pf-side{display:flex;flex-direction:column;gap:10px}
+.garden-shell .formal-ui .seed{display:flex;align-items:center;gap:12px;padding:10px 14px 10px 12px;border-radius:18px;border:1px solid var(--g-line);background:rgba(255,255,255,.8);cursor:pointer;position:relative;text-align:left}
+.garden-shell .formal-ui .seed:hover{border-color:var(--g-leaf)}
+.garden-shell .formal-ui .seed.on{background:linear-gradient(135deg,#fffbeb,#fef3c7);border-color:#fde68a;box-shadow:0 8px 14px -8px rgba(245,158,11,.5)}
+.garden-shell .formal-ui .seed.on::after{content:"";position:absolute;right:-1px;top:12px;bottom:12px;width:4px;border-radius:4px;background:var(--g-sun-2)}
+.garden-shell .formal-ui .seed .pk{width:36px;height:38px;flex:none;border-radius:6px 6px 10px 10px;background:linear-gradient(180deg,#fde68a 0 18%,#fffbeb 18%);border:1px solid #fde68a;display:grid;place-items:center;color:var(--g-leaf-3)}
+.garden-shell .formal-ui .seed b{display:block;font-size:14px;color:var(--g-sun-ink)}
+.garden-shell .formal-ui .seed:not(.on) b{color:var(--g-text)}
+.garden-shell .formal-ui .seed small{display:block;font-size:12px;color:var(--g-text-3)}
+.garden-shell .formal-ui .seed-new{height:46px;border-radius:18px;border:1.5px dashed var(--g-line-2);background:transparent;color:var(--g-leaf-3);font-weight:700}
+.garden-shell .formal-ui .pf-main{display:flex;flex-direction:column;min-height:0;overflow:hidden;padding:18px 22px}
+.garden-shell .formal-ui .pf-head{display:flex;align-items:flex-start;gap:10px}
+.garden-shell .formal-ui .pf-head h2{font-size:22px;font-weight:800}
+.garden-shell .formal-ui .pf-head .meta{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13.5px;color:var(--g-text-3)}
+.garden-shell .formal-ui .pf-head .sp{flex:1}
+.garden-shell .formal-ui .pf-cols{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.garden-shell .formal-ui .pf-cols .bed .bed-list{padding-top:0}
+.garden-shell .formal-ui .menu{position:fixed;z-index:60;min-width:220px;padding:8px;border-radius:20px;background:#fff;border:1px solid var(--g-line);box-shadow:var(--g-sh-lg);display:none}
+.garden-shell .formal-ui .menu.on{display:block;animation:garden-fade-up .25s var(--g-ease)}
+.garden-shell .formal-ui .menu button{display:flex;align-items:flex-start;gap:9px;width:100%;padding:9px 12px;border:0;border-radius:12px;background:none;text-align:left;font-size:14px;color:var(--g-text)}
+.garden-shell .formal-ui .menu button:hover{background:var(--g-mint)}
+.garden-shell .formal-ui .menu button small{display:block;font-size:12px;color:var(--g-text-3)}
+.garden-shell .formal-ui .menu button.danger{color:var(--g-rose)}
+.garden-shell .formal-ui .menu hr{border:0;border-top:1px solid #e3f5e9;margin:4px 6px}
+.garden-shell .formal-ui .menu h4{font-size:12.5px;color:var(--g-text-3);padding:6px 12px 4px;font-weight:600}
+
+/* ---------- bottom sheet ---------- */
+.garden-shell .formal-ui .veil{position:fixed;inset:0;z-index:70;display:none;background:rgba(20,70,45,.2);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.garden-shell .formal-ui .veil.on{display:block}
+.garden-shell .formal-ui .sheet{position:fixed;z-index:71;left:0;right:0;bottom:0;margin:0 auto;width:min(760px,94vw);max-height:86vh;display:flex;flex-direction:column;border-radius:34px 34px 0 0;border:1px solid var(--g-line);border-bottom:0;background:#fff;color:var(--g-text);box-shadow:0 -20px 40px -20px rgba(34,197,94,.35);animation:garden-sheet-up .55s cubic-bezier(.34,1.3,.64,1)}
+.garden-shell .formal-ui .sheet.wide{width:min(1180px,96vw);max-height:90vh}
+.garden-shell .formal-ui .sheet::before{content:"";display:block;flex:none;width:44px;height:5px;border-radius:3px;background:#d1e7d9;margin:10px auto 0}
+.garden-shell .formal-ui .sh-head{flex:none;display:flex;align-items:center;gap:12px;padding:12px 22px 14px;border-bottom:1px solid #dcfce7}
+.garden-shell .formal-ui .sh-head h2{font-size:19px;font-weight:800;color:var(--g-ink)}
+.garden-shell .formal-ui .sh-head p{font-size:13px;color:var(--g-text-3);margin-top:2px}
+.garden-shell .formal-ui .sh-head .x{margin-left:auto;width:34px;height:34px;border-radius:50%;border:1px solid var(--g-line);background:#fff;color:var(--g-text-2);display:grid;place-items:center;flex:none}
+.garden-shell .formal-ui .sh-head .x:hover{border-color:var(--g-leaf);background:var(--g-mint)}
+.garden-shell .formal-ui .sh-body{flex:1;min-height:0;overflow:auto;padding:16px 22px;display:flex;flex-direction:column;gap:14px;font-size:14px}
+.garden-shell .formal-ui .sh-foot{flex:none;display:flex;align-items:center;gap:10px;padding:12px 22px 16px;border-top:1px solid #dcfce7}
+.garden-shell .formal-ui .sh-foot .sp{flex:1}
+.garden-shell .formal-ui .sh-foot .hint{font-size:12.5px;color:var(--g-text-3)}
+.garden-shell .formal-ui .chg{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px dashed #e3f5e9;font-size:14px}
+.garden-shell .formal-ui .chg:first-child{border-top:0}
+.garden-shell .formal-ui .steps{display:flex;flex-direction:column;gap:4px}
+.garden-shell .formal-ui .step{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:16px;font-size:14px;color:var(--g-text-3)}
+.garden-shell .formal-ui .step .si{width:26px;height:26px;border-radius:50% 0 50% 50%;transform:rotate(-45deg);display:grid;place-items:center;flex:none;background:#f1f5f2}
+.garden-shell .formal-ui .step .si>*{transform:rotate(45deg)}
+.garden-shell .formal-ui .step.doing{color:var(--g-text);background:var(--g-mint)}
+.garden-shell .formal-ui .step.doing .si{background:var(--g-leaf);animation:garden-spin 1.4s linear infinite}
+.garden-shell .formal-ui .step.done{color:var(--g-text-2)}.garden-shell .formal-ui .step.done .si{background:linear-gradient(140deg,var(--g-leaf),var(--g-leaf-2));color:#fff}
+.garden-shell .formal-ui .step.wait{color:var(--g-sun-ink);background:#fffbeb}.garden-shell .formal-ui .step.wait .si{background:var(--g-sun);color:var(--g-sun-ink)}
+.garden-shell .formal-ui .step small{margin-left:auto;font-size:12px;color:var(--g-text-3)}
+.garden-shell .formal-ui .result{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.garden-shell .formal-ui .inst-actions{display:flex;flex-wrap:wrap;gap:8px}
+.garden-shell .formal-ui .inst-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #e3f5e9}
+.garden-shell .formal-ui .dropzone{padding:30px;border-radius:24px;border:2px dashed var(--g-line-2);background:var(--g-mint);text-align:center;color:var(--g-text-3)}
+
+/* ---------- responsive ---------- */
+@media (max-width:1440px){.garden-shell .formal-ui .sun-meta{display:none}}
+@media (max-width:1320px){.garden-shell .formal-ui .beds{grid-template-columns:minmax(240px,.9fr) minmax(300px,1.1fr) minmax(330px,1.05fr)}.garden-shell .formal-ui .sign-text>span{max-width:130px}.garden-shell .formal-ui .basket-list{display:none}}
+@media (max-width:1240px){.garden-shell .formal-ui .canopy-nav>button{padding:0 12px}.garden-shell .formal-ui .canopy-nav>button svg{display:none}}
+@media (max-width:1120px){
+  .garden-shell .formal-ui .beds{grid-template-columns:minmax(230px,1fr) minmax(290px,1.25fr)}
+  .garden-shell .formal-ui .detail{position:absolute;right:0;top:0;bottom:0;width:min(460px,92%);z-index:20;box-shadow:var(--g-sh-lg);transform:translateX(110%);transition:transform .35s var(--g-ease)}
+  .garden-shell .formal-ui .detail.open{transform:none}
+  .garden-shell .formal-ui .detail:not(.open){visibility:hidden;pointer-events:none}
+  .garden-shell .formal-ui .beds{position:relative}
+  .garden-shell .formal-ui .lg{grid-template-columns:1fr}.garden-shell .formal-ui .lg .conv{display:none}
+  .garden-shell .formal-ui .ws-cols{grid-template-columns:1fr}
+  .garden-shell .formal-ui .garden-cards{grid-template-columns:1fr}
+}
+@media (max-width:1060px){.garden-shell .formal-ui .canopy-nav>button{padding:0 10px;font-size:14px}.garden-shell .formal-ui .sign-text>span{max-width:96px}.garden-shell .formal-ui .basket-head small{display:none}}
+@media (prefers-reduced-motion:reduce){.garden-shell .formal-ui *,.garden-shell .formal-ui *::before,.garden-shell .formal-ui *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+.garden-shell .formal-ui { --mono:Consolas,"Cascadia Mono",monospace; flex:1; min-height:0; display:flex; flex-direction:column; }
+
+/* Native component roots and inherited garden resets. No demo state or visual redesign. */
+.garden-shell .formal-ui .page { width:100%; }
+.garden-shell .formal-ui .garden-search { flex:1; max-width:none; min-width:0; }
+.garden-shell .formal-ui .bed-tools .garden-search { flex-basis:0; }
+.garden-shell .formal-ui .garden-search input { min-height:0; font-size:14px; }
+.garden-shell .formal-ui .garden-btn { min-height:0; }
+.garden-shell .formal-ui .garden-btn.sm { min-height:32px; }
+.garden-shell .formal-ui .garden-btn.xs { min-height:28px; }
+.garden-shell .formal-ui .bed-head h2 { margin:0; }
+.garden-shell .formal-ui .basket-head { margin:0; display:block; }
+.garden-shell .formal-ui .basket-list { margin:0; padding:0; max-height:none; }
+.garden-shell .formal-ui .cover { background:linear-gradient(135deg,#dcfce7,#fef9c3); }
+.garden-shell .formal-ui .cover img { width:100%; height:100%; object-fit:cover; }
+.garden-shell .formal-ui .cover > svg { width:40px;height:40px;opacity:.8; }
+.garden-shell .formal-ui .cover .ct { right:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.garden-shell .formal-ui .muted { color:var(--g-text-3);font-size:13.5px;line-height:1.6; }
+.garden-shell .formal-ui .ws-card { padding:0;text-align:left;color:var(--g-text);font:inherit;min-width:0; }
+.garden-shell .formal-ui .ws-cover { flex:none;width:100%; }
+.garden-shell .formal-ui .workshop-pages { display:flex;gap:16px;align-items:center;justify-content:center;margin-top:20px; }
+.garden-shell .formal-ui .native-sheet { overflow:hidden; }
+.garden-shell .formal-ui .native-sheet.wide { width:min(1180px,96vw);max-height:90vh; }
+.garden-shell .formal-ui .expanded-grid { display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start; }
+.garden-shell .formal-ui .expanded-grid .growth { margin:0; }
+.garden-shell .formal-ui .expanded-grid .o1,.garden-shell .formal-ui .expanded-grid .o2 { order:initial; }
+.garden-shell .formal-ui .rule-editor { display:flex;align-items:center;gap:8px;flex-wrap:wrap; }
+.garden-shell .formal-ui .rule-editor select { max-width:250px;height:36px;padding:0 12px; }
+.garden-shell .formal-ui .pf-list { display:flex;flex-direction:column;gap:10px;overflow:auto;min-height:0; }
+.garden-shell .formal-ui .pf-side { min-height:0; }
+.garden-shell .formal-ui .pf-menu { position:absolute;right:0;left:auto;top:40px; }
+.garden-shell .formal-ui .pf-main { overflow:visible; }
+.garden-shell .formal-ui .profile-name { display:flex;gap:16px;align-items:center; }
+.garden-shell .formal-ui .profile-name input { flex:1;height:40px;padding:0 14px; }
+.garden-shell .formal-ui .manifest-text { width:100%;min-height:320px;padding:14px;font:13px/1.6 var(--mono);resize:vertical; }
+.garden-shell .native-identity { margin:16px 0; }
+.garden-shell .diagnostic-workspace .runtime-reconcile { display:flex;align-items:center;gap:8px;margin:0 16px 10px;padding:9px 12px;border-radius:16px;background:#fff;border:1px dashed #e8dfc6;font-size:13px;color:var(--g-text-2); }
+.garden-shell .diagnostic-workspace .runtime-reconcile b { color:var(--g-sun-ink); }
+.garden-shell .diagnostic-workspace .runtime-reconcile button { margin-left:auto;flex:none;border:0;background:none;font-size:12px; }
+@media(max-width:1120px){.garden-shell .formal-ui .expanded-grid {grid-template-columns:1fr}.garden-shell .formal-ui .basket-bar {gap:8px;flex-wrap:wrap}.garden-shell .formal-ui .basket-actions{gap:4px}}
+
+.garden-shell .formal-ui .result .trust { display:block;min-width:0; }
+.garden-shell .formal-ui .result .trust > div { height:100%;overflow-wrap:anywhere; }
+.garden-shell .formal-ui .expanded-grid > .d-body { min-width:0; }
+.garden-shell .formal-ui .garden-facts dd code { display:inline; }
+
+.garden-shell .formal-ui .ws-card { align-items:stretch;white-space:normal; }
+.garden-shell .formal-ui .ws-card-main{display:flex;flex-direction:column;flex:1;width:100%;padding:0;border:0;background:transparent;text-align:left;color:inherit;font:inherit;white-space:normal;cursor:pointer}
+.garden-shell .formal-ui .ws-card-actions{display:flex;align-items:center;gap:8px;padding:0 16px 16px;flex-wrap:wrap}
+.garden-shell .formal-ui .ws-card-actions .garden-link{margin-left:auto}
+.garden-shell .formal-ui .workshop-detail-nav{display:flex;align-items:center;gap:16px;margin-bottom:10px}
+.garden-shell .formal-ui .workshop-detail-nav>button:last-child{margin-left:auto}
+.garden-shell .formal-ui .page-size{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--g-text-2)}
+.garden-shell .formal-ui .page-size select{border:1px solid var(--g-line);border-radius:14px;background:white;padding:8px;color:var(--g-ink)}
+.garden-shell .formal-ui .detail-skeleton{display:grid;gap:12px;padding:12px 0}
+.garden-shell .formal-ui .detail-skeleton i{height:15px;border-radius:8px;background:rgba(34,197,94,.08)}
+.garden-shell .formal-ui .detail-skeleton i:last-child{width:65%}
+.garden-shell .formal-ui .ws-body { width:100%;min-width:0; }
+.garden-shell .formal-ui .cover { overflow:hidden; }
+.garden-shell .formal-ui .cover img { position:absolute;inset:0;width:100%;height:100%;min-height:0;object-fit:cover; }
+
+/* Covers preserve every edge of the original artwork; empty/failed media never collapse a card. */
+.garden-shell .formal-ui .native-cover { padding:0;border:0;border-radius:inherit;background:linear-gradient(135deg,#effcf4,#e6f2eb);min-width:0; }
+.garden-shell .formal-ui .native-cover img { object-fit:contain;opacity:0;transition:opacity .2s; }
+.garden-shell .formal-ui .native-cover img.ready { opacity:1; }
+.garden-shell .formal-ui .cover-placeholder { display:flex;align-items:center;justify-content:center;flex-direction:column;gap:7px;color:var(--g-text-3); }
+.garden-shell .formal-ui .cover-placeholder small { font-size:12px; }
+.garden-shell .formal-ui .cover-zoom { position:absolute;left:10px;bottom:10px;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#ffffffd9;color:var(--g-ink); }
+.garden-shell .formal-ui .native-cover.zoomable { cursor:zoom-in; }
+.garden-shell .formal-ui .d-hero { height:auto;aspect-ratio:16/9;flex:none; }
+.garden-shell .formal-ui .ws-cover { height:auto;aspect-ratio:16/9; }
+.garden-shell .formal-ui .ws-detail-hero .ws-cover { height:auto;aspect-ratio:16/9; }
+.garden-shell .formal-ui .full-cover { position:relative;min-height:220px;height:min(66vh,640px);width:100%;border-radius:22px;overflow:hidden; }
+.garden-shell .formal-ui .expanded-cover { position:relative;aspect-ratio:16/9;max-height:360px;flex:none;border-radius:22px;overflow:hidden; }
+.garden-shell .formal-ui .translation-bar { display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:12px 0; }
+.garden-shell .formal-ui .translation-note { margin:12px 0;padding:10px 14px;border:1px solid #fde68a;background:#fffbeb;border-radius:14px;color:var(--g-sun-ink);font-size:13px; }
+.garden-shell .formal-ui .workshop-update-bar {display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:10px 16px;background:#ffffffb8;border:1px solid var(--g-line);border-radius:18px;font-size:13px;}
+.garden-shell .formal-ui .workshop-update-bar > span:first-child {display:flex;align-items:center;gap:7px;font-weight:700;}
+.garden-shell .formal-ui .workshop-update-bar .muted {max-width:440px;font-size:12px;}
+.garden-shell .formal-ui .workshop-update-bar .sp {flex:1;}
+.garden-shell .formal-ui .download-status {display:block;font-size:11.5px;line-height:1.3;color:var(--g-text-3);}
+.garden-shell .formal-ui .download-status.pend {color:var(--g-sun-ink);font-weight:600;}
+.garden-shell .formal-ui .download-status.sky {color:#0369a1;}
+.garden-shell .formal-ui .workshop-activity {flex:none;padding:12px 16px;margin:0 0 12px;max-height:180px;overflow:auto;font-size:13px;}
+.garden-shell .formal-ui .workshop-activity summary {cursor:pointer;color:var(--g-ink);font-weight:700;}
+.garden-shell .formal-ui .workshop-operation {border-top:1px solid var(--g-line);padding-top:10px;margin-top:10px;}
+.garden-shell .formal-ui .download-line {display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0;}
+.garden-shell .formal-ui .download-line > span:first-child {flex:1;min-width:180px;}
+.garden-shell .formal-ui .operation-error {flex-basis:100%;color:var(--g-rose);}
+.garden-shell .formal-ui .ws-cover .bl {right:10px;}
+.garden-shell .formal-ui .ws-cover .bl .tg {max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.garden-shell .formal-ui .ws-detail-hero .d-actions {flex-wrap:wrap;}

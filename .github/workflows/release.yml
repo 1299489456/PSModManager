@@ -82,17 +82,13 @@ jobs:
         run: |
           npm --prefix frontend run build
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          .venv/Scripts/python.exe -m pytest tests/unit/test_package_delivery.py tests/unit/test_release_workflow.py tests/unit/test_app_identity.py tests/unit/test_contracts.py -q
+          .venv/Scripts/python.exe -m pytest tests/unit/test_package_delivery.py tests/unit/test_release_workflow.py tests/unit/test_app_identity.py tests/unit/test_contracts.py tests/native_mods tests/workshop -q
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-          node --test frontend/src/app/bridge/client.test.js frontend/src/features/catalog/modWorkspaceRuntime.test.mjs
-          if ($LASTEXITCODE) { exit $LASTEXITCODE }
-      - name: Prepare verified public recovery resources
-        run: |
-          .venv/Scripts/python.exe tools/prepare_public_toolchain.py --download --output-dir .preview/public-toolchain
+          node --test frontend/src/app/bridge/client.test.js frontend/src/features/native/nativeWorkspaceRuntime.test.mjs frontend/src/features/native/nativeModel.test.mjs
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Build portable ZIP
         run: |
-          .venv/Scripts/python.exe pack_pyinstaller.py --public-release --offline-resources .preview/public-toolchain --output-root .preview/release
+          .venv/Scripts/python.exe pack_pyinstaller.py --public-release --output-root .preview/release
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Verify the actual portable directory and ZIP
         run: |

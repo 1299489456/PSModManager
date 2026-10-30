@@ -1,14 +1,15 @@
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { createBridge } from './bridge/client.js'
 import { terminalStates } from './bridge/reducer.js'
 import InstallationSelector from '../features/installations/InstallationSelector.vue'
-import ModWorkspace from '../features/catalog/ModWorkspace.vue'
-import { Sprout, FileText, Settings, FolderOpen, ShieldCheck, Layers, Globe } from 'lucide-vue-next'
-import ImportPanel from '../features/imports/ImportPanel.vue'
-import NexusPanel from '../features/online/NexusPanel.vue'
-import ProfilePanel from '../features/profiles/ProfilePanel.vue'
-import MelonLoaderPanel from '../features/installations/MelonLoaderPanel.vue'
+import ModWorkspace from '../features/native/NativeWorkspace.vue'
+import GardenSymbols from '../features/native/GardenSymbols.vue'
+import '../features/native/formal.css'
+import { Sprout, FileText, Settings, ShieldCheck, Layers, Globe } from 'lucide-vue-next'
+import WorkshopPanel from '../features/native/WorkshopPanel.vue'
+import ProfilePanel from '../features/native/NativeProfiles.vue'
+import { createWorkshopRuntime } from '../features/native/workshopRuntime.js'
 import GameLaunchButton from '../features/installations/GameLaunchButton.vue'
 import LogDiagnosticsWorkspace from '../features/ai/LogDiagnosticsWorkspace.vue'
 import WindowFrame from './WindowFrame.vue'
@@ -16,24 +17,26 @@ import AboutLicenses from './AboutLicenses.vue'
 import AboutUpdates from './AboutUpdates.vue'
 import appIcon from '../shared/branding/psmm-icon-256.png?inline'
 import StorageSettings from './StorageSettings.vue'
+import WorkshopSettings from './WorkshopSettings.vue'
+import AiProviderSettings from '../features/ai/AiProviderSettings.vue'
 import { reducedMotion } from '../features/catalog/gardenMotion.js'
 const workspaceTab = ref('mods')
 const aiOpened = ref(false)
-const nexusOpened = ref(false)
-const incomingNxm = ref([])
+const workshopOpened = ref(false)
+const workshopPanel = ref(null)
+const nativeSnapshot = ref(null)
 const importActive = ref(false)
-const inboxError = ref('')
 const infoTab = ref('overview')
+const aiRevision=ref(0)
+function openAiSettings(){infoTab.value='ai';workspaceTab.value='settings'}
 const workspaceBusy = ref(false)
+const profileBusy = ref(false)
 const modState = ref({ dirty: false, loaded: false, locked: false, changes: 0 })
 const profilePanel = ref(null)
-const importPanel = ref(null)
 const modManager = ref(null)
 const launcher = ref(null)
-const loaderPanel = ref(null)
 const nav = ref(null)
 const vine = ref(null)
-const lastImportedRelease = ref(null)
 const selectedInstallation = ref(null)
 const appInfo = ref(null)
 const storagePhase = ref('idle')
@@ -44,46 +47,30 @@ const task = ref(null)
 const checking = ref(false)
 const checkError = ref('')
 const bridge = createBridge({ transport: request => window.pywebview.api.dispatch(request) })
+const steamState = reactive({})
+const steam = createWorkshopRuntime(bridge,steamState,{canWrite:()=>modState.value.loaded&&nativeSnapshot.value?.runtime?.state==='stopped'&&nativeSnapshot.value?.runtime?.writable!==false&&!workspaceBusy.value&&!profileBusy.value,blockReason:()=>!modState.value.loaded?'模组清单尚未读取完成。':workspaceBusy.value||profileBusy.value?'正在保存或整理本地工作区，请等待完成。':nativeSnapshot.value?.runtime?.message||'本地写入保护尚未解除，请刷新状态并查看日志原因。',changed:()=>modManager.value?.refreshInventory()})
+watch(()=>selectedInstallation.value?.installation_id,id=>void steam.setInstallation(id))
 let taskWatch
 let watchedTaskId = null
 let disposed = false
 let bridgeTimeout
-let inboxTimer, inboxStarted = false
-async function pollNxm() {
-  if (disposed) return
-  try {
-    if (storageGated.value) return
-    const result = await bridge.request('nexus.inbox.list')
-    if (disposed) return
-    const previous = new Set(incomingNxm.value.map(item => item.id))
-    incomingNxm.value = result.items || []
-    inboxError.value = ''
-    if (incomingNxm.value.length) nexusOpened.value = true
-    if (!importActive.value && !workspaceBusy.value && incomingNxm.value.some(item => !previous.has(item.id))) go('nexus')
-  } catch { if (!disposed) inboxError.value = '官网链接接收暂时中断，正在重连。' }
-  finally { if (!disposed) inboxTimer = setTimeout(pollNxm, 1000) }
-}
 function go(tab) {
   // The info entry keeps its old toggle behaviour: pressing it again returns to the Mods.
   workspaceTab.value = tab === 'settings' && workspaceTab.value === 'settings' ? 'mods' : tab
 }
 function openDiagnostics() { aiOpened.value = true; workspaceTab.value = 'ai' }
-async function openProfileSource(source) {
-  workspaceTab.value = 'profiles'
+async function openWorkshop(query) {
+  workshopOpened.value = true; workspaceTab.value = 'workshop'
   await nextTick()
-  await profilePanel.value?.openSource(source)
+  if (typeof query === 'string') workshopPanel.value?.search(query)
 }
-function imported(result) {
-  lastImportedRelease.value = result?.release_id || null
-  void modManager.value?.reveal(lastImportedRelease.value)
-  void profilePanel.value?.refresh()
+async function revealMod(id, tab) {
+  workspaceTab.value = 'mods'; await nextTick(); await modManager.value?.reveal(id, tab)
 }
-async function showImported(result) {
-  workspaceTab.value = 'mods'
-  await nextTick()
-  await modManager.value?.reveal(result?.release_id || lastImportedRelease.value)
-}
-const saveBeforeLaunch = async () => modManager.value ? await modManager.value.save() : true
+async function openImport() { workspaceTab.value = 'mods'; await nextTick(); modManager.value?.importOpen() }
+async function applyProfile(ids) { workspaceTab.value = 'mods'; await nextTick(); modManager.value?.applyProfile(ids) }
+async function showRecovery() { workspaceTab.value = 'mods'; await nextTick(); modManager.value?.recovery() }
+const saveBeforeLaunch = async () => modManager.value ? await modManager.value.prepareLaunch() : false
 function placeVine(grow) {
   const active = nav.value?.querySelector(`[data-tab="${workspaceTab.value}"]`), line = vine.value
   if (!line) return
@@ -113,7 +100,6 @@ async function connect() {
     if (data?.name !== 'PSModManager' || !data.data_root) throw new Error('本地桌面返回的应用信息不完整。')
     appInfo.value = data
     error.value = ''
-    if (!inboxStarted) { inboxStarted = true; void pollNxm() }
     if (data.latest_check_task_id) attachTask(data.latest_check_task_id)
   } catch (cause) { error.value = cause instanceof Error ? cause.message : String(cause) }
 }
@@ -146,7 +132,7 @@ function cleanup() {
   window.removeEventListener('beforeunload', cleanup)
   window.removeEventListener('resize', resized)
   clearTimeout(bridgeTimeout)
-  clearTimeout(inboxTimer)
+  steam.dispose()
   void bridge.dispose()
 }
 onMounted(() => {
@@ -162,44 +148,40 @@ onUnmounted(cleanup)
 <template>
   <div class="garden-shell desktop-shell">
     <div class="garden-fronds" aria-hidden="true"></div>
-    <WindowFrame :bridge="bridge"/>
+    <WindowFrame :bridge="bridge"/><GardenSymbols/>
     <p class="sr-only" role="status">{{ status }}</p>
     <header v-show="!storageGated" class="canopy">
       <nav ref="nav" class="canopy-nav" aria-label="工作区">
         <button data-testid="workspace-mods" data-tab="mods" :aria-current="workspaceTab === 'mods' ? 'page' : undefined" @click="go('mods')"><Sprout :size="17" aria-hidden="true"/>模组<span v-if="modState.changes" class="canopy-count" :aria-label="`${modState.changes} 项未保存`">{{ modState.changes }}</span></button>
         <button data-testid="profile-open" data-tab="profiles" :disabled="!appInfo" :aria-current="workspaceTab === 'profiles' ? 'page' : undefined" @click="go('profiles')"><Layers :size="17" aria-hidden="true"/>方案</button>
-        <button data-testid="nexus-open" data-tab="nexus" :disabled="!appInfo" :aria-current="workspaceTab === 'nexus' ? 'page' : undefined" @click="nexusOpened = true; go('nexus')"><Globe :size="17" aria-hidden="true"/>Nexus</button>
+        <button data-testid="workshop-open" data-tab="workshop" :disabled="!appInfo" :aria-current="workspaceTab === 'workshop' ? 'page' : undefined" @click="openWorkshop()"><Globe :size="17" aria-hidden="true"/>创意工坊</button>
         <button data-testid="workspace-ai" data-tab="ai" :aria-current="workspaceTab === 'ai' ? 'page' : undefined" @click="openDiagnostics"><FileText :size="17" aria-hidden="true"/>日志</button>
         <button class="info-button" data-testid="workspace-settings" data-tab="settings" :disabled="!appInfo" :aria-current="workspaceTab === 'settings' ? 'page' : undefined" aria-label="设置" @click="go('settings')"><Settings :size="17" aria-hidden="true"/>设置</button>
         <span ref="vine" class="canopy-vine" aria-hidden="true"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M2 8 Q 14 2 26 8 T 50 8 T 74 8 T 98 8"/><ellipse cx="96" cy="5" rx="4" ry="2.4" transform="rotate(-30 96 5)"/></svg></span>
       </nav>
-      <div class="canopy-right" :inert="workspaceBusy || undefined">
-        <MelonLoaderPanel v-if="workspaceReady" ref="loaderPanel" :bridge="bridge" :installation="selectedInstallation"/>
-        <InstallationSelector v-if="workspaceReady" :bridge="bridge" @selected="selectedInstallation = $event"/>
+      <div class="canopy-right" :inert="workspaceBusy || profileBusy || steam.busy() || undefined">
+        <span v-if="modState.running" class="env-pill warn">游戏运行中 · 只读</span>
+        <InstallationSelector v-if="workspaceReady" :bridge="bridge" :identity="nativeSnapshot?.identity ? {...nativeSnapshot.identity, ...nativeSnapshot.paths} : null" @selected="selectedInstallation = $event"/>
       </div>
-      <GameLaunchButton v-if="workspaceReady" ref="launcher" class="canopy-launch" :bridge="bridge" :installation="selectedInstallation" :disabled="modState.locked || !modState.loaded" :before-launch="saveBeforeLaunch" :save-first="modState.dirty" :pending="modState.changes" @launch-checked="loaderPanel?.refresh()"/>
+      <GameLaunchButton v-if="workspaceReady" ref="launcher" class="canopy-launch" :bridge="bridge" :installation="selectedInstallation" :disabled="modState.locked || !modState.loaded || steam.busy()" :before-launch="saveBeforeLaunch" :save-first="modState.dirty" :pending="modState.changes" @launch-checked="modManager?.refresh()"/>
     </header>
     <div class="garden-bed">
-      <ModWorkspace v-if="workspaceReady" v-show="workspaceTab === 'mods'" ref="modManager" :active="workspaceTab === 'mods'" :bridge="bridge" :installation="selectedInstallation" @logs="openDiagnostics" @busy="workspaceBusy = $event" @state="modState = $event" @launch="launcher?.launch()">
-        <template #actions>
-          <ImportPanel ref="importPanel" :bridge="bridge" :installation="selectedInstallation" :workspace-dirty="modState.dirty" :can-add="Boolean(selectedInstallation)" @imported="imported" @show-library="showImported" @applied="modManager?.refresh()" @share-source="openProfileSource" @opened="workspaceTab = 'mods'" @active="importActive = $event"/>
-        </template>
-      </ModWorkspace>
-      <ProfilePanel v-if="workspaceReady" v-show="workspaceTab === 'profiles'" ref="profilePanel" :active="workspaceTab === 'profiles'" :bridge="bridge" :installation="selectedInstallation" :workspace-dirty="modState.dirty" :inert="workspaceBusy || undefined" @applied="modManager?.refresh()"/>
-      <NexusPanel v-if="workspaceReady && nexusOpened" v-show="workspaceTab === 'nexus'" :active="workspaceTab === 'nexus'" :bridge="bridge" :incoming="incomingNxm" :inbox-error="inboxError" :install-blocked="workspaceBusy || importActive" @downloaded="importPanel?.installSource($event)"/>
-      <LogDiagnosticsWorkspace v-if="workspaceReady && aiOpened" v-show="workspaceTab==='ai'" :active="workspaceTab==='ai'" :bridge="bridge" :installation="selectedInstallation" @mod-changed="modManager?.refresh()"/>
+      <ModWorkspace v-if="workspaceReady" v-show="workspaceTab === 'mods'" ref="modManager" :active="workspaceTab === 'mods'" :bridge="bridge" :steam="steam" :steam-state="steamState" :installation="selectedInstallation" @logs="openDiagnostics" @workshop="openWorkshop" @busy="workspaceBusy = $event" @state="modState = $event" @snapshot="nativeSnapshot = $event" @launch="launcher?.launch()"/>
+      <ProfilePanel v-if="workspaceReady" v-show="workspaceTab === 'profiles'" ref="profilePanel" :active="workspaceTab === 'profiles'" :bridge="bridge" :installation="selectedInstallation" :mods="nativeSnapshot?.mods || []" :current-order="nativeSnapshot?.enabled_ids || []" :current-rules="nativeSnapshot?.rules || []" :workspace-dirty="modState.dirty" :inert="workspaceBusy || undefined" @busy="profileBusy = $event" @apply="applyProfile" @reveal="revealMod" @recovery="showRecovery"/>
+      <WorkshopPanel v-if="workspaceReady && workshopOpened" v-show="workspaceTab === 'workshop'" ref="workshopPanel" :active="workspaceTab === 'workshop'" :bridge="bridge" :steam="steam" :steam-state="steamState" :installation="selectedInstallation" :mods="nativeSnapshot?.mods || []" @ai-settings="openAiSettings" @logs="openDiagnostics" :ai-revision="aiRevision" @import="openImport" @reveal="revealMod" @refresh-mods="modManager?.refreshInventory()"/>
+      <LogDiagnosticsWorkspace v-if="workspaceReady && aiOpened" v-show="workspaceTab === 'ai'" :active="workspaceTab === 'ai'" :bridge="bridge" :installation="selectedInstallation" :settings-revision="aiRevision" @settings="openAiSettings" @mod-changed="modManager?.refresh()" @reveal-mod="revealMod"/>
       <section v-if="appInfo" v-show="storageGated || workspaceTab === 'settings'" class="garden-settings app-info" :class="{ 'storage-gated': storageGated }" aria-label="设置">
-        <div v-if="!storageGated" class="garden-intro"><div><h1>设置</h1><p>PSMM v{{ appInfo.version }} · 数据位置、本地检查、更新记录与许可。AI 服务在“日志”页配置。</p></div></div>
+        <div v-if="!storageGated" class="garden-intro"><div><h1>设置</h1><p>PSMM v{{ appInfo.version }} · 数据位置、模组更新、AI 服务与应用信息。</p></div></div>
         <div v-if="!storageGated" class="garden-chips info-tabs" role="tablist" aria-label="应用信息">
           <button role="tab" data-testid="info-overview" :class="{ on: infoTab === 'overview' }" :aria-selected="infoTab === 'overview'" @click="infoTab = 'overview'">概览</button>
-          <button id="info-updates-tab" role="tab" data-testid="info-updates" aria-controls="info-updates-panel" :class="{ on: infoTab === 'updates' }" :aria-selected="infoTab === 'updates'" @click="infoTab = 'updates'">更新记录</button>
+          <button role="tab" data-testid="info-ai" :class="{on:infoTab==='ai'}" :aria-selected="infoTab==='ai'" @click="infoTab='ai'">AI 服务</button><button id="info-updates-tab" role="tab" data-testid="info-updates" aria-controls="info-updates-panel" :class="{ on: infoTab === 'updates' }" :aria-selected="infoTab === 'updates'" @click="infoTab = 'updates'">更新记录</button>
           <button role="tab" data-testid="info-licenses" :class="{ on: infoTab === 'licenses' }" :aria-selected="infoTab === 'licenses'" @click="infoTab = 'licenses'">许可与致谢</button>
         </div>
-        <AboutUpdates v-if="!storageGated && infoTab === 'updates'" :version="appInfo.version"/>
+        <AiProviderSettings v-if="!storageGated" v-show="infoTab==='ai'" :bridge="bridge" :active="workspaceTab==='settings'&&infoTab==='ai'" @changed="aiRevision++"/><AboutUpdates v-if="!storageGated && infoTab === 'updates'" :version="appInfo.version"/>
         <AboutLicenses v-if="!storageGated && infoTab === 'licenses'" :version="appInfo.version"/>
         <div v-show="storageGated || infoTab === 'overview'" class="garden-cards">
           <StorageSettings class="wide" :bridge="bridge" :first-run="appInfo.storage_first_run" :blocked="workspaceBusy || importActive || modState.dirty" @ready="connect" @state="storagePhase = $event.phase"/>
-          <article v-if="!storageGated" class="garden-card"><h2><ShieldCheck :size="18" aria-hidden="true"/>本地检查</h2><p>只读检查 PSMM 的数据记录，不改动游戏文件。</p>
+          <WorkshopSettings v-if="!storageGated" :bridge="bridge" :active="workspaceTab==='settings'&&infoTab==='overview'"/><article v-if="!storageGated" class="garden-card"><h2><ShieldCheck :size="18" aria-hidden="true"/>本地检查</h2><p>只读检查 PSMM 的数据记录，不改动游戏文件。</p>
             <div class="workspace-check"><button class="garden-btn" data-testid="workspace-check" :disabled="activeTask" @click="checkWorkspace">检查本地工作空间</button><button v-if="activeTask && task" class="garden-btn soft" data-testid="workspace-cancel" :disabled="task.state === 'cancelling'" @click="cancelCheck">取消检查</button></div>
             <div v-if="task" data-testid="workspace-progress" :data-task-id="task.task_id" :data-sequence="task.sequence" :data-state="task.state" role="status" class="check-progress"><span>{{ taskLabel }}</span><span v-if="task.total != null">{{ task.completed }} / {{ task.total }}</span><div v-if="!terminalStates.has(task.state)" class="garden-solar"><i :class="{ indeterminate: !task.total }" :style="{ width: task.total ? `${Math.round(task.completed / task.total * 100)}%` : '35%' }"></i></div></div>
             <p v-if="checkError" role="alert" class="check-error">{{ checkError }}</p></article>

@@ -1,0 +1,20 @@
+{
+  "fixture_kind": "Synthetic identities in the actual ProfileService.get/export and share-bundle field shapes; not user data",
+  "get": {
+    "profile_id": "10000000-0000-0000-0000-000000000001",
+    "name": "旧版方案",
+    "selections": [
+      {"release_id": "20000000-0000-0000-0000-000000000001", "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "selected": true, "version_raw": "0.46D", "source": {"kind": "user", "observed_at": null}, "group": null, "resolved": true, "display_name": "物品详情旧版"},
+      {"release_id": "20000000-0000-0000-0000-000000000002", "manifest_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "selected": false, "version_raw": null, "source": {"kind": "unknown", "observed_at": null}, "group": null, "resolved": false, "display_name": null}
+    ]
+  },
+  "export": {
+    "schema_version": 2,
+    "name": "旧版分享方案",
+    "groups": [],
+    "selections": [
+      {"release_id": "20000000-0000-0000-0000-000000000001", "manifest_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "selected": true, "version_raw": "0.46D", "source": {"kind": "user", "observed_at": null}, "group": null},
+      {"release_id": "20000000-0000-0000-0000-000000000002", "manifest_hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "selected": false, "version_raw": null, "source": {"kind": "unknown", "observed_at": null}, "group": null}
+    ]
+  }
+}

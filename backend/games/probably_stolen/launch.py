@@ -83,11 +83,14 @@ class LaunchService:
                     validated = True
                     root = Path(session.installation.canonical_root)
                     if self.prepare_launch is not None:
-                        from backend.loaders.melonloader.service import LoaderError
                         try:
                             self.prepare_launch(session)
-                        except LoaderError as exc:
-                            raise LaunchRejected(exc.code) from None
+                        except Exception as exc:
+                            # Optional host policy remains usable without importing
+                            # a retired loader into the formal-release launch graph.
+                            if isinstance(getattr(exc, 'code', None), str):
+                                raise LaunchRejected(exc.code) from None
+                            raise
                     executable = root / EXE
                     with pinned_chain(root) as chain, pinned_file(executable, execute=True) as image:
                         if file_identity(_information(image, False)) != session.process.exe_identity:

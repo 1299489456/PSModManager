@@ -11,7 +11,7 @@ export function createLogDiagnosticsRuntime(bridge, ai, aiState, state = {}) {
   const cache = new Map()
   Object.assign(state, { installationId: null, sources: [], selectedIds: [], includeContext: true, preview: null,
     loading: false, reading: false, error: '', activeSourceId: '', warnings: [],
-    pageReading: false, pages: [], pageIndex: 0, viewMode: 'original' })
+    pageReading: false, pages: [], pageIndex: 0, viewMode: 'original', reconciliation: null })
   const available = () => !disposed && !aiState.busy && !state.loading && !state.reading
   const payload = () => state.installationId ? { installation_id: state.installationId } : {}
 
@@ -35,7 +35,7 @@ export function createLogDiagnosticsRuntime(bridge, ai, aiState, state = {}) {
       if (!result.logs.some(row => row.source_id === state.activeSourceId)) {
         const selected = source => result.logs.some(row => row.source_id === source.source_id)
         const latest = state.installationId && state.sources.find(row => row.status === 'available'
-          && row.kind === 'game' && row.relative_path === 'MelonLoader/Latest.log' && selected(row))
+          && row.kind === 'game' && row.relative_path === 'Player.log' && selected(row))
         const manager = state.sources.find(row => row.status === 'available' && row.kind === 'manager' && selected(row))
         state.activeSourceId = latest?.source_id || manager?.source_id || result.logs[0]?.source_id || ''
       }
@@ -57,7 +57,7 @@ export function createLogDiagnosticsRuntime(bridge, ai, aiState, state = {}) {
     const changed = state.installationId !== installationId
     ++readEpoch
     cache.clear()
-    Object.assign(state, { installationId, loading: true, reading: false, error: '', preview: null, pages: [], pageIndex: 0, pageReading: false })
+    Object.assign(state, { installationId, loading: true, reading: false, error: '', preview: null, pages: [], pageIndex: 0, pageReading: false, reconciliation: null })
     await ai.setInstallation(installation)
     if (disposed || token !== epoch) return false
     await ai.setDiagnostic(null)
@@ -67,6 +67,7 @@ export function createLogDiagnosticsRuntime(bridge, ai, aiState, state = {}) {
       if (disposed || token !== epoch) return false
       if (!result || !Array.isArray(result.sources) || result.sources.some(row => !validId(row.source_id) || typeof row.label !== 'string' || !['available', 'missing', 'unreadable'].includes(row.status))) throw new Error('Invalid log sources')
       state.sources = result.sources
+      state.reconciliation = result.runtime_reconciliation || null
       state.warnings = result.warnings || []
       const retained = changed ? [] : state.selectedIds.filter(id => result.sources.some(row => row.source_id === id && row.status === 'available'))
       state.selectedIds = retained.length ? retained : result.sources.filter(row => row.default && row.status === 'available').slice(0, 3).map(row => row.source_id)

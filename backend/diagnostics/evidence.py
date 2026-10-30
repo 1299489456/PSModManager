@@ -65,7 +65,8 @@ def _source_path(value, kind):
            any(ord(c) < 32 or c in ':*?"<>|' for c in p) for p in parts):
         raise ValueError('Invalid log path')
     lower = [p.casefold() for p in parts]
-    valid = ((kind == 'latest' and lower == ['melonloader', 'latest.log']) or
+    valid = ((kind == 'latest' and lower in (['player.log'], ['melonloader', 'latest.log'])) or
+             (kind == 'archive' and lower == ['player-prev.log']) or
              (kind == 'archive' and len(parts) == 3 and lower[:2] == ['melonloader', 'logs'] and lower[-1].endswith('.log')) or
              (kind == 'user' and len(parts) >= 2 and lower[0] == 'userdata' and lower[-1].endswith('.log')))
     if not valid:

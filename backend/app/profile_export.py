@@ -3,7 +3,7 @@ import json
 import os
 from pathlib import Path
 
-from backend.app.paths import REFERENCE_ROOT, KNOWN_GAME_ROOT, overlaps
+from backend.app.paths import REFERENCE_ROOT, KNOWN_GAME_ROOT, FORMAL_GAME_ROOT, FORMAL_WORKSHOP_ROOT, overlaps
 from backend.catalog.archive_policy import locked_path, canonical_name
 from backend.storage import Store
 
@@ -20,7 +20,9 @@ def save_manifest(paths, selected, manifest):
             raise ValueError('Invalid destination')
         target = Path(os.path.abspath(target))
         canonical_name('/'.join(target.parts[1:]))
-        forbidden = [paths.root, REFERENCE_ROOT, KNOWN_GAME_ROOT]
+        forbidden = [paths.root, REFERENCE_ROOT, KNOWN_GAME_ROOT, FORMAL_GAME_ROOT, FORMAL_WORKSHOP_ROOT]
+        if os.environ.get('USERPROFILE'):
+            forbidden.append(Path(os.environ['USERPROFILE']) / 'AppData/LocalLow/Questing Goose Studio/Probably Stolen')
         store = Store(paths.database)
         try:
             forbidden.extend(Path(row[0]) for row in store.connection.execute('SELECT canonical_root FROM installations'))

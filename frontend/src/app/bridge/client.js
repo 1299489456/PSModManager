@@ -1,7 +1,9 @@
 import { createRequestId } from '../requestId.js'
 import { reduceTask, terminalStates } from './reducer.js'
+import { nativeFields, nativeOptional, validNativeField } from '../../features/native/nativeCommands.js'
 
 const payloadFields = {
+  ...nativeFields,
   'app.info': [], 'app.check': [], 'task.snapshot': ['task_id'], 'task.cancel': ['task_id'],
   'app.theme.get': [], 'app.theme.set': ['theme_id'],
   'app.storage.status': [], 'app.storage.choose': [], 'app.storage.accept': [],
@@ -79,6 +81,7 @@ const payloadFields = {
   'package.import_commit': ['preview_id', 'preview_hash', 'display_name'],
 }
 const optionalFields = {
+  ...nativeOptional,
   'nexus.download': ['nxm_url'], 'nexus.open': ['mod_id', 'file_id', 'url'], 'nexus.browse': ['offset', 'query'],
   'profile.capture': ['profile_id', 'expected_revision'],
   'package.import_version': ['version_raw', 'package_id'],
@@ -125,6 +128,10 @@ export function createBridge({ transport, pollInterval = 200 } = {}) {
     if (!fields || !payload || Array.isArray(payload) || typeof payload !== 'object' || Object.keys(payload).some(key => !allowed.includes(key)) || fields.some(key => !Object.hasOwn(payload, key))) throw new BridgeError('INVALID_REQUEST')
     if (command === 'ai.chat.send' && Object.hasOwn(payload, 'selected_evidence_id') && !Object.hasOwn(payload, 'installation_id')) throw new BridgeError('INVALID_REQUEST')
     for (const key of Object.keys(payload)) {
+      if (Object.hasOwn(nativeFields, command)) {
+        if (!validNativeField(command, key, payload[key])) throw new BridgeError('INVALID_REQUEST')
+        continue
+      }
       if (command === 'app.storage.start' && key === 'target') {
         if (typeof payload[key] !== 'string' || !payload[key].trim() || payload[key].length > 4096) throw new BridgeError('INVALID_REQUEST')
         continue
@@ -252,7 +259,7 @@ export function createBridge({ transport, pollInterval = 200 } = {}) {
     try { response = await transport({ schema_version: 1, request_id, command, payload }) }
     catch { throw new BridgeError('TRANSPORT_UNAVAILABLE') }
     if (!response || response.request_id !== request_id || typeof response.ok !== 'boolean') throw new BridgeError('INVALID_RESPONSE')
-    if (!response.ok) throw new BridgeError(typeof response.error?.code === 'string' ? response.error.code : 'INVALID_RESPONSE', ['app.storage.', 'config.', 'game.', 'loader.', 'mod.', 'ai.', 'nexus.', 'profile.', 'package.'].some(prefix => command.startsWith(prefix)) ? response.error?.message : undefined)
+    if (!response.ok) throw new BridgeError(typeof response.error?.code === 'string' ? response.error.code : 'INVALID_RESPONSE', ['native.', 'workshop.', 'app.storage.', 'config.', 'game.', 'loader.', 'mod.', 'ai.', 'nexus.', 'profile.', 'package.'].some(prefix => command.startsWith(prefix)) || command === 'app.open_link' ? response.error?.message : undefined)
     return response.data
   }
   function watchTask(taskId, onUpdate, onError = () => {}) {

@@ -82,7 +82,10 @@ class DesktopContext:
         self.compatibility = None
         self.preferences = None
         self.deployment_guards = None
-        self.loader = None
+        self.native_mods = None
+        self.native_commands = None
+        self.workshop = None
+        self.workshop_updates = None
         self.plans = None
         self.plan_proposals = None
         self.deployments = None
@@ -94,7 +97,6 @@ class DesktopContext:
         self.ai_credentials_backend = None
         self.deployment_fault = None
         self.window_frame = None
-        self.nexus = None
         self.profile_sharing = None
         self.mod_updates = None
         self.confirm_plan = lambda preview: False
@@ -103,7 +105,6 @@ class DesktopContext:
         self.choose_profile_share_source = lambda: None
         self.choose_profile_share_destination = lambda kind: None
         self.choose_import_source = lambda kind: None
-        self.choose_loader_source = lambda: None
         self.choose_installation_folder = lambda kind: None
         self.choose_storage_folder = lambda: None
         self.request_restart = lambda root: None
@@ -149,12 +150,23 @@ class DesktopContext:
         self.compatibility = CompatibilityService(paths)
         from backend.deployments.process_guard import DeploymentGuards
         self.deployment_guards = DeploymentGuards(paths)
-        from backend.loaders.melonloader.service import MelonLoaderService
-        self.loader = MelonLoaderService(paths, self.deployment_guards)
         from backend.deployments.config import ConfigService
         self.mod_configs = ConfigService(paths, self.deployment_guards)
         from backend.games.probably_stolen.launch import LaunchService
-        self.launcher = LaunchService(self.deployment_guards, prepare_launch=self.loader.prepare_launch)
+        self.launcher = LaunchService(self.deployment_guards,
+            prepare_launch=lambda session: self.workshop.release(session.installation.model_dump(mode='json')))
+        from backend.native_mods import NativeModService, locations
+        from .native_api import NativeCommands, installation, process_status, write_guard
+        self.native_mods = NativeModService(paths,
+            write_guard=lambda value: write_guard(self, value),
+            process_status=lambda value: process_status(self, value))
+        self.native_commands = NativeCommands(self)
+        from backend.workshop import WorkshopService
+        self.workshop = WorkshopService(paths,
+            write_guard=lambda value: write_guard(self, value),
+            process_status=lambda value: process_status(self, value))
+        from .workshop_update_policy import WorkshopUpdatePolicy
+        self.workshop_updates = WorkshopUpdatePolicy(self)
         from backend.deployments.planner import PlanService, PlanProposalConsumer
         self.plans = PlanService(paths, self.deployment_guards)
         self.plan_proposals = PlanProposalConsumer(self.plans)
@@ -169,8 +181,6 @@ class DesktopContext:
         from backend.catalog.updates import ModUpdateService
         self.profile_sharing = ProfileSharingService(paths, self.profiles, self.mod_workspace)
         self.mod_updates = ModUpdateService(self.mod_workspace)
-        from backend.online.nexus import NexusService
-        self.nexus = NexusService(paths, self.imports)
         from backend.deployments.history import HistoryService
         from backend.deployments.rollback import RollbackService
         self.history = HistoryService(paths,self.deployment_guards,self.deployments,self.plans)
@@ -183,14 +193,16 @@ class DesktopContext:
             self.deployments.probe(installation,permit)
         self.deployment_guards.recovery_check = recovery_check
         self.recovery = RecoveryService(self.deployments)
-        self.recovery.startup()
+        # Retained legacy transactions are recovery evidence, not permission to
+        # replay a MelonLoader file deployment against the native game at startup.
         from backend.diagnostics.service import LogService
-        self.logs = LogService(paths)
+        self.logs = LogService(paths, user_data_resolver=lambda value: locations(value)['persistent_root'])
         from backend.diagnostics.explain import DiagnosticService
         self.diagnostics = DiagnosticService(paths)
         from backend.ai.tools import ReadOnlyTools
         self.ai.tools = ReadOnlyTools(self.installations,self.packages,self.mods,self.logs,self.mod_configs,
-                                     workspace=self.mod_workspace)
+                                     workspace=self.mod_workspace, native=self.native_mods,
+                                     installation_resolver=lambda identity: installation(self, identity))
         from backend.ai.plan_proposals import PlanProposals
         self.ai.proposals = PlanProposals(self.ai.tools)
         if not paths.config.exists():
@@ -203,6 +215,7 @@ class DesktopContext:
         handler.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
         self.logger.addHandler(handler)
         self.logger.info('startup product=%s version=%s keyring=%s updater=disabled', APP_NAME, APP_VERSION, KEYRING_SERVICE)
+        self.workshop_updates.start()
 
     def close(self, *, keep_api=False, keep_store=False):
         failure = None
@@ -216,7 +229,8 @@ class DesktopContext:
                 self.store.close()
                 self.store = None
             return
-        self._services_closed = True
+        if self.workshop_updates is not None:
+            self.workshop_updates.close()
         if self.ai is not None:
             self.ai.close()
         if self.launcher is not None:
@@ -224,8 +238,6 @@ class DesktopContext:
             self.launcher = None
         if self.logs is not None:
             self.logs.close()
-        if self.nexus is not None:
-            self.nexus.stop()
         if self.jobs is not None:
             try:
                 self.jobs.close()
@@ -233,11 +245,14 @@ class DesktopContext:
                 failure = RuntimeError('后台任务未能在关闭期限内停止')
             else:
                 self.jobs = None
-        if self.nexus is not None and failure is None:
-            try:
-                self.nexus.close()
-            except Exception:
-                failure = RuntimeError('下载缓存清理未完成；已保留文件，请查看本地记录')
+        if self.workshop is not None:
+            close = getattr(self.workshop, 'close', None)
+            if close:
+                close()
+        if self.native_mods is not None:
+            close = getattr(self.native_mods, 'close', None)
+            if close:
+                close()
         if self.profile_sharing is not None and failure is None:
             self.profile_sharing.close()
         if self.imports is not None and failure is None:
@@ -245,7 +260,8 @@ class DesktopContext:
                 self.imports.close()
             except Exception:
                 failure = RuntimeError('导入暂存清理未完成；已保留文件，请查看本地记录')
-            self.imports = None
+            else:
+                self.imports = None
         if self.profiles is not None:
             self.profiles.close()
             self.profiles = None
@@ -259,6 +275,7 @@ class DesktopContext:
                 self.logger.removeHandler(handler)
         if failure is not None:
             raise failure
+        self._services_closed = True
 
 
 def install_navigation_guard(window, logger):
@@ -313,8 +330,8 @@ def install_navigation_guard(window, logger):
 
 
 def page_resource_allowed(url, is_image, method):
-    """The page loads nothing remote except Mod pictures from Nexus' own image hosts."""
-    from backend.online.nexus import IMAGE_HOSTS
+    """The page loads nothing remote except pictures from Valve's image hosts."""
+    from backend.workshop import IMAGE_HOSTS
     uri = urlsplit(url)
     if uri.scheme in ('about', 'data'):
         return True
@@ -326,14 +343,13 @@ def page_resource_allowed(url, is_image, method):
             and port in (None, 443) and not uri.username and not uri.password)
 
 
-def run_desktop(data_root=None, protected_roots=(), *, nxm_inbox=None, storage_locator=None):
+def run_desktop(data_root=None, protected_roots=(), *, storage_locator=None):
     paths = resolve_paths(data_root, protected_roots)
     version = webview_runtime_version()
     html = desktop_html()
     import webview
     ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
     context = DesktopContext(paths)
-    context.nxm_inbox = nxm_inbox
     callback_lifecycle = None
     try:
         context.initialize()
@@ -346,7 +362,7 @@ def run_desktop(data_root=None, protected_roots=(), *, nxm_inbox=None, storage_l
         # Frameless: the page draws the title bar; window_frame hands moves and
         # resizes back to Windows. The native title stays APP_NAME for the taskbar.
         window = webview.create_window(APP_NAME, html=html, js_api=context.api,
-                                       width=1280, height=800, min_size=(1280, 720), background_color='#f0fdf4',
+                                       width=1366, height=860, min_size=(1100, 720), background_color='#f0fdf4',
                                        frameless=True, easy_drag=False)
         from .window_frame import WindowFrame
         context.window_frame = WindowFrame(window)
@@ -358,17 +374,6 @@ def run_desktop(data_root=None, protected_roots=(), *, nxm_inbox=None, storage_l
             timer.start()
         context.request_restart = request_restart
         window.events.shown += context.window_frame.initialize
-        if nxm_inbox is not None:
-            def wake_for_download():
-                # Restore via WinForms so the WebView layout follows the native state.
-                def show():
-                    from System.Windows.Forms import FormWindowState
-                    if window.native.WindowState == FormWindowState.Minimized:
-                        window.native.WindowState = FormWindowState.Normal
-                    window.native.Show()
-                    window.native.Activate()
-                context.window_frame._on_ui(show)
-            window.events.shown += lambda: nxm_inbox.set_wake(wake_for_download)
         from .native_drop import install_native_drop
         install_native_drop(window, context)
         from .webview_lifecycle import install_callback_lifecycle_guard
@@ -377,8 +382,6 @@ def run_desktop(data_root=None, protected_roots=(), *, nxm_inbox=None, storage_l
                     context.storage.blocked and context.jobs is not None and not context.jobs.is_idle()):
                 return False
         def closing():
-            if nxm_inbox is not None:
-                nxm_inbox.stop_accepting()
             context.api._close()
         callback_lifecycle = install_callback_lifecycle_guard(window, closing, can_close=can_close_storage)
         def choose_folder(kind):
@@ -394,15 +397,12 @@ def run_desktop(data_root=None, protected_roots=(), *, nxm_inbox=None, storage_l
                 from .file_dialogs import choose_file
                 return choose_file(window, kind)
         context.choose_import_source = choose_import
-        context.choose_loader_source = lambda: choose_import('zip')
         def choose_profile():
-            selected = window.create_file_dialog(webview.FileDialog.OPEN, allow_multiple=False,
-                file_types=('配置清单 (*.json)',))
-            return selected[0] if selected else None
+            from .file_dialogs import choose_file
+            return choose_file(window, 'json')
         def save_profile():
-            selected = window.create_file_dialog(webview.FileDialog.SAVE, save_filename='profile.json',
-                file_types=('配置清单 (*.json)',))
-            return selected[0] if selected else None
+            from .file_dialogs import save_profile as choose_destination
+            return choose_destination(window)
         context.choose_profile_source = choose_profile
         context.choose_profile_destination = save_profile
         def choose_share_source():

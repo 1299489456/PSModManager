@@ -1,8 +1,10 @@
 """Owned fixtures exercise complete delivery assembly without running build tools."""
+import ast
 import hashlib
 import json
 from pathlib import Path
 import sys
+import subprocess
 import zipfile
 
 import pytest
@@ -29,9 +31,7 @@ def checkout(tmp_path, monkeypatch):
         frontend_packages={'vue': '3.5.40'})
     for name in [*packaging.DELIVERY_DOCUMENTS, 'docs/user/quick-start.md',
                  'docs/user/data-and-reinstall.md', 'frontend/dist/index.html',
-                 'backend/app/resources/psmm-icon.ico',
-                 *[packaging.OFFLINE_RESOURCES+'/'+name for name in ('toolchain.zip',
-                    'manifest.json', 'licenses/Cpp2IL-LICENSE.txt', 'licenses/UnityDependencies-README.md')]]:
+                 'backend/app/resources/psmm-icon.ico']:
         write(root, name, 'owned fixture '+name)
     write(root, 'frontend/package-lock.json', {'packages': {'node_modules/vue': {'version': '3.5.40'}}})
     write(root, 'frontend/node_modules/vue/package.json', {'version': '3.5.40'})
@@ -62,25 +62,126 @@ def test_delivery_copies_current_documents_and_catalog_materials(checkout, tmp_p
         assert 'licenses/'+name in copied
     readme = (bundle/'README-PORTABLE.txt').read_text('utf-8-sig')
     assert all(text in readme for text in ('完整解压', 'WebView2', 'LocalAppData', '数据位置'))
+    assert '无需安装 MelonLoader' in readme and 'Steam 创意工坊' in readme
+    assert 'AI 与 Nexus' not in readme
     assert not (bundle/'licenses/build-baseline.json').exists()
 
 
 @pytest.mark.parametrize('missing', ['frontend/dist/index.html', 'backend/app/resources/psmm-icon.ico',
-    packaging.OFFLINE_RESOURCES+'/toolchain.zip', packaging.OFFLINE_RESOURCES+'/manifest.json',
-    packaging.OFFLINE_RESOURCES+'/licenses/Cpp2IL-LICENSE.txt',
-    packaging.OFFLINE_RESOURCES+'/licenses/UnityDependencies-README.md',
     packaging.NOTICE_ROOT+'/distribution-materials.json', packaging.NOTICE_ROOT+'/build-baseline.json',
-    'LICENSE', 'docs/user/quick-start.md'])
+    'LICENSE', 'docs/user/quick-start.md',
+    'docs/development/workshop-recovery-scope-fix-2026-10-29.md'])
 def test_missing_resource_stops_before_output_or_build(checkout, monkeypatch, missing):
     root, _ = checkout
     (root/missing).unlink()
     monkeypatch.setattr(packaging, 'run', lambda *args: pytest.fail('Build must not start'))
     output = root/'new-output'
-    with pytest.raises(RuntimeError, match='tools/prepare_melonloader_offline.py') as error:
+    with pytest.raises(RuntimeError, match='Required build resources') as error:
         packaging.build(output)
     assert missing in str(error.value)
     assert 'docs/development/README.md' in str(error.value)
     assert not output.exists()
+
+
+@pytest.mark.parametrize('public_release', [False, True])
+def test_native_preflight_needs_no_legacy_resources(checkout, public_release):
+    root, baseline = checkout
+    assert not (root/'backend/loaders').exists()
+    assert packaging.preflight(root, public_release=public_release)[0] == baseline
+
+
+def test_legacy_resource_argument_fails_before_build_with_removal_instruction(checkout, monkeypatch):
+    root, _ = checkout
+    monkeypatch.setattr(packaging, 'run', lambda *args: pytest.fail('Build must not start'))
+    with pytest.raises(ValueError, match='Remove this argument'):
+        packaging.build(root/'new-output', offline_resources=root/'old-toolchain')
+    assert not (root/'new-output').exists()
+
+
+def test_bundle_data_ignores_legacy_resources_and_environment(checkout, tmp_path, monkeypatch):
+    root, _ = checkout
+    legacy = root/'backend/loaders/melonloader/resources'
+    write(legacy, 'toolchain.zip', b'old archive')
+    override = tmp_path/'old-override'
+    write(override, 'toolchain.zip', b'old override')
+    helper = tmp_path/'helper'
+    write(helper, 'PSModManager.Metadata.dll', b'owned metadata helper')
+    write(root, 'backend/diagnostics/rules/definitions.json', '{}')
+    monkeypatch.setenv('PSMM_OFFLINE_RESOURCES', str(override))
+    rows = packaging.bundle_data(root, helper)
+    names = {Path(source).name for source, _ in rows}
+    assert names == {'index.html', 'psmm-icon.ico', 'definitions.json', 'PSModManager.Metadata.dll'}
+    assert any(target == str(Path('tools/PSModManager.Metadata/bin')) for _, target in rows)
+
+
+@pytest.mark.parametrize('relative', [
+    '_internal/backend/loaders/melonloader/resources/toolchain.zip',
+    '_internal/Cpp2IL/Cpp2IL.exe', 'MelonLoader/MelonLoader.dll',
+    'UnityDependencies/UnityEngine.dll', '_internal/tools/Cpp2IL.exe',
+    'licenses/Cpp2IL/Cpp2IL.exe', 'licenses/UnityDependencies/UnityEngine.dll',
+])
+def test_package_inventory_rejects_legacy_loader_payload(tmp_path, relative):
+    write(tmp_path, relative, b'owned legacy fixture')
+    with pytest.raises(ValueError, match='Forbidden release content'):
+        packaging.package_files(tmp_path)
+
+
+@pytest.mark.parametrize('relative', [
+    '_internal/steam_api64.dll', '_internal/steam_api.dll',
+    '_internal/steamclient.dll', '_internal/steamclient64.dll',
+    'steam_appid.txt',
+])
+def test_package_inventory_rejects_external_steam_runtime(tmp_path, relative):
+    write(tmp_path, relative, b'owned external runtime fixture')
+    with pytest.raises(ValueError, match='Forbidden release content'):
+        packaging.package_files(tmp_path)
+
+
+def test_package_inventory_rejects_private_translation_cache(tmp_path):
+    write(tmp_path, 'ai-translations.json', '{"owned": "private cached text"}')
+    with pytest.raises(ValueError, match='Forbidden release content'):
+        packaging.package_files(tmp_path)
+
+
+def test_historical_notice_exception_is_limited_to_exact_text_paths(tmp_path):
+    for name in packaging.HISTORICAL_NOTICE_TEXTS:
+        write(tmp_path, name, b'owned historical notice text')
+    assert {row['path'] for row in packaging.package_files(tmp_path)} == packaging.HISTORICAL_NOTICE_TEXTS
+
+
+def test_desktop_initializes_without_frozen_excluded_loader_or_nexus(tmp_path):
+    """Catch startup imports hidden by a source checkout but absent in the EXE."""
+    root = Path(__file__).resolve().parents[2]
+    spec = ast.parse((root/'PSModManager.spec').read_text('utf-8'))
+    excluded = next(ast.literal_eval(node.value) for node in spec.body
+        if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name)
+            and target.id == 'excluded' for target in node.targets))
+    retired = [name for name in excluded if name.startswith(('backend.loaders.', 'backend.online.'))]
+    assert 'backend.loaders.melonloader' in retired and 'backend.online.nexus' in retired
+    code = f'''
+import importlib.abc
+import sys
+sys.path.insert(0, {str(root)!r})
+retired = {retired!r}
+class FrozenExclusions(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if any(fullname == name or fullname.startswith(name + '.') for name in retired):
+            raise ModuleNotFoundError('Excluded from native portable: ' + fullname, name=fullname)
+sys.meta_path.insert(0, FrozenExclusions())
+from backend.app.composition import DesktopContext
+from backend.app.paths import resolve_paths
+context = DesktopContext(resolve_paths({str(tmp_path/'isolated-desktop')!r}))
+try:
+    context.initialize()
+    assert context.native_mods is not None and context.workshop is not None
+    print('native desktop initialized without retired modules')
+finally:
+    context.close()
+'''
+    result = subprocess.run([sys.executable, '-I', '-c', code], cwd=tmp_path,
+                            capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'native desktop initialized without retired modules' in result.stdout
 
 
 @pytest.mark.parametrize('field,value', [
@@ -149,7 +250,8 @@ def test_notice_inventory_rejects_invalid_materials(checkout, mutation):
         packaging.notice_materials(root)
 
 
-def test_build_assembles_final_delivery_before_manifest_and_archive(checkout, monkeypatch):
+@pytest.mark.parametrize('public_release', [False, True])
+def test_build_assembles_final_delivery_before_manifest_and_archive(checkout, monkeypatch, public_release):
     root, baseline = checkout
     # Build inputs are tiny owned files. Neither helper nor PyInstaller executes.
     for name in ('main.py', 'PSModManager.spec', 'pack_pyinstaller.py', 'pyproject.toml', 'uv.lock',
@@ -162,17 +264,20 @@ def test_build_assembles_final_delivery_before_manifest_and_archive(checkout, mo
     calls = []
     def fake_run(command, log, env):
         calls.append(command)
+        assert 'PSMM_OFFLINE_RESOURCES' not in env
         if len(calls) == 1:
             write(output, 'helper/helper-build.json', {'runtime_version': '10.0.11'})
         else:
             write(output, 'dist/PSModManager/PSModManager.exe', b'owned fake exe')
     monkeypatch.setattr(packaging, 'run', fake_run)
     monkeypatch.setattr(packaging, 'dependencies', lambda work: baseline['dependencies'])
-    result = packaging.build(output)
+    monkeypatch.setenv('PSMM_OFFLINE_RESOURCES', str(root/'unused-legacy-tools'))
+    result = packaging.build(output, public_release=public_release)
     assert len(calls) == 2
     bundle = Path(result['bundle'])
     actual = packaging.validate_bundle(bundle)
     manifest = json.loads((bundle/'build-manifest.json').read_text('utf-8'))
+    assert manifest['distribution_profile'] == ('public-native-mono' if public_release else 'local-native-mono')
     declared = {row['path'] for row in manifest['files']}
     assert {*packaging.delivery_documents(root), 'README-PORTABLE.txt',
         'licenses/demo/LICENSE.txt', 'licenses/distribution-materials.json'} <= declared

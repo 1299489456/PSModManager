@@ -19,17 +19,19 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 FORBIDDEN_DIRECTORIES = {
     '.git', '.venv', 'node_modules', '__pycache__', 'userdata', 'saves',
-    'mods', 'plugins', 'melonloader', 'data', 'private-data',
+    'mods', 'plugins', 'melonloader', 'cpp2il', 'unitydependencies', 'data', 'private-data',
     'synthetic-game', 'tests', 'settings',
 }
 FORBIDDEN_FILENAMES = {
-    '.env', 'config.json', 'settings.json', 'credentials.json', 'secrets.json',
+    '.env', 'config.json', 'settings.json', 'credentials.json', 'secrets.json', 'ai-translations.json',
     'api_key.txt', 'probably stolen.exe', 'gameassembly.dll', 'melonloader.dll',
-    'main.py', 'settings.py',
+    'main.py', 'settings.py', 'cpp2il.exe', 'toolchain.zip',
+    'steam_api.dll', 'steam_api64.dll', 'steamclient.dll', 'steamclient64.dll',
+    'steam_appid.txt',
 }
 FORBIDDEN_SUFFIXES = {'.db', '.sqlite', '.sqlite3', '.key', '.pem', '.pfx', '.p12'}
-OFFLINE_RESOURCE_PREFIX = '_internal/backend/loaders/melonloader/resources/'
-OFFLINE_RESOURCE_FILES = {'manifest.json', 'toolchain.zip', 'licenses/Cpp2IL-LICENSE.txt', 'licenses/UnityDependencies-README.md'}
+HISTORICAL_NOTICE_TEXTS = {'licenses/Cpp2IL/Cpp2IL-LICENSE.txt',
+                           'licenses/UnityDependencies/UnityDependencies-README.md'}
 
 
 def _safe_relative(value):
@@ -62,9 +64,10 @@ def _assert_no_private_or_game_files(root):
     for relative in files:
         path = PurePosixPath(relative)
         directories = set(part.casefold() for part in path.parts[:-1]) & FORBIDDEN_DIRECTORIES
-        if relative.startswith(OFFLINE_RESOURCE_PREFIX):
-            assert relative[len(OFFLINE_RESOURCE_PREFIX):] in OFFLINE_RESOURCE_FILES, relative
-            directories -= {'melonloader'}  # Fixed vendor resources, not an installed game tree.
+        if relative in HISTORICAL_NOTICE_TEXTS:
+            # These exact text paths are additionally bound to the license catalog
+            # in the delivery material check; no binary/resource exception exists.
+            directories -= {'cpp2il', 'unitydependencies'}
         assert not directories, (
             f'Private, game, or development directory in payload: {relative}')
         assert path.name.casefold() not in FORBIDDEN_FILENAMES, f'Forbidden payload: {relative}'
@@ -142,7 +145,9 @@ def test_portable_python_archive_excludes_legacy_entry_modules(portable_root):
     # Use the installed build tool's reader; never execute archived product code.
     from PyInstaller.archive.readers import CArchiveReader
 
-    forbidden = ('settings', 'api', 'backend.managers', 'backend.routers', 'backend.legacy')
+    forbidden = ('settings', 'api', 'backend.managers', 'backend.routers', 'backend.legacy',
+                 'backend.loaders.melonloader', 'backend.online.nexus',
+                 'backend.online.api', 'backend.online.nxm_protocol')
     for executable in ('PSModManager.exe', 'PSModManager.WorkerHost.exe'):
         archive = CArchiveReader(str(portable_root / executable))
         embedded = [name for name, entry in archive.toc.items() if entry[-1] == 'z']
@@ -153,6 +158,15 @@ def test_portable_python_archive_excludes_legacy_entry_modules(portable_root):
         expected = ('backend.app.identity' if executable == 'PSModManager.exe'
                     else 'backend.scanning.worker_sandbox')
         assert expected in modules, f'Missing current entry dependency: {executable}: {expected}'
+        if executable == 'PSModManager.exe':
+            native_dependencies = {'backend.native_mods.service', 'backend.native_mods.packages',
+                                   'backend.native_mods.state', 'backend.workshop.service',
+                                   'backend.workshop.remote', 'backend.workshop.cache', 'backend.workshop.steam_session',
+                                   'backend.workshop.steam_native', 'backend.workshop.signature',
+                                   'backend.ai.providers', 'backend.ai.translation_cache',
+                                   'httpx', 'httpcore', 'html.parser'}
+            assert native_dependencies <= modules, (
+                f'Missing native/Workshop dependencies: {native_dependencies - modules}')
         for prefix in forbidden:
             assert not any(name == prefix or name.startswith(prefix + '.') for name in modules), (
                 f'Legacy module {prefix} included in {executable}')
@@ -183,22 +197,12 @@ def test_portable_frontend_assets_and_rules_are_complete(portable_root):
     assert len(packaged['rules']) >= 10
 
 
-def test_portable_contains_bound_offline_generation_resources(portable_root):
-    from backend.loaders.melonloader.offline import OfflineToolchain
-    resources = portable_root / OFFLINE_RESOURCE_PREFIX
-    manifest = OfflineToolchain(resources).manifest()
-    public = os.environ.get('PSMM_PUBLIC_RELEASE') == '1'
-    assert len(manifest['files']) == (2 if public else 67)
-    assert manifest.get('profile', 'full') == ('cpp2il-only' if public else 'full')
-    with zipfile.ZipFile(resources / 'toolchain.zip') as archive:
-        assert set(archive.namelist()) == {row['path'] for row in manifest['files']}
-        assert archive.testzip() is None
-    assert 'MIT License' in (resources / 'licenses/Cpp2IL-LICENSE.txt').read_text('utf-8')
-    if public:
-        assert not (resources / 'licenses/UnityDependencies-README.md').exists()
-        assert all('/Cpp2IL/' in row['path'] for row in manifest['files'])
-    else:
-        assert 'Unity Software' in (resources / 'licenses/UnityDependencies-README.md').read_text('utf-8')
+def test_portable_is_native_mono_without_loader_generation_resources(portable_root):
+    manifest = json.loads((portable_root/'build-manifest.json').read_text('utf-8'))
+    expected = 'public-native-mono' if os.environ.get('PSMM_PUBLIC_RELEASE') == '1' else 'local-native-mono'
+    assert manifest['distribution_profile'] == expected
+    _assert_no_private_or_game_files(portable_root)
+    assert not (portable_root/'_internal/backend/loaders/melonloader').exists()
 
 
 def test_portable_metadata_helper_contains_its_runtime(portable_root):
@@ -235,7 +239,10 @@ def test_portable_checksum_file_covers_actual_bytes(portable_root):
 def test_local_delivery_includes_current_docs_and_license_materials(portable_root):
     if not os.environ.get('PSMM_FINAL_DELIVERY'):
         pytest.skip('Final delivery material check is opt-in; raw builds have no delivery docs')
-    documents = ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'docs/development/known-limitations.md']
+    documents = ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'docs/development/known-limitations.md',
+                 'docs/development/workshop-usability-2026-10-28.md',
+                 'docs/development/workshop-performance-settings-2026-10-29.md',
+                 'docs/development/workshop-recovery-scope-fix-2026-10-29.md']
     documents += [path.relative_to(REPO).as_posix() for path in (REPO / 'docs/user').glob('*.md')]
     for name in documents:
         assert (portable_root / name).read_bytes() == (REPO / name).read_bytes(), name
@@ -250,6 +257,9 @@ def test_local_delivery_includes_current_docs_and_license_materials(portable_roo
     assert len(record['components']) == record['components_count']
     assert len(paths) == record['materials_count']
     for name in ['THIRD_PARTY_NOTICES.md', 'docs/development/known-limitations.md',
+                 'docs/development/workshop-usability-2026-10-28.md',
+                 'docs/development/workshop-performance-settings-2026-10-29.md',
+                 'docs/development/workshop-recovery-scope-fix-2026-10-29.md',
                  *[p.relative_to(REPO).as_posix() for p in (REPO / 'docs/user').glob('*.md')]]:
         for link in re.findall(r'\]\(([^)]+)\)', (portable_root / name).read_text('utf-8')):
             if urlsplit(link).scheme or link.startswith('#'):
@@ -335,7 +345,11 @@ def test_checksum_checker_rejects_owned_negative_samples(tmp_path, mutation):
 
 @pytest.mark.parametrize('relative', [
     'game/Probably Stolen.exe', 'Mods/owned-fixture.dll', 'UserData/save.bin',
-    'catalog.db', 'credentials.json', '.env', 'settings/main.py', 'other/cacert.pem',
+    'catalog.db', 'credentials.json', 'ai-translations.json', '.env', 'settings/main.py', 'other/cacert.pem',
+    '_internal/backend/loaders/melonloader/resources/toolchain.zip',
+    'Cpp2IL/Cpp2IL.exe', 'UnityDependencies/UnityEngine.dll',
+    '_internal/steam_api64.dll', '_internal/steam_api.dll',
+    '_internal/steamclient.dll', '_internal/steamclient64.dll', 'steam_appid.txt',
 ])
 def test_payload_checker_rejects_owned_private_game_and_legacy_samples(tmp_path, relative):
     target = tmp_path / relative

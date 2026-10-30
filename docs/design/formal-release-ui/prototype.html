@@ -1,0 +1,1571 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PSMM · 正式版界面原型（温室）</title>
+<style>
+/* Tokens and most rules are copied from frontend/src/app/garden.css so the
+   prototype matches the shipped greenhouse look. New pieces reuse its parts. */
+:root{--g-leaf:#4ade80;--g-leaf-2:#22c55e;--g-leaf-3:#16a34a;--g-ink:#166534;--g-moss:#14532d;--g-sun:#fbbf24;--g-sun-2:#f59e0b;--g-sun-ink:#78350f;--g-mint:#f0fdf4;--g-cream:#fffbeb;--g-paper:#fffdf6;--g-line:#bbf7d0;--g-line-2:#a7e3bd;--g-text:#1f2a24;--g-text-2:#3f5047;--g-text-3:#5b6f64;--g-rose:#dc2626;
+  --g-sh:0 10px 15px -3px rgba(134,239,172,.3),0 4px 6px -4px rgba(134,239,172,.3);--g-sh-lg:0 22px 30px -8px rgba(110,200,140,.38),0 8px 12px -6px rgba(134,239,172,.35);--g-ease:cubic-bezier(.22,1,.36,1);--g-pop:cubic-bezier(.34,1.56,.64,1);
+  --font-ui:"Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif;--mono:Consolas,"Cascadia Mono",monospace}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--g-mint)}
+body{font-family:var(--font-ui);font-size:14px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+h1,h2,h3,h4,p{margin:0}
+svg.i{width:17px;height:17px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+svg.i.sm{width:15px;height:15px}svg.i.xs{width:13px;height:13px}svg.i.lg{width:22px;height:22px}
+.garden-shell{position:relative;height:100vh;display:flex;flex-direction:column;padding:0 18px 0;overflow:hidden;color:var(--g-text);font-size:15px;
+  background:radial-gradient(circle at 18% 88%,rgba(74,222,128,.16),transparent 48%),radial-gradient(circle at 88% 4%,rgba(251,191,36,.2),transparent 40%),radial-gradient(circle at 60% 110%,rgba(56,189,248,.08),transparent 40%),var(--g-mint)}
+.garden-shell ::selection{background:#bbf7d0;color:var(--g-moss)}
+.garden-shell ::-webkit-scrollbar{width:11px;height:11px}.garden-shell ::-webkit-scrollbar-thumb{background:#c8efd6;border-radius:10px;border:3px solid transparent;background-clip:padding-box}.garden-shell ::-webkit-scrollbar-thumb:hover{background:#9fe3b8;background-clip:padding-box}
+.garden-shell h1,.garden-shell h2,.garden-shell h3{color:var(--g-ink)}
+.garden-shell button:focus-visible,.garden-shell [tabindex]:focus-visible,.garden-shell input:focus-visible{outline:3px solid rgba(34,197,94,.45);outline-offset:2px}
+.garden-fronds{position:absolute;left:-40px;bottom:-50px;width:420px;height:420px;pointer-events:none;z-index:0;transform-origin:20% 100%;animation:garden-sway 9s ease-in-out infinite;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 360 360'%3E%3Cg fill='%2322c55e' fill-opacity='.12'%3E%3Cpath d='M40 360C40 250 90 170 200 120C150 190 120 260 110 360Z'/%3E%3Cpath d='M0 360C10 290 30 240 80 200C70 250 60 300 60 360Z'/%3E%3Cpath d='M120 360C150 300 210 260 300 250C240 280 200 320 180 360Z'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat}
+@keyframes garden-sway{0%,100%{transform:rotate(-1deg)}50%{transform:rotate(1deg)}}
+@keyframes garden-spin{to{transform:rotate(360deg)}}
+@keyframes garden-fade-up{from{opacity:0;transform:translateY(10px)}}
+@keyframes garden-draw{from{stroke-dashoffset:140}}
+@keyframes garden-leaf-in{from{opacity:0}}
+@keyframes garden-bounce{40%{transform:scale(1.05) rotate(-1.5deg)}}
+@keyframes garden-arrive{0%{opacity:0;transform:scale(.9)}35%{opacity:1;transform:scale(1.02);box-shadow:0 0 0 6px rgba(251,191,36,.35)}100%{transform:none}}
+@keyframes garden-sheet-up{from{transform:translateY(100%)}}
+@keyframes garden-grow{from{transform:scaleY(.6)}to{transform:scaleY(1.1)}}
+
+/* ---------- title bar ---------- */
+.garden-titlebar{position:relative;z-index:6;flex:none;display:flex;align-items:center;gap:9px;height:40px;margin:0 -18px 6px;padding-left:20px;user-select:none;color:var(--g-ink)}
+.titlebar-logo{width:22px;height:22px;flex:none}
+.titlebar-name{font-weight:800;font-size:14px;letter-spacing:.1em}
+.titlebar-space{flex:1;align-self:stretch}
+.titlebar-controls{display:flex;align-items:center;gap:2px;padding-right:6px;align-self:stretch}
+.titlebar-button{width:42px;height:30px;padding:0;border:0;border-radius:15px;background:transparent;color:var(--g-text-2);display:grid;place-items:center}
+.titlebar-button:hover{background:rgba(74,222,128,.16);color:var(--g-ink)}
+.titlebar-button.close:hover{background:linear-gradient(90deg,#ef4444,#f97316);color:#fff}
+.demo{display:flex;align-items:center;gap:6px;height:26px;padding:0 4px 0 12px;border:1px dashed var(--g-sun-2);border-radius:13px;background:#fffbeb;color:var(--g-sun-ink);font-size:12px}
+.demo select{border:0;background:transparent;font-size:12px;color:var(--g-sun-ink);outline:none}
+
+/* ---------- canopy ---------- */
+.canopy{position:relative;z-index:5;flex:none;display:flex;align-items:center;gap:20px;height:76px;margin:0 0 16px;padding:0 12px 0 16px;border-radius:28px;background:rgba(255,255,255,.74);-webkit-backdrop-filter:blur(12px) saturate(170%);backdrop-filter:blur(12px) saturate(170%);border:1px solid var(--g-line);box-shadow:var(--g-sh)}
+.canopy-nav{position:relative;display:flex;align-items:center;gap:2px;margin-left:6px}
+.canopy-nav>button{position:relative;height:44px;padding:0 16px;border:0;border-radius:22px;background:transparent;color:var(--g-text-2);font-size:15px;font-weight:600;display:flex;align-items:center;gap:7px;transition:color .3s,background .3s}
+.canopy-nav>button:hover{background:rgba(74,222,128,.1);color:var(--g-ink)}
+.canopy-nav>button[aria-current=page]{color:var(--g-ink)}
+.canopy-count{min-width:20px;height:20px;padding:0 6px;border-radius:10px;font-size:11.5px;display:grid;place-items:center;background:#fde68a;color:#92400e}
+.canopy-vine{position:absolute;bottom:-1px;height:14px;pointer-events:none;opacity:0;transition:left .5s var(--g-ease),width .5s var(--g-ease)}
+.canopy-vine svg{width:100%;height:100%;overflow:visible;display:block}
+.canopy-vine path{fill:none;stroke:var(--g-leaf-2);stroke-width:2.5;stroke-linecap:round;stroke-dasharray:140}
+.canopy-vine ellipse{fill:var(--g-leaf)}
+.canopy-vine.grow path{animation:garden-draw .7s var(--g-ease)}
+.canopy-vine.grow ellipse{animation:garden-leaf-in .5s .35s var(--g-ease) both}
+.canopy-right{margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:12px;min-width:0}
+.env-pill{display:flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:17px;border:1px solid var(--g-line);background:#fff;color:var(--g-ink);font-size:13px;font-weight:500;white-space:nowrap}
+.env-pill.warn{border-color:#fcd34d;background:#fef3c7;color:#92400e}
+.garden-sign{display:flex;align-items:center;gap:10px;height:52px;max-width:280px;padding:0 14px 0 8px;border-radius:18px 18px 18px 6px;border:1px solid #fde68a;background:linear-gradient(135deg,#fffbeb,#fef3c7);color:var(--g-sun-ink);box-shadow:0 8px 14px -8px rgba(245,158,11,.5);transition:transform .4s var(--g-ease)}
+.garden-sign:hover{transform:rotate(-1deg) translateY(-1px);background:linear-gradient(135deg,#fffbeb,#fde68a)}
+.sign-art{width:38px;height:38px;flex:none;border-radius:50% 50% 50% 12px;background:linear-gradient(140deg,#fde68a,var(--g-sun) 60%,var(--g-sun-2));display:grid;place-items:center;color:var(--g-sun-ink)}
+.sign-text{display:flex;flex-direction:column;align-items:flex-start;min-width:0;line-height:1.25}
+.sign-text>span{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px}
+.sign-text>small{font-size:12px;color:#a16207}
+.canopy-launch{flex:none;display:flex;align-items:center;gap:10px}
+.sun-button{position:relative;display:flex;align-items:center;gap:12px;height:56px;padding:0 20px 0 6px;border:0;border-radius:28px;background:linear-gradient(90deg,#fde68a,var(--g-sun));color:var(--g-sun-ink);font-weight:700;font-size:15px;box-shadow:0 12px 20px -8px rgba(245,158,11,.6);transition:transform .4s var(--g-ease),box-shadow .4s}
+.sun-button:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 18px 26px -10px rgba(245,158,11,.7)}
+.sun-button:disabled{filter:grayscale(.8);opacity:.55;cursor:not-allowed}
+.sun-disc{position:relative;width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff7d6,#fbbf24 55%,#f59e0b);display:grid;place-items:center;color:#fff}
+.sun-rays{position:absolute;inset:-9px;width:62px;height:62px;animation:garden-spin 30s linear infinite;stroke:#f59e0b;stroke-width:2.5;stroke-linecap:round;opacity:.8}
+.sun-button:hover .sun-rays{animation-duration:6s}
+.sun-meta{display:flex;flex-direction:column;gap:2px;max-width:150px;font-size:12px;color:var(--g-text-3);line-height:1.3}
+.game-launch.running .sun-button{background:linear-gradient(90deg,#dcfce7,#86efac);color:var(--g-ink);box-shadow:0 12px 20px -8px rgba(34,197,94,.55)}
+.game-launch.running .sun-rays{animation-duration:3s;stroke:var(--g-leaf-2)}
+
+/* ---------- shared controls ---------- */
+.garden-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:40px;padding:0 18px;border-radius:20px;border:1px solid var(--g-line);background:#fff;color:var(--g-ink);font-size:14px;font-weight:600;white-space:nowrap;transition:transform .3s var(--g-ease),box-shadow .3s,background .3s,border-color .3s}
+.garden-btn:hover:not(:disabled){border-color:var(--g-leaf);background:var(--g-mint);transform:translateY(-1px)}
+.garden-btn:active:not(:disabled){transform:scale(.97)}
+.garden-btn:disabled{opacity:.45;cursor:not-allowed}
+.garden-btn.green{border:0;background:linear-gradient(90deg,#22c55e,#10b981);color:#fff;box-shadow:0 10px 16px -6px rgba(34,197,94,.55)}
+.garden-btn.green:hover:not(:disabled){background:linear-gradient(90deg,#16a34a,#059669);transform:scale(1.03)}
+.garden-btn.amber{border:0;background:linear-gradient(90deg,var(--g-sun),#eab308);color:var(--g-sun-ink);box-shadow:0 10px 16px -6px rgba(245,158,11,.5)}
+.garden-btn.soft{background:transparent;border-color:transparent;color:var(--g-text-2)}
+.garden-btn.soft:hover:not(:disabled){background:rgba(74,222,128,.12);border-color:transparent}
+.garden-btn.clay{color:var(--g-rose);border-color:#fecaca}
+.garden-btn.clay:hover:not(:disabled){background:#fef2f2;border-color:#fca5a5}
+.garden-btn.sm{height:32px;padding:0 13px;font-size:13px;border-radius:16px}
+.garden-btn.xs{height:28px;padding:0 11px;font-size:12.5px;border-radius:14px}
+.garden-btn.icon{width:40px;padding:0}.garden-btn.icon.sm{width:32px}.garden-btn.icon.xs{width:28px}
+.garden-btn kbd{font:11px/1 var(--font-ui);padding:2px 6px;border-radius:6px;border:1px solid var(--g-line);color:var(--g-text-3);background:#fff;font-weight:500}
+.garden-link{border:0;background:none;padding:0;color:var(--g-leaf-3);font-weight:600;display:inline-flex;align-items:center;gap:4px;font-size:inherit;cursor:pointer}
+.garden-link:hover{text-decoration:underline;text-decoration-style:wavy;text-underline-offset:4px}
+.garden-chips{display:flex;gap:8px;flex-wrap:wrap}
+.garden-chips button{height:36px;padding:0 16px;border-radius:18px;border:1px solid var(--g-line);background:#fff;color:var(--g-text-2);font-size:14px;font-weight:500;transition:all .4s var(--g-ease)}
+.garden-chips button span{margin-left:6px;color:var(--g-text-3);font-size:12.5px}
+.garden-chips button:hover{border-color:var(--g-leaf)}
+.garden-chips button.on{border-radius:20px 4px 20px 4px;background:linear-gradient(90deg,#dcfce7,#bbf7d0);border-color:var(--g-leaf);color:var(--g-ink);box-shadow:0 6px 12px -6px rgba(74,222,128,.7)}
+.garden-chips button.on span{color:var(--g-leaf-3)}
+.garden-chips button.care span{color:var(--g-rose)}
+.garden-chips.sm button{height:30px;padding:0 12px;font-size:13px;border-radius:15px}
+.garden-chips.sm button.on{border-radius:16px 4px 16px 4px}
+.garden-search{display:flex;align-items:center;gap:8px;height:40px;padding:0 8px 0 14px;border-radius:20px;border:1.5px solid var(--g-line-2);background:#fff;color:var(--g-leaf-3);box-shadow:0 6px 14px -10px rgba(34,197,94,.6);transition:border-color .3s,box-shadow .3s;min-width:0}
+.garden-search:focus-within{border-color:var(--g-leaf);box-shadow:0 0 0 4px rgba(74,222,128,.16)}
+.garden-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:14px;color:var(--g-text)}
+.garden-search input::placeholder{color:#86a896}
+.garden-search kbd{font:11px/1 var(--font-ui);padding:3px 7px;border-radius:7px;border:1px solid var(--g-line);color:var(--g-text-3);background:var(--g-mint);margin-right:4px}
+.search-clear{display:none;width:26px;height:26px;padding:0;border-radius:50%;border:0;background:#dcfce7;color:var(--g-ink);place-items:center}
+.garden-search.has .search-clear{display:grid}
+.garden-select select{height:34px;padding:0 10px;border-radius:17px;border:1px solid var(--g-line);background:#fff;color:var(--g-ink);font-weight:500;cursor:pointer;font-size:13px}
+.garden-view-switch{display:flex;gap:2px;padding:3px;border-radius:18px;background:#dcfce7}
+.garden-view-switch button{width:32px;height:28px;padding:0;border:0;border-radius:14px;background:transparent;color:var(--g-text-2);display:grid;place-items:center}
+.garden-view-switch button:hover:not(:disabled){background:#fff;color:var(--g-ink)}
+.garden-view-switch button:disabled{opacity:.35;cursor:not-allowed}
+.tg{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 10px;border-radius:12px;font-size:12px;font-weight:600;white-space:nowrap}
+.tg svg{width:12px;height:12px}
+.tg.on{background:#dcfce7;color:var(--g-leaf-3)}.tg.off{background:#f1f5f2;color:var(--g-text-3)}.tg.pend{background:#fef3c7;color:#a16207}.tg.bad{background:#fee2e2;color:var(--g-rose)}.tg.sky{background:#e0f2fe;color:#0369a1}.tg.lilac{background:#ede9fe;color:#6d28d9}.tg.dark{background:var(--g-ink);color:#fff}.tg.ghost{background:#fff;border:1px solid var(--g-line);color:var(--g-text-2)}
+.leaf-switch{position:relative;flex:none;width:50px;height:28px;padding:0;border-radius:999px;background:#e3ebe5;border:1px solid #d1ddd4;transition:background .4s var(--g-ease)}
+.leaf-switch:hover:not(:disabled){background:#d8e6dc}
+.leaf-switch span{position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50% 0 50% 50%;background:#fff;box-shadow:0 2px 5px rgba(20,83,45,.25);transform:rotate(-45deg);transition:transform .5s var(--g-pop)}
+.leaf-switch[aria-pressed=true]{background:linear-gradient(90deg,var(--g-leaf),#10b981);border-color:transparent}
+.leaf-switch[aria-pressed=true] span{transform:translateX(22px) rotate(135deg)}
+.leaf-switch:disabled{opacity:.45;cursor:not-allowed}
+.garden-pot{width:42px;height:42px;flex:none;border-radius:60% 40% 55% 45%/45% 55% 45% 55%;display:grid;place-items:center;background:#dcfce7;color:var(--g-leaf-3);font-weight:800;font-size:13px;letter-spacing:-.5px}
+.garden-solar{height:10px;border-radius:999px;background:rgba(229,231,235,.7);border:1px solid rgba(134,239,172,.45);overflow:hidden}
+.garden-solar i{display:block;height:100%;border-radius:999px;background:repeating-linear-gradient(90deg,var(--g-leaf-2) 0,var(--g-leaf-2) 18px,var(--g-moss) 18px,var(--g-moss) 20px);transition:width .25s}
+.garden-facts{display:grid;grid-template-columns:84px 1fr;gap:8px 12px;margin:0;font-size:13.5px}
+.garden-facts dt{color:var(--g-text-3)}.garden-facts dd{margin:0;overflow-wrap:anywhere}
+.garden-facts code,.mono{font:12.5px var(--mono);color:var(--g-ink)}
+.copy{border:0;background:none;color:var(--g-text-3);padding:0 0 0 4px;vertical-align:-2px}
+.copy:hover{color:var(--g-ink)}
+
+/* notes: the same shapes as garden-care-note / garden-sign-banner */
+.care-note{position:relative;padding:11px 14px 11px 18px;border-radius:6px 18px 18px 18px;background:#fef2f2;border:1px solid #fecaca;color:#7f1d1d;font-size:13.5px;line-height:1.6}
+.care-note b{color:#991b1b}
+.sign-note{position:relative;padding:11px 14px 11px 18px;border-radius:6px 18px 18px 18px;background:linear-gradient(135deg,#fffbeb,#fef3c7);border:1px solid #fde68a;color:var(--g-sun-ink);font-size:13.5px;line-height:1.6}
+.mint-note{position:relative;padding:11px 14px 11px 18px;border-radius:6px 18px 18px 18px;background:var(--g-mint);border:1px solid #dcfce7;color:var(--g-text-2);font-size:13.5px;line-height:1.6}
+.care-note::before,.sign-note::before,.mint-note::before{content:"";position:absolute;left:-1px;top:10px;bottom:10px;width:4px;border-radius:4px}
+.care-note::before{background:linear-gradient(180deg,#f87171,#ef4444,#f59e0b)}
+.sign-note::before{background:linear-gradient(180deg,var(--g-sun),var(--g-sun-2),#f97316)}
+.mint-note::before{background:linear-gradient(180deg,var(--g-leaf),var(--g-leaf-2))}
+.note-act{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.garden-sign-banner{position:relative;display:flex;align-items:center;gap:14px;margin:0 0 14px;padding:12px 18px 12px 22px;border-radius:6px 22px 22px 22px;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fcd34d;color:var(--g-sun-ink);transform:rotate(-.4deg);box-shadow:0 10px 18px -10px rgba(217,119,6,.5);animation:garden-fade-up .5s var(--g-ease);flex:none}
+.garden-sign-banner::before{content:"";position:absolute;left:-1px;top:12px;bottom:12px;width:5px;border-radius:5px;background:linear-gradient(180deg,var(--g-sun),var(--g-sun-2),#f97316)}
+.garden-sign-banner .grow{flex:1;min-width:0;font-size:14px}
+
+/* ---------- pages ---------- */
+.garden-bed{position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column}
+.page{display:none;flex:1;min-height:0;flex-direction:column;padding:4px 12px 14px;animation:garden-fade-up .5s var(--g-ease)}
+.page.on{display:flex}
+.page.scroll{overflow:auto;padding-bottom:30px}
+.garden-intro{flex:none;display:flex;align-items:flex-end;gap:18px;margin-bottom:12px}
+.garden-intro h1{font-size:30px;font-weight:800;letter-spacing:.01em}
+.garden-intro p{margin:2px 0 0;color:var(--g-text-3);font-size:14px}
+.garden-intro p b{color:var(--g-leaf-3)}
+.garden-intro-actions{margin-left:auto;display:flex;gap:10px;align-items:center}
+.garden-notice{flex:none;margin:-4px 0 10px;font-size:13.5px;color:var(--g-leaf-3);font-weight:500;display:flex;gap:10px;align-items:center;min-height:20px}
+.garden-notice:empty{display:none}
+.garden-notice.care{color:var(--g-rose)}
+.garden-bed-label{display:flex;align-items:center;gap:8px;margin:8px 4px 8px;font-size:13px;font-weight:700;color:var(--g-leaf-3);letter-spacing:.04em}
+.garden-bed-label span{color:var(--g-text-3);font-weight:500}
+.garden-bed-label::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--g-line),transparent)}
+.garden-card{padding:20px 22px;border-radius:26px;background:rgba(255,255,255,.9);border:1px solid var(--g-line);box-shadow:var(--g-sh)}
+.garden-card h2{font-size:17px;display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.garden-card>p{margin:0 0 14px;font-size:13.5px;color:var(--g-text-3)}
+.garden-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;color:var(--g-text-3);padding:36px 16px;border:2px dashed var(--g-line-2);border-radius:24px;background:rgba(255,255,255,.5);font-size:13.5px}
+.garden-empty b{color:var(--g-ink);font-size:16px}
+.garden-empty .garden-pot{width:56px;height:56px;animation:garden-sway 3s ease-in-out infinite}
+
+/* ---------- mods workbench: three beds ---------- */
+.beds{flex:1;min-height:0;display:grid;grid-template-columns:minmax(270px,.92fr) minmax(330px,1.1fr) minmax(360px,1.12fr);gap:14px}
+.bed{min-width:0;min-height:0;display:flex;flex-direction:column;border-radius:24px;border:1px solid var(--g-line);overflow:hidden}
+.bed.avail{background:rgba(246,248,246,.86);border-color:#dfe8e2}
+.bed.enabled{background:linear-gradient(180deg,rgba(240,253,244,.95),rgba(236,253,243,.8))}
+.bed-head{flex:none;display:flex;align-items:center;gap:8px;padding:14px 14px 10px 16px}
+.bed-head h2{font-size:15px;display:flex;align-items:center;gap:7px;color:var(--g-ink)}
+.bed.avail .bed-head h2{color:var(--g-text-2)}
+.bed-count{min-width:28px;height:24px;padding:0 8px;border-radius:12px;background:#fff;font-size:12.5px;color:var(--g-text-3);display:grid;place-items:center;font-weight:600}
+.bed-head .sp{flex:1}
+.bed-tools{flex:none;display:flex;align-items:center;gap:8px;padding:0 12px 10px}
+.bed-tools .garden-search{flex:1;height:36px}
+.bed-tools .garden-search input{font-size:13.5px}
+.bed .garden-chips{padding:0 12px 8px;gap:6px}
+.bed-list{flex:1;min-height:0;overflow:auto;padding:2px 10px 12px;position:relative;outline:none}
+.bed-foot{flex:none;display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:12.5px;color:var(--g-text-3);border-top:1px dashed var(--g-line)}
+.bed-foot .sp{flex:1}
+.bed-filter{flex:none;margin:0 12px 8px;padding:7px 12px;border-radius:14px;background:#e0f2fe;color:#075985;font-size:12.5px;display:flex;gap:8px;align-items:center}
+.bed-filter .garden-link{margin-left:auto;color:#0369a1}
+
+.row{position:relative;display:flex;align-items:center;gap:10px;padding:8px 10px 8px 8px;margin:0 0 6px;border-radius:16px;background:#fff;border:1px solid transparent;box-shadow:0 4px 10px -8px rgba(20,83,45,.35);user-select:none;cursor:default;transition:border-color .25s,box-shadow .25s,transform .3s var(--g-ease)}
+.row:hover{border-color:#bbf7d0;box-shadow:0 8px 16px -10px rgba(34,197,94,.55)}
+.row.sel{border-color:var(--g-leaf);box-shadow:0 0 0 3px rgba(74,222,128,.18)}
+.row.focus{background:linear-gradient(90deg,#f0fdf4,#fff 60%)}
+.row.dragging{opacity:.4}
+.row.arrive{animation:garden-arrive 1.1s var(--g-ease)}
+.row.off-row{background:rgba(255,255,255,.75)}
+.row.ghost{background:repeating-linear-gradient(135deg,rgba(255,255,255,.8) 0 8px,rgba(254,242,242,.8) 8px 16px);border:1.5px dashed #fca5a5;box-shadow:none}
+.pick{display:none;width:20px;height:20px;flex:none;border-radius:50%;border:1.5px solid #9fdcb4;background:#fff;display:grid;place-items:center;color:#fff;padding:0}
+.row:hover .pick,.row.sel .pick,.multi .pick,.pf-cols .pick{display:grid}
+.row.sel .pick{background:var(--g-leaf-2);border-color:var(--g-leaf-2)}
+.ord{width:24px;flex:none;text-align:center;font-size:12px;font-weight:800;color:var(--g-leaf-3);font-variant-numeric:tabular-nums}
+.row .garden-pot{width:34px;height:34px;font-size:12px}
+.row .meta{flex:1;min-width:0;display:flex;flex-direction:column}
+.row .nm{font-size:14px;font-weight:700;color:var(--g-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .sub{font-size:12px;color:var(--g-text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:5px}
+.row .tags{display:flex;gap:4px;flex:none;align-items:center}
+.row .tags .tg{height:22px;padding:0 8px;font-size:11.5px}
+.row .moves{display:none;gap:2px;flex:none}
+.row:hover .moves,.row.sel .moves{display:flex}
+.row:hover .tags.hideable{display:none}
+.row .moves button{width:26px;height:26px;padding:0;border-radius:13px;border:1px solid var(--g-line);background:#fff;color:var(--g-ink);display:grid;place-items:center}
+.row .moves button:hover{background:var(--g-mint);border-color:var(--g-leaf)}
+.perm-dot{display:inline-flex;align-items:center;gap:2px;height:22px;padding:0 7px;border-radius:11px;font-size:11.5px;font-weight:700}
+.perm-dot.high{background:#ffedd5;color:#c2410c}.perm-dot.mid{background:#e0f2fe;color:#0369a1}
+.drop-line{position:absolute;left:14px;right:14px;height:3px;border-radius:3px;background:var(--g-leaf-2);box-shadow:0 0 0 3px rgba(34,197,94,.18);pointer-events:none;display:none;z-index:4}
+.bed-list.drop-target{background:rgba(74,222,128,.08)}
+
+/* detail bed */
+.detail{background:rgba(255,255,255,.9);box-shadow:var(--g-sh)}
+.detail .d-scroll{flex:1;min-height:0;overflow:auto;padding:16px 16px 22px}
+.d-hero{position:relative;height:clamp(96px,9vw,150px);border-radius:20px;overflow:hidden;box-shadow:0 14px 22px -14px rgba(34,197,94,.55)}
+.cover{position:absolute;inset:0;display:grid;place-items:center;color:var(--g-leaf-2)}
+.cover .ct{position:absolute;left:16px;bottom:12px;font-weight:800;font-size:13px;letter-spacing:.12em;color:rgba(20,83,45,.55)}
+.d-hero .hero-tools{position:absolute;right:10px;top:10px;display:flex;gap:6px}
+.d-hero .hero-tools button{width:32px;height:32px;border-radius:16px;border:1px solid rgba(255,255,255,.8);background:rgba(255,255,255,.75);color:var(--g-ink);display:grid;place-items:center;backdrop-filter:blur(6px)}
+.d-hero .hero-tools button:hover{background:#fff}
+.d-tags{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 6px}
+.d-title{font-size:21px;font-weight:800;line-height:1.3;color:var(--g-ink);word-break:break-word}
+.d-by{margin-top:4px;font-size:13.5px;color:var(--g-text-3);display:flex;gap:6px 12px;flex-wrap:wrap;align-items:center}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:14px 0 0}
+.stat{padding:8px 12px;border-radius:16px;background:#f0fdf4;border:1px solid #dcfce7;min-width:0}
+.stat small{display:block;font-size:12px;color:var(--g-text-3)}
+.stat b{display:block;font-size:15px;font-weight:800;color:var(--g-moss);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat b.ok{color:var(--g-leaf-3)}
+.d-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:14px 0 4px}
+.d-actions .on-label{display:flex;align-items:center;gap:8px;margin-right:4px;font-weight:700;color:var(--g-ink);font-size:14px}
+/* growth path: install → enable → approve → run */
+.growth{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:16px 0 4px;padding:12px 8px 10px;border-radius:20px;background:linear-gradient(170deg,#fffbeb,#fff 70%);border:1px solid #fef3c7}
+.growth::before{content:"";position:absolute;left:12%;right:12%;top:31px;height:2px;background:repeating-linear-gradient(90deg,#a7e3bd 0 6px,transparent 6px 10px)}
+.stone{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0}
+.stone i{width:40px;height:40px;border-radius:60% 40% 55% 45%/45% 55% 45% 55%;display:grid;place-items:center;font-style:normal;background:#f1f5f2;color:var(--g-text-3);border:2px solid #fff;box-shadow:0 4px 8px -4px rgba(20,83,45,.3)}
+.stone b{margin-top:6px;font-size:13px;color:var(--g-text-3)}
+.stone small{font-size:11.5px;color:var(--g-text-3);line-height:1.35;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stone.ok i{background:linear-gradient(140deg,#bbf7d0,#4ade80);color:#fff}.stone.ok b{color:var(--g-ink)}
+.stone.wait i{background:linear-gradient(140deg,#fef3c7,#fbbf24);color:var(--g-sun-ink)}.stone.wait b{color:#a16207}
+.stone.bad i{background:linear-gradient(140deg,#fee2e2,#f87171);color:#fff}.stone.bad b{color:var(--g-rose)}
+.d-tabs{position:sticky;top:-16px;z-index:3;margin:14px -16px 0;padding:10px 16px 10px;background:rgba(255,255,255,.94);backdrop-filter:blur(8px)}
+.d-tabs.garden-chips button .b{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:5px;padding:0 5px;border-radius:9px;background:#f1f5f2;font-size:11px;color:var(--g-text-3)}
+.d-tabs.garden-chips button .b.warn{background:#fef3c7;color:#a16207}.d-tabs.garden-chips button .b.bad{background:#fee2e2;color:var(--g-rose)}
+.d-body{display:flex;flex-direction:column;gap:14px;padding-top:4px}
+.d-body .col{display:contents}
+.d-body .o1{order:-2}.d-body .o2{order:-1}
+.sec{padding-top:14px;border-top:1px dashed var(--g-line)}
+.d-body>.sec:first-child,.d-body>.col:first-child>.sec:first-child{border-top:0;padding-top:0}
+.sec>h3{display:flex;align-items:baseline;gap:8px;margin:0 0 10px;font-size:13px;color:var(--g-leaf-3);font-weight:700;letter-spacing:.04em}
+.sec>h3 small{color:var(--g-text-3);font-weight:500;letter-spacing:0}
+.sec>h3 .sp{flex:1}
+.sec>h3 .garden-link{font-size:12.5px;letter-spacing:0}
+.desc{font-size:14px;line-height:1.75;color:var(--g-text-2);white-space:pre-line}
+/* permissions */
+.perm-head{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:18px;background:#fff;border:1px solid var(--g-line)}
+.perm-head.high{background:linear-gradient(135deg,#fff7ed,#fff);border-color:#fed7aa}
+.perm-head.mid{background:linear-gradient(135deg,#f0f9ff,#fff);border-color:#bae6fd}
+.perm-head .garden-pot{width:46px;height:46px}
+.perm-head.high .garden-pot{background:#ffedd5;color:#c2410c}.perm-head.mid .garden-pot{background:#e0f2fe;color:#0369a1}
+.perm-head h4{font-size:15px;color:var(--g-text)}
+.perm-head p{font-size:12.5px;color:var(--g-text-3);margin-top:2px}
+.perm-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.perm-chip{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 11px;border-radius:14px;font-size:12.5px;font-weight:600}
+.perm-chip.high{background:#ffedd5;color:#9a3412}.perm-chip.mid{background:#e0f2fe;color:#075985}
+.caps{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.cap{display:grid;grid-template-columns:36px 1fr auto;gap:12px;align-items:center;padding:9px 12px 9px 9px;border-radius:16px;background:#fff;border:1px solid #edf5ef}
+.cap .garden-pot{width:36px;height:36px}
+.cap.high .garden-pot{background:#ffedd5;color:#c2410c}.cap.mid .garden-pot{background:#e0f2fe;color:#0369a1}
+.cap b{font-size:14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cap b code{font:11.5px var(--mono);color:var(--g-text-3);font-weight:400}
+.cap p{font-size:12.5px;color:var(--g-text-3);margin-top:1px}
+.cap.added{background:linear-gradient(90deg,#fff7ed,#fff);border-color:#fed7aa}
+.trust{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+.trust>div{padding:9px 12px;border-radius:16px;background:#f6f8f6;min-width:0}
+.trust small{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--g-text-3)}
+.trust b{display:block;margin-top:2px;font-size:14px}
+.trust span{display:block;font-size:12px;color:var(--g-text-3)}
+.trust .ok{background:#f0fdf4}.trust .ok b{color:var(--g-leaf-3)}
+.trust .wait{background:#fffbeb}.trust .wait b{color:#a16207}
+/* lists in detail */
+.lst{display:flex;flex-direction:column;gap:6px}
+.li{display:flex;align-items:center;gap:10px;padding:8px 12px 8px 8px;border-radius:16px;background:#fff;border:1px solid #edf5ef;font-size:13.5px}
+.li .garden-pot{width:32px;height:32px;font-size:11px}
+.li .ln{flex:1;min-width:0}
+.li .ln b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li .ln span{display:block;font-size:12px;color:var(--g-text-3)}
+.li.miss{border:1.5px dashed #fca5a5;background:#fff}
+.vinegraph{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:14px;border-radius:18px;background:var(--g-mint)}
+.vnode{padding:6px 14px;border-radius:16px 4px 16px 4px;background:#fff;border:1px solid var(--g-line);font-size:13px;font-weight:600;max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vnode.me{background:linear-gradient(90deg,#22c55e,#10b981);color:#fff;border:0}
+.vnode.miss{border:1.5px dashed #fca5a5;color:var(--g-rose)}
+.vcol{display:flex;flex-direction:column;gap:6px;align-items:center}
+.kv{width:100%;border-collapse:separate;border-spacing:0 6px;font-size:13.5px}
+.kv td{padding:0 6px}
+.kv td:first-child{font:12.5px var(--mono);color:var(--g-text-2);width:42%}
+.kv input{width:100%;height:34px;border:1px solid var(--g-line);border-radius:14px;padding:0 12px;background:#fff;font:12.5px var(--mono)}
+.kv .ty{font-size:11.5px;color:var(--g-text-3);white-space:nowrap}
+.garden-tree{border-radius:16px;background:var(--g-mint);border:1px dashed var(--g-line-2);padding:8px 14px;font:12.5px/2 var(--mono);color:var(--g-text-2);overflow:auto}
+.garden-tree div{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.garden-tree .in1{padding-left:18px}
+.garden-tree .tg{font-family:var(--font-ui);height:20px;font-size:11px}
+.path{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:14px;background:#f6f8f6;font-size:13px}
+.path .pk{width:72px;flex:none;color:var(--g-text-3);font-size:12.5px}
+.path code{flex:1;min-width:0;font:12px var(--mono);color:var(--g-text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.timeline{display:flex;flex-direction:column;padding-left:6px}
+.timeline .ev{position:relative;padding:6px 0 10px 22px;border-left:2px solid #dcfce7;font-size:13px;color:var(--g-text-2)}
+.timeline .ev::before{content:"";position:absolute;left:-7px;top:9px;width:12px;height:12px;border-radius:50% 0 50% 50%;transform:rotate(-45deg);background:var(--g-leaf)}
+.timeline .ev.warn::before{background:var(--g-sun)}
+.timeline .ev time{display:block;font-size:12px;color:var(--g-text-3)}
+.logline{font:12px/1.75 var(--mono);background:var(--g-paper);border:1px solid #ece3c8;border-radius:6px 16px 16px 16px;padding:8px 12px;color:#33413a;white-space:pre-wrap;word-break:break-all}
+
+/* change basket, laid out as a bar along the bottom */
+.basket-bar{flex:none;position:relative;display:flex;align-items:center;gap:14px;margin-top:14px;min-height:64px;padding:10px 12px 10px 12px;border-radius:24px;background:rgba(255,255,255,.82);border:1px solid var(--g-line);box-shadow:var(--g-sh)}
+.basket-bar.dirty{border-radius:28px 28px 28px 10px;background:linear-gradient(170deg,#fffbeb,#fff);border-color:#fde68a;box-shadow:0 18px 28px -14px rgba(217,119,6,.45)}
+.basket-bar.bounce{animation:garden-bounce .5s cubic-bezier(.34,1.8,.5,1)}
+.basket-icon{width:42px;height:42px;flex:none;border-radius:50% 50% 50% 12px;background:linear-gradient(140deg,#dcfce7,#86efac);display:grid;place-items:center;color:var(--g-ink)}
+.basket-bar.dirty .basket-icon{background:linear-gradient(140deg,#fde68a,var(--g-sun));color:var(--g-sun-ink)}
+.basket-head b{display:block;font-size:15px;color:var(--g-ink);white-space:nowrap}
+.basket-bar.dirty .basket-head b{color:var(--g-sun-ink)}
+.basket-head small{display:block;font-size:12.5px;color:var(--g-text-3);white-space:nowrap}
+.basket-bar.dirty .basket-head small{color:#a16207}
+.basket-list{flex:1;min-width:0;display:flex;gap:6px;overflow:hidden;align-items:center;flex-wrap:nowrap}
+.basket-list>span{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px 0 6px;border-radius:14px;background:#fff;border:1px solid #fef3c7;font-size:13px;white-space:nowrap;flex:none;animation:garden-fade-up .35s var(--g-ease)}
+.basket-list .v{font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:10px}
+.basket-list .v.on{background:#dcfce7;color:var(--g-leaf-3)}.basket-list .v.off{background:#f1f5f2;color:var(--g-text-3)}.basket-list .v.ord{background:#e0f2fe;color:#0369a1}
+.basket-pills{display:flex;gap:6px;flex:none}
+.basket-pills button{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px;border-radius:15px;border:0;font-size:12.5px;font-weight:600}
+.bp-bad{background:#fee2e2;color:var(--g-rose)}.bp-pend{background:#fef3c7;color:#a16207}.bp-off{background:#f1f5f2;color:var(--g-text-3)}.bp-on{background:#dcfce7;color:var(--g-leaf-3)}
+.basket-actions{display:flex;gap:8px;align-items:center;flex:none;margin-left:auto}
+.garden-flyleaf{position:fixed;z-index:200;width:22px;height:22px;pointer-events:none;color:var(--g-leaf-2)}
+
+/* ---------- workshop (mirrors the Nexus page) ---------- */
+.ws-howto{flex:none;display:flex;align-items:center;gap:18px;padding:16px 22px;margin-bottom:12px}
+.ws-howto h2{font-size:16px;color:var(--g-ink)}
+.ws-howto p{font-size:13.5px;color:var(--g-text-3);margin-top:3px}
+.ws-howto details{margin-top:6px;font-size:13.5px;color:var(--g-leaf-3);font-weight:600}
+.ws-howto details p{font-weight:400}
+.ws-howto .grow{flex:1;min-width:0}
+.ws-toolbar{flex:none;display:flex;align-items:center;gap:12px;margin:0 -12px 12px;padding:10px 12px;background:rgba(240,253,244,.9);border-radius:0 0 22px 22px;flex-wrap:wrap}
+.ws-toolbar .garden-search{flex:1 1 280px;max-width:480px;height:42px}
+.ws-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.ws-card{border-radius:24px;overflow:hidden;background:rgba(255,255,255,.92);border:1px solid var(--g-line);box-shadow:var(--g-sh);cursor:pointer;display:flex;flex-direction:column;transition:box-shadow .4s var(--g-ease),transform .45s var(--g-ease)}
+.ws-card:hover{box-shadow:var(--g-sh-lg);transform:translateY(-2px) rotate(-.4deg)}
+.ws-cover{position:relative;height:150px}
+.ws-cover .tl{position:absolute;left:10px;top:10px}.ws-cover .tr{position:absolute;right:10px;top:10px}
+.ws-cover .bl{position:absolute;left:10px;bottom:10px}
+.ws-body{padding:12px 16px 16px}
+.ws-body b{display:block;font-size:16px;color:var(--g-text);line-height:1.35}
+.ws-body small{display:block;font-size:13px;color:var(--g-text-3);margin-top:2px}
+.ws-body p{font-size:13.5px;color:var(--g-text-2);margin-top:8px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ws-detail-hero{display:grid;grid-template-columns:minmax(260px,420px) 1fr;gap:26px;align-items:center;padding:20px}
+.ws-detail-hero .ws-cover{height:230px;border-radius:22px;overflow:hidden;box-shadow:0 18px 26px -16px rgba(34,197,94,.55)}
+.ws-detail-hero h1{font-size:28px;font-weight:800;margin:10px 0 6px}
+.ws-detail-hero .stats{grid-template-columns:repeat(4,auto);justify-content:start;gap:10px}
+.ws-detail-hero .stat{padding:10px 16px}
+.ws-cols{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;margin-top:16px;align-items:start}
+.quote{border-left:4px solid var(--g-leaf-2);padding:2px 0 2px 14px;font-weight:600;margin:6px 0 12px}
+.queue-card{display:flex;align-items:center;gap:12px;font-size:13.5px}
+.queue-card .garden-solar{flex:1}
+
+/* ---------- profiles (as shipped) ---------- */
+.pf{flex:1;min-height:0;display:grid;grid-template-columns:250px 1fr;gap:20px}
+.pf-side{display:flex;flex-direction:column;gap:10px}
+.seed{display:flex;align-items:center;gap:12px;padding:10px 14px 10px 12px;border-radius:18px;border:1px solid var(--g-line);background:rgba(255,255,255,.8);cursor:pointer;position:relative;text-align:left}
+.seed:hover{border-color:var(--g-leaf)}
+.seed.on{background:linear-gradient(135deg,#fffbeb,#fef3c7);border-color:#fde68a;box-shadow:0 8px 14px -8px rgba(245,158,11,.5)}
+.seed.on::after{content:"";position:absolute;right:-1px;top:12px;bottom:12px;width:4px;border-radius:4px;background:var(--g-sun-2)}
+.seed .pk{width:36px;height:38px;flex:none;border-radius:6px 6px 10px 10px;background:linear-gradient(180deg,#fde68a 0 18%,#fffbeb 18%);border:1px solid #fde68a;display:grid;place-items:center;color:var(--g-leaf-3)}
+.seed b{display:block;font-size:14px;color:var(--g-sun-ink)}
+.seed:not(.on) b{color:var(--g-text)}
+.seed small{display:block;font-size:12px;color:var(--g-text-3)}
+.seed-new{height:46px;border-radius:18px;border:1.5px dashed var(--g-line-2);background:transparent;color:var(--g-leaf-3);font-weight:700}
+.pf-main{display:flex;flex-direction:column;min-height:0;overflow:hidden;padding:18px 22px}
+.pf-head{display:flex;align-items:flex-start;gap:10px}
+.pf-head h2{font-size:22px;font-weight:800}
+.pf-head .meta{display:flex;align-items:center;gap:8px;margin-top:6px;font-size:13.5px;color:var(--g-text-3)}
+.pf-head .sp{flex:1}
+.pf-cols{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.pf-cols .bed .bed-list{padding-top:0}
+.menu{position:fixed;z-index:60;min-width:220px;padding:8px;border-radius:20px;background:#fff;border:1px solid var(--g-line);box-shadow:var(--g-sh-lg);display:none}
+.menu.on{display:block;animation:garden-fade-up .25s var(--g-ease)}
+.menu button{display:flex;align-items:flex-start;gap:9px;width:100%;padding:9px 12px;border:0;border-radius:12px;background:none;text-align:left;font-size:14px;color:var(--g-text)}
+.menu button:hover{background:var(--g-mint)}
+.menu button small{display:block;font-size:12px;color:var(--g-text-3)}
+.menu button.danger{color:var(--g-rose)}
+.menu hr{border:0;border-top:1px solid #e3f5e9;margin:4px 6px}
+.menu h4{font-size:12.5px;color:var(--g-text-3);padding:6px 12px 4px;font-weight:600}
+
+/* ---------- logs (notebook + gardener, as shipped) ---------- */
+.lg{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:20px}
+.log-pane{display:flex;flex-direction:column;min-height:0;background:var(--g-paper);border:1px solid #ece3c8;border-radius:6px 24px 24px 24px;box-shadow:0 18px 28px -16px rgba(140,110,40,.35);overflow:hidden}
+.log-heading{display:flex;align-items:flex-end;gap:8px;padding:12px 16px 0;border-bottom:1px solid #e8dfc6}
+.log-tabs{display:flex;gap:4px;flex:1;min-width:0}
+.log-tabs button{height:36px;padding:0 14px;margin-bottom:-1px;font-size:13px;border-radius:14px 14px 0 0;border:1px solid #e8dfc6;border-bottom:0;background:#f6efd9;color:#8a6d2f;font-weight:600;white-space:nowrap}
+.log-tabs button.active{background:var(--g-paper);color:var(--g-sun-ink);border-bottom:1px solid var(--g-paper)}
+.log-heading>button{height:32px;margin-bottom:8px;padding:0 12px;font-size:13px;border-radius:16px;border:1px solid var(--g-line);background:#fff;color:var(--g-ink)}
+.log-control{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:12px 16px 6px}
+.log-control input[type=search]{flex:1 1 220px;height:36px;padding:0 14px;border-radius:16px;border:1px solid var(--g-line);background:#fff;outline:none}
+.log-control label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--g-text-2)}
+.log-mode-switch{display:inline-flex;padding:3px;border-radius:18px;background:#f6efd9;border:1px solid #ece3c8}
+.log-mode-switch button{height:28px;padding:0 12px;border:0;border-radius:14px;background:transparent;color:#8a6d2f;font-size:12.5px}
+.log-mode-switch button.active{background:#fff;color:var(--g-sun-ink);font-weight:600;box-shadow:0 2px 6px -3px rgba(140,110,40,.5)}
+.log-meta{padding:0 16px 8px;font-size:12px;color:var(--g-text-3)}
+.reconcile{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 16px 10px;padding:9px 12px;border-radius:16px;background:#fff;border:1px dashed #e8dfc6;font-size:13px;color:var(--g-text-2)}
+.reconcile b{color:var(--g-sun-ink)}
+.log-scroll{flex:1;min-height:0;overflow:auto;background-color:var(--g-paper);background-image:linear-gradient(90deg,transparent 55px,rgba(248,113,113,.45) 55px,rgba(248,113,113,.45) 56px,transparent 56px);border-top:1px dashed #e8dfc6}
+.log-line{display:flex;min-height:28px;line-height:28px;box-shadow:inset 0 -1px 0 rgba(56,189,248,.18);font:12.5px var(--mono)}
+.log-line i{width:56px;flex:none;text-align:right;padding-right:14px;color:#c0a875;font-style:normal}
+.log-line code{padding-left:12px;color:#33413a;white-space:pre;font:inherit}
+.log-line.mark code{background:linear-gradient(180deg,transparent 45%,rgba(253,224,71,.5) 45%,rgba(253,224,71,.5) 86%,transparent 86%)}
+.log-line.good code{color:var(--g-leaf-3)}
+.log-foot{padding:8px 16px;font-size:12.5px;color:var(--g-text-3);border-top:1px dashed #e8dfc6}
+.conv{display:flex;flex-direction:column;min-height:0;background:rgba(255,255,255,.9);border:1px solid var(--g-line);border-radius:28px;box-shadow:var(--g-sh);overflow:hidden}
+.conv-head{display:flex;align-items:center;gap:6px;padding:12px 14px 12px 18px;border-bottom:1px solid #e3f5e9}
+.conv-head h3{font-size:16px;white-space:nowrap;display:flex;align-items:center}
+.conv-head h3::before{content:"";display:inline-block;width:22px;height:22px;margin-right:8px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff7d6,var(--g-sun) 60%,var(--g-sun-2));box-shadow:0 4px 10px -4px rgba(245,158,11,.6)}
+.model-chip{display:inline-flex;align-items:center;gap:6px;height:28px;margin-left:4px;padding:0 10px;border-radius:14px;border:1px solid var(--g-line);background:var(--g-mint);color:var(--g-leaf-3);font-size:12.5px}
+.conv-scroll{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:16px;padding:18px 18px 10px}
+.msg{display:flex;gap:10px;align-items:flex-start;animation:garden-fade-up .45s var(--g-ease)}
+.msg.user{justify-content:flex-end}
+.msg.user .bubble{max-width:82%;padding:10px 16px;border-radius:20px 20px 6px 20px;background:#fef3c7;border:1px solid #fde68a;color:#713f12;font-size:14px}
+.msg.assistant .bubble{flex:1;padding:12px 18px 14px;border-radius:6px 22px 22px 22px;background:linear-gradient(170deg,#f0fdf4,#fff 55%);border:1px solid #dcfce7;font-size:14px;line-height:1.7}
+.bubble>strong{display:block;margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--g-leaf-3)}
+.avatar{flex:none;width:30px;height:30px;margin-top:2px;display:grid;place-items:center;border-radius:50% 50% 50% 10px;background:linear-gradient(140deg,var(--g-leaf),var(--g-leaf-2));color:#fff;box-shadow:0 6px 12px -6px rgba(34,197,94,.8)}
+.composer{padding:10px 14px 14px}
+.composer-box{display:flex;flex-direction:column;border:1.5px solid var(--g-line-2);border-radius:22px;background:#fff}
+.composer-box textarea{min-height:52px;padding:12px 16px 4px;border:0;border-radius:22px 22px 0 0;background:transparent;resize:none;outline:none;font-size:14px}
+.composer-actions{display:flex;align-items:center;gap:8px;padding:6px 8px 8px 10px}
+.attach{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:15px;border:1px solid var(--g-line);background:var(--g-mint);color:var(--g-leaf-3);font-size:12.5px;font-weight:600}
+.composer-hint{margin-left:auto;font-size:12px;color:var(--g-text-3);white-space:nowrap}
+
+/* ---------- settings (as shipped) ---------- */
+.garden-cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:1100px}
+.garden-card.wide{grid-column:1/-1}
+.path-box{padding:12px 16px;border-radius:16px;background:#f6f8f6;border:1px solid #e3ebe5;margin-bottom:14px}
+.path-box small{display:block;font-size:12px;color:var(--g-text-3)}
+.path-box code{font:12.5px var(--mono);color:var(--g-ink)}
+.store-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 24px;font-size:13.5px;margin-bottom:16px}
+.store-grid div{display:grid;grid-template-columns:150px 1fr;gap:10px}
+.store-grid span{color:var(--g-text-3)}
+.store-grid code{font:12.5px var(--mono);color:var(--g-text-2)}
+.about-mark{float:right;width:56px;height:56px;margin:0 0 8px 16px;filter:drop-shadow(0 8px 12px rgba(20,83,45,.2))}
+
+/* ---------- bottom sheet ---------- */
+.veil{position:fixed;inset:0;z-index:70;display:none;background:rgba(20,70,45,.2);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.veil.on{display:block}
+.sheet{position:fixed;z-index:71;left:0;right:0;bottom:0;margin:0 auto;width:min(760px,94vw);max-height:86vh;display:flex;flex-direction:column;border-radius:34px 34px 0 0;border:1px solid var(--g-line);border-bottom:0;background:#fff;color:var(--g-text);box-shadow:0 -20px 40px -20px rgba(34,197,94,.35);animation:garden-sheet-up .55s cubic-bezier(.34,1.3,.64,1)}
+.sheet.wide{width:min(1180px,96vw);max-height:90vh}
+.sheet::before{content:"";display:block;flex:none;width:44px;height:5px;border-radius:3px;background:#d1e7d9;margin:10px auto 0}
+.sh-head{flex:none;display:flex;align-items:center;gap:12px;padding:12px 22px 14px;border-bottom:1px solid #dcfce7}
+.sh-head h2{font-size:19px;font-weight:800;color:var(--g-ink)}
+.sh-head p{font-size:13px;color:var(--g-text-3);margin-top:2px}
+.sh-head .x{margin-left:auto;width:34px;height:34px;border-radius:50%;border:1px solid var(--g-line);background:#fff;color:var(--g-text-2);display:grid;place-items:center;flex:none}
+.sh-head .x:hover{border-color:var(--g-leaf);background:var(--g-mint)}
+.sh-body{flex:1;min-height:0;overflow:auto;padding:16px 22px;display:flex;flex-direction:column;gap:14px;font-size:14px}
+.sh-foot{flex:none;display:flex;align-items:center;gap:10px;padding:12px 22px 16px;border-top:1px solid #dcfce7}
+.sh-foot .sp{flex:1}
+.sh-foot .hint{font-size:12.5px;color:var(--g-text-3)}
+.chg{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px dashed #e3f5e9;font-size:14px}
+.chg:first-child{border-top:0}
+.steps{display:flex;flex-direction:column;gap:4px}
+.step{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:16px;font-size:14px;color:var(--g-text-3)}
+.step .si{width:26px;height:26px;border-radius:50% 0 50% 50%;transform:rotate(-45deg);display:grid;place-items:center;flex:none;background:#f1f5f2}
+.step .si>*{transform:rotate(45deg)}
+.step.doing{color:var(--g-text);background:var(--g-mint)}
+.step.doing .si{background:var(--g-leaf);animation:garden-spin 1.4s linear infinite}
+.step.done{color:var(--g-text-2)}.step.done .si{background:linear-gradient(140deg,var(--g-leaf),var(--g-leaf-2));color:#fff}
+.step.wait{color:var(--g-sun-ink);background:#fffbeb}.step.wait .si{background:var(--g-sun);color:var(--g-sun-ink)}
+.step small{margin-left:auto;font-size:12px;color:var(--g-text-3)}
+.result{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.inst-actions{display:flex;flex-wrap:wrap;gap:8px}
+.inst-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid #e3f5e9}
+.dropzone{padding:30px;border-radius:24px;border:2px dashed var(--g-line-2);background:var(--g-mint);text-align:center;color:var(--g-text-3)}
+
+/* ---------- responsive ---------- */
+@media (max-width:1440px){.sun-meta{display:none}}
+@media (max-width:1320px){.beds{grid-template-columns:minmax(240px,.9fr) minmax(300px,1.1fr) minmax(330px,1.05fr)}.sign-text>span{max-width:130px}.basket-list{display:none}}
+@media (max-width:1240px){.canopy-nav>button{padding:0 12px}.canopy-nav>button svg{display:none}}
+@media (max-width:1120px){
+  .beds{grid-template-columns:minmax(230px,1fr) minmax(290px,1.25fr)}
+  .detail{position:absolute;right:0;top:0;bottom:0;width:min(460px,92%);z-index:20;box-shadow:var(--g-sh-lg);transform:translateX(110%);transition:transform .35s var(--g-ease)}
+  .detail.open{transform:none}
+  .beds{position:relative}
+  .lg{grid-template-columns:1fr}.lg .conv{display:none}
+  .ws-cols{grid-template-columns:1fr}
+  .garden-cards{grid-template-columns:1fr}
+}
+@media (max-width:1060px){.canopy-nav>button{padding:0 10px;font-size:14px}.sign-text>span{max-width:96px}.basket-head small{display:none}}
+@media (prefers-reduced-motion:reduce){.garden-shell *,.garden-shell *::before,.garden-shell *::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+ <defs>
+  <symbol id="i-sprout" viewBox="0 0 24 24"><path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 2 9 5-9 5-9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></symbol>
+  <symbol id="i-store" viewBox="0 0 24 24"><path d="M3 9h18l-1.5-5h-15z"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/></symbol>
+  <symbol id="i-file-text" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h5M16 13H8M16 17H8M10 9H8"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-gamepad" viewBox="0 0 24 24"><path d="M6 11h4M8 9v4M15 12h.01M18 10h.01"/><rect x="2" y="6" width="20" height="12" rx="5"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-square" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5M3 21v-5h5"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+  <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5 4.5-5"/></symbol>
+  <symbol id="i-pause-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 9v6M14 9v6"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/></symbol>
+  <symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-shield-alert" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="M12 8v4M12 16h.01"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-top" viewBox="0 0 24 24"><path d="M6 4h12M7 14l5-5 5 5M12 9v11"/></symbol>
+  <symbol id="i-bottom" viewBox="0 0 24 24"><path d="M6 20h12M7 10l5 5 5-5M12 15V4"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></symbol>
+  <symbol id="i-wand" viewBox="0 0 24 24"><path d="m15 4 1 2 2 1-2 1-1 2-1-2-2-1 2-1zM4 20 15 9"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></symbol>
+  <symbol id="i-basket" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-folder-open" viewBox="0 0 24 24"><path d="M6 14 7.5 11a2 2 0 0 1 1.8-1H20a2 2 0 0 1 1.9 2.5l-1.5 6a2 2 0 0 1-1.9 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v2"/></symbol>
+  <symbol id="i-steam" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="15.5" cy="9.5" r="2.5"/><circle cx="8.5" cy="15" r="1.8"/><path d="m10 14.2 3.6-2.6"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></symbol>
+  <symbol id="i-import" viewBox="0 0 24 24"><path d="M4 20h16M12 4v11M7 10l5 5 5-5"/></symbol>
+  <symbol id="i-git" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="12" r="2.5"/><path d="M6 8.5v7M8.3 7.2 15.7 11M8.3 16.8l7.4-3.8"/></symbol>
+  <symbol id="i-swap" viewBox="0 0 24 24"><path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/></symbol>
+  <symbol id="i-hdd" viewBox="0 0 24 24"><path d="M22 12H2M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/><path d="M6 16h.01M10 16h.01"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 7-5 5 5 5M16 7l5 5-5 5"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l4 2"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></symbol>
+  <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M12 8v5M9.5 10.5h5"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+ </defs>
+</svg>
+
+<div class="garden-shell" id="shell">
+  <div class="garden-fronds" aria-hidden="true"></div>
+  <header class="garden-titlebar">
+    <img class="titlebar-logo" src="data:image/png;base64,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" alt="">
+    <span class="titlebar-name">PSMM</span>
+    <span class="titlebar-space"></span>
+    <label class="demo" title="原型专用：切换不同情况；正式界面没有此控件">原型演示
+      <select id="demoSel"><option value="normal">10-28 本机快照</option><option value="running">游戏运行中</option><option value="fresh">首次使用 · 空库</option></select>
+    </label>
+    <div class="titlebar-controls">
+      <button class="titlebar-button" title="最小化"><svg class="i"><use href="#i-minus"/></svg></button>
+      <button class="titlebar-button" title="最大化"><svg class="i sm"><use href="#i-square"/></svg></button>
+      <button class="titlebar-button close" title="关闭"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+  </header>
+
+  <header class="canopy">
+    <nav class="canopy-nav" id="nav">
+      <button data-page="mods" aria-current="page"><svg class="i"><use href="#i-sprout"/></svg>模组<span class="canopy-count" id="navCount" style="display:none"></span></button>
+      <button data-page="profiles"><svg class="i"><use href="#i-layers"/></svg>方案</button>
+      <button data-page="workshop"><svg class="i"><use href="#i-store"/></svg>创意工坊</button>
+      <button data-page="logs"><svg class="i"><use href="#i-file-text"/></svg>日志</button>
+      <button data-page="settings"><svg class="i"><use href="#i-settings"/></svg>设置</button>
+      <span class="canopy-vine" id="vine"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M2 8 Q 14 2 26 8 T 50 8 T 74 8 T 98 8"/><ellipse cx="96" cy="5" rx="4" ry="2.4" transform="rotate(-30 96 5)"/></svg></span>
+    </nav>
+    <div class="canopy-right">
+      <span id="envPill"></span>
+      <button class="garden-sign" data-act="installation" title="切换游戏安装">
+        <span class="sign-art"><svg class="i"><use href="#i-gamepad"/></svg></span>
+        <span class="sign-text"><span>Probably Stolen · Steam</span><small>正式版 100-Rev3 · 切换安装</small></span>
+      </button>
+    </div>
+    <div class="canopy-launch game-launch" id="launch">
+      <button class="sun-button" id="sunBtn" data-act="saveRun">
+        <span class="sun-disc"><svg class="sun-rays" viewBox="0 0 62 62" id="rays"></svg><svg class="i" id="sunIcon"><use href="#i-play"/></svg></span>
+        <span id="sunLabel">启动游戏</span>
+      </button>
+      <div class="sun-meta" id="sunMeta"></div>
+    </div>
+  </header>
+
+  <main class="garden-bed">
+    <!-- ============ 模组 ============ -->
+    <section class="page on" id="page-mods">
+      <div class="garden-intro">
+        <div><h1>模组</h1><p id="modsSub"></p></div>
+        <div class="garden-intro-actions">
+          <button class="garden-btn soft sm" data-act="goWorkshop"><svg class="i sm"><use href="#i-store"/></svg>创意工坊</button>
+          <button class="garden-btn soft icon sm" title="重新扫描" data-act="rescan"><svg class="i sm"><use href="#i-refresh"/></svg></button>
+          <button class="garden-btn green" data-act="import"><svg class="i sm"><use href="#i-plus"/></svg>导入</button>
+        </div>
+      </div>
+      <div id="modsBanner"></div>
+      <div class="garden-notice" id="notice"></div>
+      <div class="beds" id="beds">
+        <section class="bed avail">
+          <div class="bed-head"><h2><svg class="i sm"><use href="#i-pause-circle"/></svg>可用模组</h2><span class="sp"></span><span class="bed-count" id="availNum">0</span></div>
+          <div class="bed-tools">
+            <label class="garden-search" id="availSearchBox"><svg class="i sm"><use href="#i-search"/></svg><input id="availSearch" placeholder="搜索名称、作者或 ID"><button class="search-clear" data-clear="avail"><svg class="i xs"><use href="#i-x"/></svg></button></label>
+            <span class="garden-select"><select id="availSort" title="只影响这一栏的浏览顺序"><option value="name">名称</option><option value="updated">更新时间</option><option value="size">大小</option></select></span>
+          </div>
+          <div class="garden-chips sm" id="availChips"></div>
+          <div class="bed-list" id="availList" tabindex="0"><div class="drop-line"></div></div>
+          <div class="bed-foot"><span id="availFoot">把模组拖到右边即可启用</span><span class="sp"></span></div>
+        </section>
+        <section class="bed enabled">
+          <div class="bed-head"><h2><svg class="i sm"><use href="#i-check-circle"/></svg>启用与顺序</h2><span class="sp"></span>
+            <button class="garden-btn sm" data-act="autosort" title="依赖在前，没有约束的模组保持原顺序；可撤销"><svg class="i sm"><use href="#i-wand"/></svg>自动排序</button>
+            <span class="bed-count" id="enNum">0</span></div>
+          <div class="bed-tools">
+            <label class="garden-search" id="enSearchBox"><svg class="i sm"><use href="#i-search"/></svg><input id="enSearch" placeholder="在启用列表中查找"><kbd>Ctrl F</kbd><button class="search-clear" data-clear="en"><svg class="i xs"><use href="#i-x"/></svg></button></label>
+            <div class="garden-view-switch" id="moveBtns">
+              <button title="置顶 Alt+Home" data-act="top"><svg class="i sm"><use href="#i-top"/></svg></button>
+              <button title="上移 Alt+↑" data-act="up"><svg class="i sm"><use href="#i-up"/></svg></button>
+              <button title="下移 Alt+↓" data-act="down"><svg class="i sm"><use href="#i-down"/></svg></button>
+              <button title="置底 Alt+End" data-act="bottom"><svg class="i sm"><use href="#i-bottom"/></svg></button>
+            </div>
+          </div>
+          <div id="enFilter"></div>
+          <div class="bed-list" id="enList" tabindex="0"><div class="drop-line"></div></div>
+          <div class="bed-foot"><svg class="i xs"><use href="#i-info"/></svg><span>这是保存顺序，不保证模组初始化的先后。<button class="garden-link" data-act="orderHelp">为什么</button></span><span class="sp"></span><span id="enFoot"></span></div>
+        </section>
+        <section class="bed detail" id="detail"></section>
+      </div>
+      <div class="basket-bar" id="basket"></div>
+    </section>
+
+    <!-- ============ 方案 ============ -->
+    <section class="page" id="page-profiles">
+      <div class="garden-intro">
+        <div><h1>方案</h1><p>方案记住一组模组的启用状态、顺序和来源，可以随时切换、应用到游戏或分享给别人。</p></div>
+        <div class="garden-intro-actions"><button class="garden-btn soft icon sm" title="刷新"><svg class="i sm"><use href="#i-refresh"/></svg></button><button class="garden-btn sm"><svg class="i sm"><use href="#i-import"/></svg>导入</button></div>
+      </div>
+      <div class="pf">
+        <div class="pf-side"><div class="garden-bed-label" style="margin-top:0">我的方案 <span id="pfCount"></span></div><div id="pfList" style="display:flex;flex-direction:column;gap:10px"></div><button class="seed-new"><svg class="i sm" style="vertical-align:-3px"><use href="#i-plus"/></svg> 新方案</button></div>
+        <div class="garden-card pf-main" id="pfMain"></div>
+      </div>
+    </section>
+
+    <!-- ============ 创意工坊 ============ -->
+    <section class="page scroll" id="page-workshop"></section>
+
+    <!-- ============ 日志 ============ -->
+    <section class="page" id="page-logs">
+      <div class="garden-intro"><div><h1>日志</h1><p>查看游戏和 PSMM 的日志，需要时让 AI 帮你找出原因。</p></div></div>
+      <div class="lg">
+        <section class="log-pane">
+          <div class="log-heading">
+            <div class="log-tabs"><button>管理器日志</button><button class="active">游戏 · Player.log</button></div>
+            <button>2 个来源</button><button>刷新日志</button>
+          </div>
+          <div class="log-control">
+            <input type="search" placeholder="在已加载的日志中查找">
+            <label><input type="checkbox"> 只看错误</label>
+            <div class="log-mode-switch"><button class="active">完整日志</button><button>发送给 AI 的内容</button></div>
+          </div>
+          <div class="log-meta">已加载 48.2 KB / 48.2 KB · 已到开头 · 已隐藏个人信息</div>
+          <div class="reconcile" id="reconcile"></div>
+          <div class="log-scroll" id="logView"></div>
+          <div class="log-foot">本次启动：2026/10/28 17:52 · Steam Build 26284217</div>
+        </section>
+        <section class="conv">
+          <div class="conv-head"><h3>智能分析</h3><span class="model-chip">DeepSeek · 已连接</span><span style="flex:1"></span>
+            <button class="garden-btn soft sm"><svg class="i sm"><use href="#i-message"/></svg>新对话</button>
+            <button class="garden-btn soft sm"><svg class="i sm"><use href="#i-download"/></svg>导出</button>
+            <button class="garden-btn green sm">分析日志</button></div>
+          <div class="conv-scroll" id="convScroll"></div>
+          <div class="composer"><div class="composer-box"><textarea placeholder="继续追问，例如：重启后它们会按什么顺序加载？"></textarea>
+            <div class="composer-actions"><span class="attach"><svg class="i xs"><use href="#i-paperclip"/></svg>已附带 Player.log + 模组状态</span><span class="composer-hint">Ctrl + Enter 发送</span><button class="garden-btn green sm"><svg class="i sm"><use href="#i-send"/></svg>发送</button></div></div></div>
+        </section>
+      </div>
+    </section>
+
+    <!-- ============ 设置 ============ -->
+    <section class="page scroll" id="page-settings">
+      <div class="garden-intro"><div><h1>设置</h1><p>PSMM v0.2.0 · 数据位置、本地检查、更新记录与许可。AI 服务在“日志”页配置。</p></div></div>
+      <div class="garden-chips" style="margin-bottom:16px"><button class="on">概览</button><button>更新记录</button><button>许可与致谢</button></div>
+      <div class="garden-cards">
+        <article class="garden-card wide"><h2><svg class="i"><use href="#i-hdd"/></svg>数据位置</h2><p>包库、方案、配置与备份统一管理，换盘时一起迁移。</p>
+          <div class="path-box"><small>当前数据目录</small><code>E:\WorkSpace\ForTools\PSModManager\portable\PSModManager\data</code></div>
+          <div class="store-grid">
+            <div><span>Mod 包库</span><code>.\library</code></div><div><span>方案与安装记录</span><code>.\psmodmanager.sqlite3</code></div>
+            <div><span>应用配置</span><code>.\config.json</code></div><div><span>部署历史与恢复记录</span><code>.\deployments</code></div>
+            <div><span>下载缓存</span><code>.\downloads</code></div><div><span>导入暂存</span><code>.\imports</code></div>
+            <div><span>方案分享暂存</span><code>.\sharing</code></div><div><span>元数据临时工作区</span><code>.\import-worker</code></div>
+            <div><span>应用日志</span><code>.\logs</code></div><div><span>WebView 缓存</span><code>.\webview2</code></div>
+          </div>
+          <button class="garden-btn sm"><svg class="i sm"><use href="#i-folder-open"/></svg>更换数据目录</button></article>
+        <article class="garden-card"><h2><svg class="i"><use href="#i-shield-check"/></svg>本地检查</h2><p>只读检查 PSMM 的数据记录，不改动游戏文件。</p><button class="garden-btn sm">检查本地工作空间</button></article>
+        <article class="garden-card"><img class="about-mark" src="data:image/png;base64,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" alt=""><h2>关于</h2><p>PSMM（PSModManager）v0.2.0 · Probably Stolen 的 Mod 管理器 · Windows x64 便携版 · MIT 许可证</p>
+          <dl class="garden-facts" style="grid-template-columns:96px 1fr"><dt>产品</dt><dd>PSModManager</dd><dt>版本</dt><dd>0.2.0</dd><dt>凭据服务</dt><dd>PSModManager</dd><dt>更新来源</dt><dd>GitHub Releases</dd></dl>
+          <div style="display:flex;gap:22px;margin-top:14px"><button class="garden-link">查看更新记录</button><button class="garden-link">查看许可与致谢</button></div></article>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="menu" id="menu"></div>
+<div class="veil" id="veil"></div>
+<div id="sheetHost"></div>
+
+<script>
+'use strict';
+window.addEventListener('error',ev=>{ let b=document.getElementById('js-errors'); if(!b){b=document.createElement('pre');b.id='js-errors';b.style.cssText='position:fixed;left:0;bottom:0;z-index:999;background:#fee;color:#900;margin:0;padding:6px;font-size:11px';document.body.appendChild(b);} b.textContent+=ev.message+' @'+ev.lineno+'\n'; });
+
+/* =====================================================================
+   DATA — the first seven packages mirror the 2026-10-28 local snapshot
+   (workshop IDs, versions, declared capabilities, enabled order, run
+   status). Authors, descriptions, sizes, the remaining native IDs and every
+   package after them are illustrative samples.
+   ===================================================================== */
+const CAPS = {
+  'files':{label:'文件读写',desc:'读取或写入此电脑上任意位置的文件',level:'high',icon:'hdd'},
+  'network':{label:'访问互联网',desc:'连接互联网，与外部服务器收发数据',level:'mid',icon:'globe'},
+  'process':{label:'启动程序',desc:'启动其他程序或打开链接',level:'high',icon:'terminal'},
+  'native':{label:'原生系统库',desc:'调用原生系统库，越过 .NET 托管边界',level:'high',icon:'cpu'},
+  'dynamic-code':{label:'动态代码',desc:'运行时加载或生成代码',level:'high',icon:'code'},
+  'reflection-external':{label:'反射访问',desc:'通过反射访问系统和引擎的内部实现',level:'mid',icon:'eye'}
+};
+// pastel pairs in the greenhouse palette (mint, cream, sky, peach, lilac, rose)
+const TINTS = {mint:['#dcfce7','#fef9c3','#16a34a'],sky:['#e0f2fe','#dcfce7','#0369a1'],peach:['#ffedd5','#fef9c3','#c2410c'],lilac:['#ede9fe','#e0f2fe','#6d28d9'],rose:['#fce7f3','#fef3c7','#be185d'],sun:['#fef3c7','#dcfce7','#a16207'],grey:['#f1f5f2','#f8faf9','#5b6f64']};
+const MODS = [
+ {id:'item_details',name:'Item Details / 物品详情',pot:'物品',tint:'mint',cat:'界面',author:'Mossy',ver:'0.4.1',game:'0.46D',src:'workshop',wsid:'3828868413',caps:[],size:0.3,files:4,
+  dlls:[{n:'ItemDetails.dll',role:'入口',entry:'ItemDetails.ItemDetailsMod'}],updated:'2026-10-26',subs:'2.1 万',rating:4.8,
+  desc:'在物品提示中显示更多信息：基础价格、稀有度、来源与可售渠道。\n可在游戏内或 PSMM 中调整显示项。',tags:['界面','信息'],deps:[],
+  cfg:[{k:'showBasePrice',v:'true'},{k:'showRarity',v:'true'},{k:'priceFormat',v:'¥{0}'},{k:'tooltipDelay',v:'0.25'}],
+  data:[['原生配置','%LocalLow%\\…\\ModConfigs\\item_details.json']],trust:'approved',approvedAt:'2026/10/28',run:'running',res:{}},
+ {id:'ps_workshop_uploader',name:'Probably Stolen Workshop Uploader',short:'Workshop Uploader',pot:'Up',tint:'sky',cat:'工具',author:'Lumen',ver:'0.4.1',game:'0.46D',src:'workshop',wsid:'3829050213',caps:['files','network','process','native'],size:3.1,files:9,
+  dlls:[{n:'ProbablyStolenWorkshopUploader.dll',role:'入口',entry:'Uploader.UploaderMod'},{n:'Assemblies/ProbablyStolenWorkshopUploader.Core.dll',role:'依赖库'},{n:'Assemblies/Newtonsoft.Json.dll',role:'依赖库'}],
+  updated:'2026-10-25',subs:'4,310',rating:4.2,desc:'社区制作的创意工坊上传工具，在游戏内打包并发布模组。',tags:['工具','作者'],deps:[],cfg:null,
+  notes:[['mint','这是社区上传器，不是游戏内置功能；它要求清单根元素为 <Mod>，比游戏本身的规则更严格。']],data:[],trust:'approved',approvedAt:'2026/10/28',run:'restart',res:{}},
+ {id:'mouse_keeper',name:'小鼠养殖管家',pot:'小鼠',tint:'rose',cat:'玩法',author:'阿柚',ver:'0.2.0',game:'0.46D',src:'workshop',wsid:'3829024993',caps:[],size:0.6,files:5,
+  dlls:[{n:'MouseKeeper.dll',role:'入口',entry:'MouseKeeper.Mod'}],updated:'2026-10-24',subs:'6,820',rating:4.6,desc:'自动喂食、清理笼舍并记录繁殖代数。',tags:['玩法','养殖'],deps:[],cfg:null,
+  notes:[['sign','会修改存档中的养殖状态。停用不会撤销已经写入存档的变化。']],data:[['存档内数据','PlayerStore.modData（随存档保存）']],trust:'approved',approvedAt:'2026/10/28',run:'restart',res:{}},
+ {id:'shop_assist',name:'店铺助手 / Shop Assist',pot:'店铺',tint:'sun',cat:'经营',author:'Ledger',ver:'1.1.0',game:'0.46D',src:'workshop',wsid:'3829106910',caps:['reflection-external'],size:0.9,files:6,
+  dlls:[{n:'ShopAssist.dll',role:'入口',entry:'ShopAssist.ShopAssistMod'}],updated:'2026-10-27',subs:'1.3 万',rating:4.7,desc:'补货提醒、一键定价与营业统计面板。',tags:['经营','界面'],deps:[],cfg:null,data:[],trust:'approved',approvedAt:'2026/10/28',run:'restart',res:{Localization:2}},
+ {id:'xiaowo_tradeperks',name:'小窝特性扩展 / XIAOWO-TradePerks',short:'小窝特性扩展',pot:'小窝',tint:'lilac',cat:'玩法',author:'小窝',ver:'2.0.1',game:'0.46D',src:'workshop',wsid:'3828949943',caps:['reflection-external'],size:1.4,files:8,
+  dlls:[{n:'XiaowoTradePerks.dll',role:'入口',entry:'Xiaowo.TradePerks'}],updated:'2026-10-23',subs:'9,540',rating:4.5,desc:'新增交易特性与成长路线，特性效果随存档保存。',tags:['玩法','交易'],deps:[],cfg:null,data:[['存档内数据','PlayerStore.modData']],trust:'approved',approvedAt:'2026/10/28',run:'restart',res:{Localization:2}},
+ {id:'cyber_electronics',name:'霓虹旧货：电子产品 + Probably Stolen English Translation Patch',short:'电子产品扩展',pot:'电子',tint:'peach',cat:'内容',author:'Custom Mod',ver:'1.4.31',game:'0.46D',src:'workshop',wsid:'3828902092',caps:['files','dynamic-code','native','reflection-external'],size:24.6,files:41,dllCount:14,
+  dlls:[{n:'CyberElectronics.dll',role:'入口',entry:'CyberElectronics.CyberMod'},{n:'TranslationPatch.dll',role:'入口',entry:'Translation.PatchMod'},{n:'Assemblies/Pawnshop.ModRuntime.Mono.dll',role:'依赖库'},{n:'Assemblies/…（另 11 个库）',role:'依赖库'}],
+  updated:'2026-10-27',subs:'3.8 万',rating:4.9,
+  desc:'新增手机、电脑、音箱等电子产品与维修玩法，附带动态壁纸，并内置英文翻译补丁。\n同一个包里有两个入口（电子产品 + 翻译），PSMM 按一个模组管理，两个入口的加载结果分别显示。',tags:['内容','物品','翻译'],deps:[],cfg:null,
+  notes:[['sign','配置与部分状态写在游戏根目录 UserData/CyberElectronics，只备份 ModConfigs 会漏掉这些数据。']],
+  data:[['自定义数据','…\\Probably Stolen\\UserData\\CyberElectronics'],['壁纸资源','<包目录>\\CyberElectronics\\Wallpapers'],['存档内数据','物品 ID 与容器内容']],trust:'approved',approvedAt:'2026/10/28',run:'restart',res:{Textures:18,'Textures/Items':42,Localization:4,LootTables:3}},
+ {id:'probably_multiplayer',name:'Probably Multiplayer',pot:'Mu',tint:'sky',cat:'联机',author:'NetGoose',ver:'2.0.2',game:'0.46D',src:'workshop',wsid:'3828909239',caps:['files','network','process','reflection-external'],size:4.2,files:12,
+  dlls:[{n:'ProbablyMultiplayer.dll',role:'入口',entry:'PM.MultiplayerMod'},{n:'Assemblies/websocket-sharp.dll',role:'依赖库'}],updated:'2026-10-28',subs:'2.6 万',rating:4.4,
+  desc:'联机模式：真人顾客、交易同步。依赖作者提供的 HTTPS 路由与 WebSocket 服务。\n联机双方需要相同的版本和模组组合。',tags:['联机'],deps:[],cfg:null,
+  notes:[['mint','联机服务故障与模组加载失败是两回事，诊断时分开显示。']],data:[['联机身份','…\\UserData\\ProbablyMultiplayer\\steam\\<SteamID>（不进入分享诊断包）']],trust:'approved',approvedAt:'2026/10/28',run:'restart',res:{}},
+ // ---- samples below ----
+ {id:'ps_common_lib',name:'PS 通用库 / PSCommonLib',pot:'Co',tint:'grey',cat:'前置库',author:'Mossy',ver:'1.2.0',game:'0.46D',src:'local',caps:['reflection-external'],size:0.4,files:3,
+  dlls:[{n:'PSCommonLib.dll',role:'入口',entry:'PSCommon.LibMod'}],updated:'2026-10-20',desc:'供其他模组使用的公共库：配置界面、物品注册辅助与本地化工具。',tags:['前置库'],deps:[],cfg:null,data:[],trust:'none',run:null,res:{},sample:true},
+ {id:'furniture_plus',name:'更多家具 / Furniture Plus',pot:'家具',tint:'peach',cat:'内容',author:'Bramble',ver:'3.1.0',game:'0.46D',src:'workshop',wsid:'3830112458',caps:['files'],size:7.8,files:64,
+  dlls:[{n:'FurniturePlus.dll',role:'入口',entry:'FurniturePlus.Mod'}],updated:'2026-10-28',subs:'1.1 万',rating:4.6,
+  desc:'新增 40 余件家具与装饰，可在店铺和住处摆放。',tags:['内容','家具'],deps:['ps_common_lib'],cfg:[{k:'priceMultiplier',v:'1.0'},{k:'enableRareSets',v:'true'}],data:[],
+  trust:'none',run:null,res:{Textures:12,'Textures/Items':46,Localization:2},update:{to:'3.2.0',date:'2026-10-28',addCaps:['network'],note:'新增“在线家具目录”'},sample:true},
+ {id:'holiday_decor',name:'节日装饰 / Holiday Decor',pot:'节日',tint:'rose',cat:'内容',author:'Bramble',ver:'1.0.4',game:'0.46D',src:'workshop',wsid:'3830144001',caps:[],size:2.2,files:20,
+  dlls:[{n:'HolidayDecor.dll',role:'入口',entry:'HolidayDecor.Mod'}],updated:'2026-10-21',subs:'3,200',rating:4.3,desc:'按现实日期切换店铺节日装饰。',tags:['内容','装饰'],deps:['furniture_plus','seasonal_core'],cfg:null,data:[],trust:'none',run:null,res:{Textures:9},sample:true},
+ {id:'price_board',name:'价格面板 / Price Board',pot:'价格',tint:'mint',cat:'界面',author:'Ledger',ver:'1.0.2',game:'0.46D',src:'local',caps:[],size:0.5,files:4,
+  dlls:[{n:'PriceBoard.dll',role:'入口',entry:'PriceBoard.Mod'}],updated:'2026-09-30',desc:'在柜台上方显示今日行情。',tags:['界面','经营'],deps:[],cfg:null,data:[],trust:'none',run:null,res:{},shadow:{ver:'1.1.0',wsid:'3830007712'},sample:true},
+ {id:'night_weather',name:'夜市天气 / Night Market Weather',pot:'夜市',tint:'lilac',cat:'画面',author:'Nimbus',ver:'0.9.0',game:'0.46D',src:'workshop',wsid:'3830201190',caps:[],size:5.4,files:18,
+  dlls:[{n:'NightWeather.dll',role:'入口'}],updated:'2026-10-28',subs:'870',rating:4.1,desc:'为夜市加入雨、雾与霓虹倒影。',tags:['画面'],deps:[],cfg:null,data:[],trust:'none',run:null,res:{},download:62,sample:true},
+ {id:'cheat_menu_legacy',name:'CheatMenu（旧版 MelonLoader 模组）',short:'CheatMenu',pot:'旧',tint:'grey',cat:'旧格式',author:'—',ver:'0.3',game:'—',src:'local',caps:[],size:0.2,files:1,
+  dlls:[{n:'CheatMenu.dll',role:'MelonMod'}],updated:'2026-08-02',desc:'',tags:[],deps:[],cfg:null,data:[],trust:'none',run:null,res:{},legacy:true,sample:true}
+];
+const MISSING = {seasonal_core:{id:'seasonal_core',neededBy:['holiday_decor']}};
+const WS_EXTRA = [
+ {id:'ws_night_guard',name:'夜班保安 / Night Guard',tint:'mint',cat:'玩法',author:'Owl',updated:'2026-10-27',subs:'5,410',rating:4.5,size:3.3,desc:'夜里雇一名保安巡店，降低被偷概率。'},
+ {id:'ws_cashier_skin',name:'收银台皮肤包',tint:'rose',cat:'外观',author:'Pixie',updated:'2026-10-26',subs:'2,980',rating:4.7,size:6.1,desc:'12 款收银台外观，含像素霓虹风格。'},
+ {id:'ws_auto_haggle',name:'自动砍价 Auto Haggle',tint:'sun',cat:'经营',author:'Ledger',updated:'2026-10-22',subs:'7,705',rating:4.0,size:0.7,desc:'根据行情自动给出还价建议。'},
+ {id:'ws_lighting',name:'暖光照明 Warm Lighting',tint:'peach',cat:'画面',author:'Lumen',updated:'2026-10-19',subs:'1,240',rating:4.4,size:9.2,desc:'把店内灯光换成暖色调，夜景更柔和。'}
+];
+const OVERLAPS = [
+ {a:'cyber_electronics',b:'xiaowo_tradeperks',t:'物品目标操作、交易价格、买卖回调、行情、拾荒',check:'价格与扣款一致，特性只生效一次'},
+ {a:'cyber_electronics',b:'probably_multiplayer',t:'顾客到店/离场、交易、睡觉、容器接受物品、对话',check:'真人顾客与自定义 NPC 共存，断线与睡觉保存'},
+ {a:'item_details',b:'cyber_electronics',t:'物品提示、价格显示',check:'显示价格与实际成交一致'},
+ {a:'item_details',b:'xiaowo_tradeperks',t:'物品提示、价格显示',check:'显示价格与实际成交一致'},
+ {a:'item_details',b:'shop_assist',t:'物品提示、手工补丁与原生 Hook',check:'设置与输入不互相覆盖'}
+];
+const BASE_ORDER = ['item_details','ps_workshop_uploader','mouse_keeper','shop_assist','xiaowo_tradeperks','cyber_electronics','probably_multiplayer'];
+const byId = Object.fromEntries(MODS.map(m=>[m.id,m]));
+const PROFILES=[
+  {id:'default',name:'我的 Mod 方案',ids:[...BASE_ORDER],when:'2026/10/28 应用',cur:true},
+  {id:'mp',name:'联机组合',ids:['item_details','cyber_electronics','probably_multiplayer'],when:'2026/10/27 创建'},
+  {id:'clean',name:'纯净',ids:[],when:'2026/10/20 创建'},
+  {id:'legacy',name:'旧方案（MelonLoader 时期）',ids:['item_details'],when:'2026/09/29',legacy:true}
+];
+
+const S = {
+  demo:'normal', page:'mods',
+  order:[...BASE_ORDER], baseline:[...BASE_ORDER], past:[], future:[],
+  sel:{list:'en',ids:new Set(['cyber_electronics']),anchor:'cyber_electronics'},
+  focus:'cyber_electronics', tab:'overview', drawer:false,
+  availQ:'', enQ:'', availChip:'all', availSort:'name',
+  ws:{sel:null,chip:'hot'}, pfSel:'default', pfDirty:false,
+  approvals:{}, notice:null, arrive:new Set()
+};
+
+/* ====================== helpers ====================== */
+const $ = s=>document.querySelector(s);
+const esc = s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const ic = (n,c='')=>`<svg class="i ${c}"><use href="#i-${n}"/></svg>`;
+const short = m=>m.short||m.name.split(' / ')[0];
+const usable = m=>m && !m.legacy && m.download==null;
+const isEnabled = id=>S.order.includes(id);
+const capLevel = caps=>!caps.length?'none':caps.some(c=>CAPS[c].level==='high')?'high':'mid';
+const fmtSize = mb=>mb>=1?mb.toFixed(1)+' MB':Math.round(mb*1024)+' KB';
+function pot(id,cls=''){
+  if(MISSING[id]) return `<span class="garden-pot ${cls}" style="background:#fff;border:1.5px dashed #fca5a5;color:#dc2626">?</span>`;
+  const m=byId[id]||WS_EXTRA.find(w=>w.id===id); const t=TINTS[m.tint||'mint'];
+  return `<span class="garden-pot ${cls}" style="background:linear-gradient(140deg,${t[0]},${t[1]});color:${t[2]}">${esc(m.pot||'')}</span>`;
+}
+function cover(id,label){
+  const m=byId[id]||WS_EXTRA.find(w=>w.id===id); const t=TINTS[(m&&m.tint)||'mint'];
+  return `<div class="cover" style="background:linear-gradient(135deg,${t[0]},${t[1]});color:${t[2]}">${ic('sprout','lg').replace('class="i lg"','class="i" style="width:40px;height:40px;opacity:.8"')}${label?`<span class="ct">${esc(label)}</span>`:''}</div>`;
+}
+function srcText(m){ return m.src==='workshop'?'创意工坊':'本地包'; }
+
+/* ---------- per-mod state, shown by the growth path ---------- */
+function stateOf(id){
+  const m=byId[id], en=isEnabled(id), wasEn=S.baseline.includes(id), sim=S.approvals[id];
+  const r={en,wasEn,draft:en!==wasEn};
+  if(!m.caps.length) r.trust='free';
+  else if(m.trust==='approved') r.trust='approved';
+  else r.trust=(sim&&sim.trust)||'pending';
+  if(sim&&sim.run) r.run=sim.run;
+  else if(!wasEn) r.run=en?'after-save':'off';
+  else if(!en) r.run='will-stop';
+  else r.run=m.run||'restart';
+  return r;
+}
+function computeIssues(){
+  const out=[];
+  S.order.forEach((id,i)=>{
+    const m=byId[id];
+    if(m.download!=null) out.push({lvl:'block',id,t:`${short(m)} 还在下载（${m.download}%）`});
+    m.deps.forEach(d=>{
+      if(MISSING[d]) out.push({lvl:'block',id,dep:d,t:`${short(m)} 缺少依赖 ${d}`,act:'findMissing',fix:'在创意工坊查找'});
+      else if(!isEnabled(d)) out.push({lvl:'block',id,dep:d,t:`${short(m)} 依赖的 ${short(byId[d])} 没有启用`,act:'enableDep',fix:'一起启用'});
+      else if(S.order.indexOf(d)>i) out.push({lvl:'warn',id,dep:d,t:`${short(byId[d])} 应排在 ${short(m)} 前面`,act:'autosort',fix:'自动排序'});
+    });
+  });
+  OVERLAPS.forEach(o=>{ if(isEnabled(o.a)&&isEnabled(o.b)) out.push({lvl:'hint',id:o.a,other:o.b,t:`${short(byId[o.a])} × ${short(byId[o.b])}`}); });
+  return out;
+}
+const issuesFor = id=>computeIssues().filter(x=>x.id===id||x.other===id||x.dep===id);
+
+/* ====================== history & operations ====================== */
+function commit(label){ S.past.push({order:[...S.order],label}); if(S.past.length>100) S.past.shift(); S.future=[]; }
+function undo(){ if(!S.past.length) return; const p=S.past.pop(); S.future.push({order:[...S.order],label:p.label}); S.order=p.order; notice(`已撤销：${p.label}`); renderAll(); }
+function redo(){ if(!S.future.length) return; const f=S.future.pop(); S.past.push({order:[...S.order],label:f.label}); S.order=f.order; notice(`已重做：${f.label}`); renderAll(); }
+function depClosure(ids){
+  const add=[],missing=[],seen=new Set(ids);
+  const walk=id=>byId[id].deps.forEach(d=>{ if(seen.has(d)) return; seen.add(d); if(MISSING[d]){missing.push(d);return;} if(!isEnabled(d)&&usable(byId[d])){walk(d);add.push(d);} });
+  ids.forEach(walk); return {add,missing};
+}
+function enable(ids,at,fromEl){
+  ids=ids.filter(id=>!isEnabled(id));
+  const bad=ids.filter(id=>!usable(byId[id]));
+  if(bad.length){ const m=byId[bad[0]]; notice(m.legacy?`${short(m)} 不是正式版原生包（缺少 manifest.xml），不能启用。`:`${short(m)} 还在下载，下载完成后才能启用。`,true); ids=ids.filter(id=>usable(byId[id])); }
+  if(!ids.length) return renderAll();
+  const {add,missing}=depClosure(ids);
+  commit(`启用 ${ids.map(i=>short(byId[i])).join('、')}`);
+  if(at==null||at>S.order.length) at=S.order.length;
+  S.order.splice(at,0,...add,...ids);
+  [...add,...ids].forEach(i=>S.arrive.add(i));
+  S.sel={list:'en',ids:new Set(ids),anchor:ids[0]}; S.focus=ids[0];
+  let msg=`已启用 ${ids.map(i=>short(byId[i])).join('、')}`;
+  if(add.length) msg+=`，并一起启用依赖 ${add.map(i=>short(byId[i])).join('、')}`;
+  if(missing.length) msg+=`；还缺少 ${missing.join('、')}，保存前需要补齐`;
+  notice(msg+'。',!!missing.length,true);
+  flyLeaf(fromEl); renderAll();
+}
+function reverseDeps(ids){ const set=new Set(ids),hit=[]; let grew=true; while(grew){grew=false;S.order.forEach(id=>{ if(!set.has(id)&&byId[id].deps.some(d=>set.has(d))){set.add(id);hit.push(id);grew=true;} });} return hit; }
+function disable(ids,force,fromEl){
+  ids=ids.filter(isEnabled); if(!ids.length) return;
+  const rev=reverseDeps(ids);
+  if(rev.length&&!force) return openReverseDeps(ids,rev);
+  const all=[...ids,...(force==='both'?rev:[])];
+  commit(`停用 ${all.map(i=>short(byId[i])).join('、')}`);
+  S.order=S.order.filter(id=>!all.includes(id));
+  all.forEach(i=>S.arrive.add(i));
+  S.sel={list:'avail',ids:new Set(ids),anchor:ids[0]}; S.focus=ids[0];
+  notice(`已停用 ${all.map(i=>short(byId[i])).join('、')}。不会删除文件，也不会取消订阅。`,false,true);
+  flyLeaf(fromEl); renderAll();
+}
+function moveSel(kind){
+  if(S.enQ) return notice('筛选中不能调整顺序，请先清除筛选。',true);
+  const ids=[...S.sel.ids].filter(isEnabled); if(!ids.length) return;
+  const keep=S.order.filter(id=>!ids.includes(id)), block=S.order.filter(id=>ids.includes(id));
+  const before=S.order.slice(0,S.order.indexOf(block[0])).filter(id=>!ids.includes(id)).length;
+  const at=kind==='top'?0:kind==='bottom'?keep.length:kind==='up'?Math.max(0,before-1):Math.min(keep.length,before+1);
+  const next=[...keep]; next.splice(at,0,...block);
+  if(next.join()===S.order.join()) return;
+  commit(`移动 ${block.map(i=>short(byId[i])).join('、')}`); S.order=next; renderAll();
+}
+function reorderTo(ids,at){
+  const block=S.order.filter(id=>ids.includes(id));
+  const before=S.order.slice(0,at).filter(id=>!ids.includes(id)).length;
+  const keep=S.order.filter(id=>!ids.includes(id)); keep.splice(before,0,...block);
+  if(keep.join()===S.order.join()) return;
+  commit(`拖动 ${block.map(i=>short(byId[i])).join('、')}`); S.order=keep; renderAll();
+}
+function stableTopo(order){
+  const idx=new Map(order.map((id,i)=>[id,i])), indeg=new Map(order.map(id=>[id,0])), out=new Map(order.map(id=>[id,[]]));
+  order.forEach(id=>byId[id].deps.forEach(d=>{ if(idx.has(d)){indeg.set(id,indeg.get(id)+1);out.get(d).push(id);} }));
+  const ready=order.filter(id=>!indeg.get(id)), res=[];
+  while(ready.length){ ready.sort((a,b)=>idx.get(a)-idx.get(b)); const n=ready.shift(); res.push(n); out.get(n).forEach(c=>{indeg.set(c,indeg.get(c)-1); if(!indeg.get(c)) ready.push(c);}); }
+  return res.length!==order.length?{cycle:order.filter(id=>!res.includes(id))}:{order:res};
+}
+function diff(){
+  const added=S.order.filter(id=>!S.baseline.includes(id)), removed=S.baseline.filter(id=>!S.order.includes(id));
+  const now=S.order.filter(id=>S.baseline.includes(id)), base=S.baseline.filter(id=>S.order.includes(id));
+  let moved=0; now.forEach((id,i)=>{ if(base[i]!==id) moved++; });
+  return {added,removed,moved,dirty:!!(added.length||removed.length||moved),count:added.length+removed.length+(moved?1:0)};
+}
+let noticeTimer;
+function notice(text,care,canUndo){ S.notice={text,care,canUndo}; clearTimeout(noticeTimer); noticeTimer=setTimeout(()=>{S.notice=null;renderNotice();},7000); renderNotice(); }
+function renderNotice(){ const n=S.notice; const el=$('#notice'); el.className='garden-notice'+(n&&n.care?' care':''); el.innerHTML=n?`<span>${esc(n.text)}</span>${n.canUndo?'<button class="garden-link" data-act="undo">撤销</button>':''}`:''; }
+function reduced(){ return matchMedia('(prefers-reduced-motion: reduce)').matches; }
+function flyLeaf(fromEl){
+  const to=$('#basket .basket-icon'); if(!fromEl||!to||reduced()||!fromEl.getBoundingClientRect) return;
+  const a=fromEl.getBoundingClientRect(), b=to.getBoundingClientRect(); if(!a.width) return;
+  const leaf=document.createElement('div'); leaf.className='garden-flyleaf'; leaf.innerHTML='<svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 19C5 10 11 5 20 4c0 9-5 15-14 15z"/></svg>';
+  document.body.appendChild(leaf);
+  const dx=b.left+b.width/2-a.left-11, dy=b.top+b.height/2-a.top-11;
+  leaf.style.left=a.left+'px'; leaf.style.top=a.top+'px';
+  leaf.animate([{transform:'translate(0,0) rotate(0) scale(1)'},{transform:`translate(${dx*.5}px,${dy*.5-60}px) rotate(160deg) scale(1.2)`},{transform:`translate(${dx}px,${dy}px) rotate(320deg) scale(.6)`,opacity:.3}],{duration:700,easing:'cubic-bezier(.22,1,.36,1)'}).onfinish=()=>{leaf.remove();const bk=$('#basket');bk.classList.remove('bounce');void bk.offsetWidth;bk.classList.add('bounce');};
+}
+
+/* ====================== render: mods page ====================== */
+function rowTags(id,where){
+  const m=byId[id], st=stateOf(id), t=[];
+  if(where==='en'){
+    const iss=computeIssues().filter(x=>x.id===id);
+    const blk=iss.find(x=>x.lvl==='block'), wrn=iss.find(x=>x.lvl==='warn');
+    if(blk) t.push(`<span class="tg bad" title="${esc(blk.t)}">${ic('alert')}${m.download!=null?'下载中':'缺依赖'}</span>`);
+    else if(wrn) t.push(`<span class="tg pend" title="${esc(wrn.t)}">顺序</span>`);
+    if(st.draft) t.push(`<span class="tg pend">待保存</span>`);
+    else if(st.run==='running') t.push(`<span class="tg on">${ic('check')}运行中</span>`);
+    else if(st.run==='restart') t.push(`<span class="tg off" title="已批准，重启游戏后加载">待重启</span>`);
+    else if(st.run==='pending') t.push(`<span class="tg pend" title="请在游戏中完成批准">待批准</span>`);
+  } else {
+    if(m.legacy) t.push(`<span class="tg bad">不是原生包</span>`);
+    else if(m.download!=null) t.push(`<span class="tg sky">${ic('download')}${m.download}%</span>`);
+    else {
+      if(st.draft) t.push(`<span class="tg pend">待保存</span>`);
+      if(m.deps.some(d=>MISSING[d])) t.push(`<span class="tg bad">缺依赖</span>`);
+      if(m.update) t.push(`<span class="tg lilac">有更新</span>`);
+      if(m.shadow) t.push(`<span class="tg pend" title="同一 ID 有本地和工坊两个来源">2 个来源</span>`);
+    }
+  }
+  const lv=capLevel(m.caps);
+  if(lv!=='none') t.push(`<span class="perm-dot ${lv}" title="声明 ${m.caps.length} 项权限：${m.caps.map(c=>CAPS[c].label).join('、')}。点开查看详情">${ic('shield','xs')}${m.caps.length}</span>`);
+  return t.join('');
+}
+function rowHTML(id,where,i){
+  const m=byId[id], sel=S.sel.list===where&&S.sel.ids.has(id), on=where==='en';
+  const sub=`${srcText(m)} · ${esc(m.author)} · v${esc(m.ver)}${on&&m.deps.length?` · 依赖 ${m.deps.length}`:''}`;
+  return `<div class="row ${sel?'sel':''} ${S.focus===id?'focus':''} ${on?'':'off-row'} ${S.arrive.has(id)?'arrive':''}" data-id="${id}" data-where="${where}" draggable="${usable(m)}">
+    <button class="pick" data-pick title="多选">${sel?ic('check','xs'):''}</button>
+    ${on?`<span class="ord">${String(i+1).padStart(2,'0')}</span>`:''}
+    ${pot(id)}
+    <div class="meta"><span class="nm" title="${esc(m.name)}">${esc(m.name)}</span><span class="sub">${sub}</span></div>
+    <span class="tags ${on?'hideable':''}">${rowTags(id,where)}</span>
+    ${on?`<span class="moves"><button data-row-act="up" title="上移">${ic('up','xs')}</button><button data-row-act="down" title="下移">${ic('down','xs')}</button></span>`:''}
+    <button class="leaf-switch" aria-pressed="${on}" data-switch ${usable(m)?'':'disabled'} title="${on?'停用（移回左栏）':'启用'}"><span></span></button>
+  </div>`;
+}
+function missingRow(mi){
+  return `<div class="row ghost ${S.focus===mi.id?'focus':''}" data-id="${mi.id}" data-where="missing">${pot(mi.id)}<div class="meta"><span class="nm">${esc(mi.id)}</span><span class="sub">未安装 · ${mi.neededBy.map(n=>esc(short(byId[n]))).join('、')} 需要它</span></div><span class="tags"><span class="tg bad">缺失</span></span></div>`;
+}
+function availMatch(m){
+  const q=S.availQ.trim().toLowerCase();
+  if(q&&!(m.name+m.author+m.id+(m.wsid||'')).toLowerCase().includes(q)) return false;
+  const c=S.availChip;
+  if(c==='workshop'&&m.src!=='workshop') return false;
+  if(c==='local'&&m.src!=='local') return false;
+  if(c==='care'&&!(m.legacy||m.update||m.shadow||m.deps.some(d=>MISSING[d]))) return false;
+  return true;
+}
+function renderAvail(){
+  const pool=S.demo==='fresh'?[]:MODS.filter(m=>!isEnabled(m.id));
+  const sorter={name:(a,b)=>a.name.localeCompare(b.name,'zh'),updated:(a,b)=>b.updated.localeCompare(a.updated),size:(a,b)=>b.size-a.size}[S.availSort];
+  const vis=pool.filter(availMatch).sort(sorter);
+  const care=vis.filter(m=>m.legacy||m.deps.some(d=>MISSING[d])), dl=vis.filter(m=>m.download!=null);
+  const ok=vis.filter(m=>!care.includes(m)&&!dl.includes(m));
+  const isCare=m=>m.legacy||m.update||m.shadow||m.deps.some(d=>MISSING[d]);
+  const cnt={all:pool.length,workshop:pool.filter(m=>m.src==='workshop').length,local:pool.filter(m=>m.src==='local').length,care:pool.filter(isCare).length};
+  $('#availChips').innerHTML=[['all','全部'],['workshop','工坊'],['local','本地'],['care','需处理']].map(([k,l])=>`<button class="${S.availChip===k?'on':''} ${k==='care'?'care':''}" data-chip="${k}">${l}<span>${cnt[k]}</span></button>`).join('');
+  $('#availNum').textContent=pool.length;
+  const miss=S.demo==='fresh'||S.availQ||['local','workshop'].includes(S.availChip)?[]:Object.values(MISSING);
+  let h='';
+  if(ok.length) h+=`<div class="garden-bed-label">已安装 · 未启用 <span>${ok.length}</span></div>`+ok.map(m=>rowHTML(m.id,'avail')).join('');
+  if(dl.length) h+=`<div class="garden-bed-label">下载中 <span>${dl.length}</span></div>`+dl.map(m=>rowHTML(m.id,'avail')).join('');
+  if(care.length||miss.length) h+=`<div class="garden-bed-label" style="color:var(--g-rose)">需处理 <span>${care.length+miss.length}</span></div>`+care.map(m=>rowHTML(m.id,'avail')).join('')+miss.map(missingRow).join('');
+  if(!pool.length) h=`<div class="garden-empty" style="margin-top:6px">${pot('item_details').replace('物品',ic('sprout'))}<b>${S.demo==='fresh'?'还没有模组':'都已启用'}</b><span>${S.demo==='fresh'?'去创意工坊订阅，或导入本地模组包（完整目录或 ZIP）。':'把模组拖回这里即可停用。'}</span>${S.demo==='fresh'?`<div style="display:flex;gap:8px;margin-top:6px"><button class="garden-btn green sm" data-act="goWorkshop">${ic('store','sm')}创意工坊</button><button class="garden-btn sm" data-act="import">导入</button></div>`:''}</div>`;
+  else if(!vis.length) h=`<div class="garden-empty">没有找到“${esc(S.availQ)}”</div>`;
+  $('#availList').innerHTML='<div class="drop-line"></div>'+h;
+  const n=S.sel.list==='avail'?S.sel.ids.size:0;
+  $('#availFoot').textContent=n>1?`已选 ${n} 个 · 按 Enter 一起启用`:'把模组拖到右边即可启用';
+}
+function renderEnabled(){
+  const q=S.enQ.trim().toLowerCase(), list=S.demo==='fresh'?[]:S.order;
+  $('#enNum').textContent=list.length;
+  $('#enFilter').innerHTML=q?`<div class="bed-filter">${ic('info','sm')}正在筛选：只影响显示，顺序不变，拖动排序暂停。<button class="garden-link" data-clear="en">清除筛选</button></div>`:'';
+  document.querySelectorAll('#moveBtns button').forEach(b=>b.disabled=!!q);
+  let h=''; list.forEach((id,i)=>{ const m=byId[id]; if(q&&!(m.name+m.author+m.id).toLowerCase().includes(q)) return; h+=rowHTML(id,'en',i); });
+  if(!list.length) h=`<div class="garden-empty" style="margin-top:6px">${pot('item_details').replace('物品',ic('sprout'))}<b>还没有启用的模组</b><span>从左边拖进来，或打开开关。需要的依赖会一起加入。</span></div>`;
+  else if(!h) h=`<div class="garden-empty">没有找到“${esc(S.enQ)}”</div>`;
+  $('#enList').innerHTML='<div class="drop-line"></div>'+h;
+  const n=S.sel.list==='en'?S.sel.ids.size:0;
+  $('#enFoot').textContent=n>1?`已选 ${n} 个 · Alt+↑↓ 移动`:'';
+}
+
+/* ---------------- detail ---------------- */
+function growthHTML(id){
+  const m=byId[id], st=stateOf(id);
+  const s1=m.download!=null?['wait','download','下载中',`${m.download}%`]:m.legacy?['bad','alert','格式不符','缺少 manifest']:['ok','basket','已安装',srcText(m)];
+  const s2=st.en?(st.draft?['wait','sprout','将启用','保存后生效']:['ok','sprout','已启用',`第 ${S.order.indexOf(id)+1} 位`]):(st.draft?['wait','sprout','将停用','保存后生效']:['','sprout','未启用','在左栏']);
+  const tm={free:['ok','shield-check','无需批准','未声明权限'],approved:['ok','shield-check','已批准',m.approvedAt||''],pending:[st.en?'wait':'','shield','待游戏批准','游戏里询问一次']};
+  const s3=tm[st.trust];
+  const rm={running:['ok','sun','运行中','本次已加载'],restart:['wait','sun','待重启','重启后加载'],'after-save':['','sun','未运行','启动后确认'],off:['','sun','未运行','—'],'will-stop':['wait','sun','下次不加载','本次仍在运行'],pending:['wait','sun','等待批准','批准后重启'],failed:['bad','alert','加载失败','见运行记录']};
+  const s4=rm[st.run]||rm.off;
+  const stone=([c,icn,b,s])=>`<div class="stone ${c}"><i>${c==='ok'&&icn!=='sun'?ic('check'):ic(icn)}</i><b>${b}</b><small title="${esc(s)}">${esc(s)}</small></div>`;
+  return `<div class="growth">${stone(s1)}${stone(s2)}${stone(s3)}${stone(s4)}</div>`;
+}
+function permSection(id,full){
+  const m=byId[id], st=stateOf(id), lv=capLevel(m.caps), add=(m.update&&m.update.addCaps)||[];
+  const head=lv==='none'
+    ?`<div class="perm-head"><span class="garden-pot">${ic('shield-check')}</span><div><h4>没有声明额外权限</h4><p>清单里没有文件、网络、进程等能力，扫描结果与声明一致。</p></div></div>`
+    :`<div class="perm-head ${lv}"><span class="garden-pot">${ic('shield-alert')}</span><div><h4>${lv==='high'?'高权限':'中等权限'} · ${m.caps.length} 项</h4><p>${st.trust==='approved'?`已于 ${m.approvedAt} 在这台电脑上批准。`:'还没有在这台电脑上批准。启用后启动游戏，游戏会统一询问一次。'}</p></div></div>`;
+  if(!full) return `<div class="sec o2"><h3>权限与信任<span class="sp"></span><button class="garden-link" data-tab="perm">查看详情</button></h3>${head}${m.caps.length?`<div class="perm-chips">${m.caps.map(c=>`<span class="perm-chip ${CAPS[c].level}" title="${esc(CAPS[c].desc)}">${ic(CAPS[c].icon,'xs')}${CAPS[c].label}</span>`).join('')}</div>`:''}</div>`;
+  const rows=[...m.caps.map(c=>[c,false]),...add.map(c=>[c,true])].map(([c,n])=>`<div class="cap ${CAPS[c].level} ${n?'added':''}"><span class="garden-pot">${ic(CAPS[c].icon,'sm')}</span><div><b>${CAPS[c].label} <code>${c}</code>${n?`<span class="tg pend">${m.update.to} 新增</span>`:''}</b><p>${CAPS[c].desc}</p></div><span class="tg ${n?'off':'on'}">${n?'未下载':ic('check')+'声明 · 扫描'}</span></div>`).join('');
+  const nEntry=m.dlls.filter(d=>d.role==='入口').length;
+  const tCell=st.trust==='approved'?['ok','已批准',`${m.approvedAt} · 文件指纹一致`]:st.trust==='free'?['ok','无需批准','没有额外权限']:['wait','待游戏批准','PSMM 不会代为批准'];
+  const rCell={running:['ok','已加载',`10/28 17:52${nEntry>1?` · ${nEntry} 个入口`:''}`],restart:['wait','未加载','批准发生在本次启动之后'],pending:['wait','等待批准','']}[st.run]||['','还没有记录',''];
+  return `<div class="sec">${head}${rows?`<div class="caps">${rows}</div>`:''}
+    <div class="trust">
+      <div class="ok"><small>${ic('file-text','xs')}清单声明</small><b>${m.caps.length} 项</b><span>manifest.xml</span></div>
+      <div class="ok"><small>${ic('search','xs')}当前版本扫描</small><b>与声明一致</b><span>按 Build 26284217 的规则</span></div>
+      <div class="${tCell[0]}"><small>${ic('shield','xs')}本机批准</small><b>${tCell[1]}</b><span>${tCell[2]}</span></div>
+      <div class="${rCell[0]}"><small>${ic('sun','xs')}最近一次启动</small><b>${rCell[1]}</b><span>${rCell[2]}</span></div>
+    </div></div>
+    ${add.length?`<div class="sign-note">更新 <b>${m.update.to}</b> 新增了 <b>${add.map(c=>CAPS[c].label).join('、')}</b> 权限。Steam 下载更新后，游戏会重新评估并要求再次批准，在此之前不会照旧加载新版本。</div>`:''}
+    <div class="mint-note">启用模组时 PSMM <b>不会逐个弹窗</b>，权限都集中在这里。批准由游戏完成：保存并启动后，游戏会对新启用或权限有变化的模组询问一次。<br>这些权限不是系统沙箱：批准后模组和游戏在同一个进程里运行。来自创意工坊或没有声明权限，都不代表经过了安全审计。</div>`;
+}
+function issueNotes(id,noHints){
+  return issuesFor(id).filter(x=>!(noHints&&x.lvl==='hint')).map(x=>{
+    if(x.lvl==='hint'){ const o=OVERLAPS.find(o=>o.a===x.id&&o.b===x.other); return `<div class="mint-note">${esc(x.t)}：补丁目标有交集（${esc(o.t)}）。这是验证线索，不代表冲突。</div>`; }
+    const btn=x.act==='enableDep'?`<button class="garden-btn green xs" data-fix="enableDep" data-dep="${x.dep}">${x.fix}</button>`:x.act==='autosort'?`<button class="garden-btn xs" data-act="autosort">自动排序</button>`:x.act==='findMissing'?`<button class="garden-btn xs" data-act="goWorkshop">${x.fix}</button>`:'';
+    return `<div class="${x.lvl==='block'?'care-note':'sign-note'} o1"><b>${esc(x.t)}</b>${btn?`<div class="note-act">${btn}</div>`:''}</div>`;
+  }).join('');
+}
+function factsHTML(m){
+  const nEntry=m.dlls.filter(d=>d.role==='入口').length;
+  return `<div class="sec"><h3>基本信息</h3><dl class="garden-facts">
+    <dt>作者</dt><dd>${esc(m.author)}</dd>
+    <dt>来源</dt><dd>${m.src==='workshop'?'Steam 创意工坊订阅':'本地包（Mods 目录）'}</dd>
+    <dt>原生 ID</dt><dd><code>${esc(m.id)}</code><button class="copy" data-copy="${esc(m.id)}" title="复制">${ic('copy','xs')}</button></dd>
+    <dt>工坊 ID</dt><dd>${m.wsid?`<code>${m.wsid}</code><button class="copy" data-copy="${m.wsid}" title="复制">${ic('copy','xs')}</button>`:'—'}</dd>
+    <dt>程序集</dt><dd>${m.dllCount||m.dlls.length} 个 DLL · ${nEntry} 个入口</dd>
+    <dt>文件</dt><dd>${m.files} 个 · ${fmtSize(m.size)}</dd>
+    <dt>依赖</dt><dd>${m.deps.length?m.deps.map(d=>esc(MISSING[d]?d:short(byId[d]))).join('、'):'没有声明'}</dd></dl></div>`;
+}
+function dataSec(m){ return m.data.length?`<div class="sec"><h3>数据位置 <small>卸载时不会自动清理</small></h3><div class="lst">${m.data.map(([k,p])=>`<div class="path"><span class="pk">${esc(k)}</span><code title="${esc(p)}">${esc(p)}</code><button class="garden-btn soft icon xs" title="打开">${ic('folder','sm')}</button></div>`).join('')}</div></div>`:''; }
+function overviewTab(id){
+  const m=byId[id], hints=issuesFor(id).filter(x=>x.lvl==='hint').length;
+  const notes=(m.notes||[]).map(([k,t])=>`<div class="${k}-note">${esc(t)}</div>`).join('');
+  const upd=m.update?`<div class="sign-note o1"><b>创意工坊有更新 ${m.update.to}</b>（${m.update.date}）· ${esc(m.update.note)}<br>新增权限：${m.update.addCaps.map(c=>CAPS[c].label).join('、')}，更新后需要在游戏里重新批准。<div class="note-act"><button class="garden-btn xs" data-tab="perm">查看权限变化</button></div></div>`:'';
+  const hint=hints?`<div class="mint-note">和 ${hints} 个已启用的模组有补丁交集，属于验证线索，不代表冲突。 <button class="garden-link" data-tab="deps">查看</button></div>`:'';
+  return `${issueNotes(id,true)}${upd}${permSection(id,false)}${m.desc?`<div class="sec"><h3>简介</h3><div class="desc">${esc(m.desc)}</div></div>`:''}${notes}${hint}${factsHTML(m)}${dataSec(m)}`;
+}
+function depsTab(id){
+  const m=byId[id], by=MODS.filter(x=>x.deps.includes(id));
+  const need=m.deps.map(d=>{
+    if(MISSING[d]) return `<div class="li miss">${pot(d)}<div class="ln"><b>${d}</b><span>未安装 · 原生 ID</span></div><span class="tg bad">缺失</span><button class="garden-link" data-act="goWorkshop">去工坊找</button></div>`;
+    const dm=byId[d], en=isEnabled(d), ok=en&&S.order.indexOf(d)<S.order.indexOf(id);
+    return `<div class="li">${pot(d)}<div class="ln"><b>${esc(dm.name)}</b><span>${srcText(dm)} · v${dm.ver}${en?` · 第 ${S.order.indexOf(d)+1} 位`:''}</span></div>${en?(ok||!isEnabled(id)?'<span class="tg on">已启用</span>':'<span class="tg pend">应排在前面</span>'):'<span class="tg pend">未启用</span>'}<button class="garden-link" data-goto="${d}">查看</button></div>`;
+  }).join('');
+  const byH=by.map(x=>`<div class="li">${pot(x.id)}<div class="ln"><b>${esc(x.name)}</b><span>${isEnabled(x.id)?'已启用 · 停用本模组时会一起提示':'未启用'}</span></div><button class="garden-link" data-goto="${x.id}">查看</button></div>`).join('');
+  const ov=OVERLAPS.filter(o=>o.a===id||o.b===id).map(o=>{const other=o.a===id?o.b:o.a;return `<div class="li">${pot(other)}<div class="ln"><b>${esc(short(byId[other]))}</b><span>${esc(o.t)}</span></div><span class="tg off" title="${esc(o.check)}">需运行验证</span></div>`;}).join('');
+  const graph=(m.deps.length||by.length)?`<div class="vinegraph">${m.deps.length?`<div class="vcol">${m.deps.map(d=>`<span class="vnode ${MISSING[d]?'miss':''}">${esc(MISSING[d]?d:short(byId[d]))}</span>`).join('')}</div>${ic('right')}`:''}<span class="vnode me">${esc(short(m))}</span>${by.length?`${ic('right')}<div class="vcol">${by.map(x=>`<span class="vnode">${esc(short(x))}</span>`).join('')}</div>`:''}</div>`:'';
+  return `${issueNotes(id,true)}
+   ${graph?`<div class="sec"><h3>依赖关系 <small>来自 manifest.xml</small></h3>${graph}</div>`:''}
+   <div class="sec"><h3>需要 <small>${m.deps.length}</small></h3><div class="lst">${need||'<span class="garden-muted" style="font-size:13.5px;color:var(--g-text-3)">没有声明前置模组。没有声明不代表没有隐式依赖。</span>'}</div></div>
+   <div class="sec"><h3>被依赖 <small>${by.length}</small></h3><div class="lst">${byH||'<span style="font-size:13.5px;color:var(--g-text-3)">没有其他模组依赖它。</span>'}</div></div>
+   <div class="sec"><h3>潜在交互 <small>静态补丁交集，仅供验证</small></h3><div class="lst">${ov||'<span style="font-size:13.5px;color:var(--g-text-3)">与已启用的模组没有补丁交集。</span>'}</div></div>
+   <div class="sec"><h3>排序规则 <span class="tg off">后续版本</span></h3><p style="font-size:13.5px;color:var(--g-text-3)">可为方案添加“A 在 B 之前/之后”的规则；和依赖冲突时会指出原因，不会悄悄覆盖。</p></div>`;
+}
+function configTab(id){
+  const m=byId[id], ro=S.demo==='running';
+  if(!m.cfg) return `<div class="garden-empty"><b>没有找到原生配置</b><span>ModConfigs 里没有 ${esc(m.id)}.json，模组第一次运行并注册配置后才会生成。</span></div>${dataSec(m)}`;
+  return `<div class="mint-note">配置来自 <code class="mono">ModConfigs/${esc(m.id)}.json</code>。字段类型由模组运行时注册，文件里没有，所以这里按原文编辑；不认识的字段原样保留，保存前自动备份。${ro?'<br><b>游戏正在运行，退出后才能保存。</b>':''}</div>
+   <div class="sec"><h3>配置项 <small>${m.cfg.length}</small><span class="sp"></span><button class="garden-btn soft xs">${ic('history','sm')}备份</button><button class="garden-btn green xs" ${ro?'disabled':''}>保存配置</button></h3>
+   <table class="kv">${m.cfg.map(c=>`<tr><td>${esc(c.k)}</td><td><input value="${esc(c.v)}"></td><td class="ty">类型未知</td></tr>`).join('')}</table></div>${dataSec(m)}`;
+}
+function filesTab(id){
+  const m=byId[id];
+  if(m.legacy) return `<div class="care-note"><b>这不是正式版原生模组包。</b><br>正式版只加载带 manifest.xml 的模组目录，这个包只有一个 MelonLoader 时代的 DLL。PSMM 不会把它拆开放进游戏目录。<div class="note-act"><button class="garden-btn xs">打开所在位置</button><button class="garden-btn clay xs">移除本地文件…</button></div></div>`;
+  const dir=m.src==='workshop'?`workshop\\content\\4348910\\${m.wsid}`:`Mods\\${m.id}`, nEntry=m.dlls.filter(d=>d.role==='入口').length;
+  return `<div class="sec"><h3>包结构 <small>${m.files} 个文件 · ${fmtSize(m.size)}</small></h3><div class="garden-tree">
+    <div>${ic('folder','sm')}${esc(dir)}\\</div>
+    <div class="in1">${ic('file-text','sm')}manifest.xml <span class="tg on">有效</span></div>
+    ${m.dlls.map(d=>`<div class="in1">${ic(d.role==='入口'?'cpu':'layers','sm')}${esc(d.n)} <span class="tg ${d.role==='入口'?'on':'off'}">${d.role}</span></div>`).join('')}
+    ${Object.entries(m.res||{}).map(([k,v])=>`<div class="in1">${ic('folder','sm')}${k}\\ <span style="color:var(--g-text-3)">${v} 个文件</span></div>`).join('')}
+  </div></div>
+  <div class="sec"><h3>包检查</h3><div class="lst" style="font-size:13.5px">
+    <div class="li">${ic('check-circle')}<div class="ln"><b>清单字段完整</b><span>ID、Name、Assemblies、Capabilities</span></div></div>
+    <div class="li">${ic('check-circle')}<div class="ln"><b>声明的 DLL 都在</b><span>没有未声明的 DLL</span></div></div>
+    ${nEntry>1?`<div class="li">${ic('info')}<div class="ln"><b>一个包里有 ${nEntry} 个入口</b><span>按一个模组管理，每个入口的加载结果单独显示</span></div></div>`:''}
+  </div></div>
+  ${m.shadow?`<div class="sec"><h3>安装来源 <small>同一 ID 有 2 个</small></h3><div class="lst">
+    <div class="li"><span class="tg on">正在使用</span><div class="ln"><b>本地 · v${m.ver}</b><span>Mods\\${m.id} · 本地优先</span></div></div>
+    <div class="li"><span class="tg off">被遮蔽</span><div class="ln"><b>创意工坊 · v${m.shadow.ver}</b><span>Steam 已更新，但不会被加载</span></div></div></div>
+    <div class="note-act"><button class="garden-btn sm">${ic('swap','sm')}改用工坊版…</button></div></div>`:''}
+  ${dataSec(m)}`;
+}
+function logTab(id){
+  const m=byId[id], st=stateOf(id);
+  const lines=st.run==='running'?`[ModLoader] ${m.id}: enabled, approved → LoadModDll\n[ModLoader] Audit: ${m.id} running=True`:`[ModLoader] ${m.id}: not enabled at startup\n[ModUI] Approve ${m.id} → restart required`;
+  return `<div class="sec"><h3>最近一次启动 <small>Player.log · 2026/10/28 17:52</small></h3><div class="logline">${esc(lines)}</div><div class="note-act"><button class="garden-link" data-act="goLogs">在日志页打开 →</button></div></div>
+   <div class="sec"><h3>记录</h3><div class="timeline">
+    ${m.update?`<div class="ev warn"><time>2026/10/28</time>工坊发布 ${m.update.to}：${esc(m.update.note)}，新增权限 ${m.update.addCaps.map(c=>CAPS[c].label).join('、')}</div>`:''}
+    ${m.trust==='approved'?`<div class="ev"><time>2026/10/28 18:01</time>在游戏菜单里批准并启用，标记为“需要重启”</div>`:''}
+    ${st.run==='running'?`<div class="ev"><time>2026/10/28 17:52</time>启动时加载成功</div>`:''}
+    <div class="ev"><time>${m.updated}</time>${m.src==='workshop'?'Steam 下载完成 v'+m.ver:'导入本地包 v'+m.ver}</div></div></div>`;
+}
+function missingDetail(mi){
+  return `<div class="d-scroll"><div class="d-hero" style="background:repeating-linear-gradient(135deg,#fff 0 10px,#fef2f2 10px 20px)"><div class="cover" style="color:#fca5a5">${ic('alert','lg')}</div><div class="hero-tools"><button data-act="closeDetail" title="关闭">${ic('x','sm')}</button></div></div>
+   <div class="d-tags"><span class="tg bad">缺失的依赖</span></div><div class="d-title">${esc(mi.id)}</div><div class="d-by">原生 ID · 本机没有安装</div>
+   <div class="d-body" style="margin-top:14px"><div class="care-note"><b>${mi.neededBy.map(n=>esc(byId[n].name)).join('、')}</b> 需要这个模组。<br>原生 ID 无法直接对应创意工坊条目，PSMM 不会按名字相似自动订阅。请搜索后自己选择，下载完成后会核对包里的 ID。</div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="garden-btn green sm" data-act="goWorkshop">${ic('store','sm')}在创意工坊搜索</button><button class="garden-btn sm" data-act="import">指定本地包</button></div></div></div>`;
+}
+function renderDetail(){
+  const host=$('#detail'); host.classList.toggle('open',S.drawer);
+  if(!S.focus||S.demo==='fresh'){ host.innerHTML=`<div class="d-scroll" style="display:grid;place-items:center"><div class="garden-empty" style="border:0;background:none">${pot('item_details').replace('物品',ic('sprout'))}<b>选择一个模组</b><span>权限、依赖、配置、文件和运行记录都在这里。</span></div></div>`; return; }
+  if(MISSING[S.focus]){ host.innerHTML=missingDetail(MISSING[S.focus]); return; }
+  const id=S.focus, m=byId[id], st=stateOf(id), iss=issuesFor(id);
+  const blk=iss.filter(x=>x.lvl==='block').length, wrn=iss.filter(x=>x.lvl==='warn').length;
+  const tabs=[['overview','概览',''],['perm','权限',m.caps.length?`<span class="b ${m.update?'warn':''}">${m.caps.length}</span>`:''],['deps','依赖',blk?`<span class="b bad">${blk}</span>`:wrn?`<span class="b warn">${wrn}</span>`:m.deps.length?`<span class="b">${m.deps.length}</span>`:''],['config','配置',m.cfg?`<span class="b">${m.cfg.length}</span>`:''],['files','文件',''],['log','运行记录','']];
+  const body={overview:overviewTab,perm:id=>permSection(id,true),deps:depsTab,config:configTab,files:filesTab,log:logTab}[S.tab](id);
+  const toggle=usable(m)?`<span class="on-label"><button class="leaf-switch" aria-pressed="${st.en}" data-act="toggleFocus" title="${st.en?'停用（不删文件、不取消订阅）':'启用'}"><span></span></button>${st.en?'已启用':'未启用'}</span>`:`<span class="tg ${m.legacy?'bad':'sky'}">${m.legacy?'不能启用':'下载中…'}</span>`;
+  host.innerHTML=`<div class="d-scroll">
+    <div class="d-hero">${cover(id,short(m))}<div class="hero-tools"><button data-act="expand" title="放大查看">${ic('expand','sm')}</button><button data-act="closeDetail" title="关闭">${ic('x','sm')}</button></div></div>
+    <div class="d-tags"><span class="tg dark">${esc(m.cat)}</span><span class="tg ghost">v${esc(m.ver)}</span><span class="tg ${m.src==='workshop'?'sky':'off'}">${srcText(m)}</span>${m.sample?'<span class="tg pend" title="原型中的示意数据">示例</span>':''}</div>
+    <div class="d-title">${esc(m.name)}</div>
+    <div class="d-by"><span>${esc(m.author)}</span>${m.rating?`<span>★ ${m.rating}</span><span>${m.subs} 订阅</span>`:''}</div>
+    <div class="stats"><div class="stat"><small>版本</small><b>${esc(m.ver)}</b></div><div class="stat"><small>适用游戏</small><b class="${m.game==='0.46D'?'ok':''}">${esc(m.game)}${m.game==='0.46D'?' ✓':''}</b></div><div class="stat"><small>大小</small><b>${fmtSize(m.size)}</b></div><div class="stat"><small>更新</small><b>${m.updated.slice(5).replace('-','/')}</b></div></div>
+    ${growthHTML(id)}
+    <div class="d-actions">${toggle}<span style="flex:1"></span>
+      <button class="garden-btn sm icon" ${m.cfg?'':'disabled'} data-tab="config" title="${m.cfg?'配置':'没有原生配置'}">${ic('gear','sm')}</button>
+      <button class="garden-btn sm icon" title="打开模组文件夹">${ic('folder','sm')}</button>
+      ${m.wsid?`<button class="garden-btn sm icon" title="在 Steam 中打开工坊页面">${ic('steam','sm')}</button>`:''}
+      <button class="garden-btn sm icon" data-act="more" title="更多">${ic('more','sm')}</button></div>
+    <div class="d-tabs garden-chips sm">${tabs.map(([k,l,b])=>`<button class="${S.tab===k?'on':''}" data-tab="${k}">${l}${b}</button>`).join('')}</div>
+    <div class="d-body">${body}</div></div>`;
+}
+
+/* ---------------- basket bar ---------------- */
+function renderBasket(){
+  const d=diff(), iss=computeIssues(), blk=iss.filter(x=>x.lvl==='block'), wrn=iss.filter(x=>x.lvl==='warn');
+  const pend=S.order.filter(id=>{const s=stateOf(id);return s.trust==='pending'||s.run==='pending';});
+  const rst=S.order.filter(id=>stateOf(id).run==='restart');
+  const running=S.demo==='running', bar=$('#basket');
+  bar.classList.toggle('dirty',d.dirty);
+  const pills=[];
+  if(blk.length) pills.push(`<button class="bp-bad" data-jump="block">${ic('alert','xs')}${blk.length} 个阻断</button>`);
+  if(wrn.length) pills.push(`<button class="bp-pend" data-jump="warn">${wrn.length} 个顺序建议</button>`);
+  if(pend.length) pills.push(`<button class="bp-pend" data-jump="pending" title="${esc(pend.map(i=>short(byId[i])).join('、'))}">${ic('shield','xs')}${pend.length} 个待游戏批准</button>`);
+  if(rst.length) pills.push(`<button class="bp-off" data-jump="restart" title="已批准，重启游戏后加载">${rst.length} 个待重启</button>`);
+  if(!d.dirty){
+    bar.innerHTML=`<span class="basket-icon">${ic('check')}</span><div class="basket-head"><b>与游戏中保存的一致</b><small>${S.demo==='fresh'?'还没有写入过游戏':'上次写入 2026/10/28 18:02 · 恢复点 #12'}</small></div><span style="flex:1"></span><div class="basket-pills">${pills.join('')||`<button class="bp-on">${ic('check','xs')}一切正常</button>`}</div>`;
+  } else {
+    const items=[...d.added.map(i=>`<span><span class="v on">启用</span>${esc(short(byId[i]))}</span>`),...d.removed.map(i=>`<span><span class="v off">停用</span>${esc(short(byId[i]))}</span>`),...(d.moved?[`<span><span class="v ord">顺序</span>${d.moved} 处调整</span>`]:[])];
+    bar.innerHTML=`<span class="basket-icon">${ic('basket')}</span><div class="basket-head"><b>待保存 ${d.added.length+d.removed.length+(d.moved?1:0)} 项</b><small>${running?'游戏运行中，退出后才能保存':blk.length?'有阻断问题，暂时不能应用到游戏':'保存后才会改动游戏文件'}</small></div>
+     <div class="basket-list">${items.join('')}</div><div class="basket-pills">${pills.join('')}</div>
+     <div class="basket-actions"><button class="garden-btn soft sm icon" data-act="undo" title="撤销 Ctrl+Z" ${S.past.length?'':'disabled'}>${ic('undo','sm')}</button><button class="garden-btn soft sm icon" data-act="redo" title="重做 Ctrl+Y" ${S.future.length?'':'disabled'}>${ic('redo','sm')}</button>
+     <button class="garden-btn soft sm" data-act="discard">放弃</button>
+     <button class="garden-btn sm" data-act="save" ${running||blk.length?'disabled':''}>保存 <kbd>Ctrl S</kbd></button>
+     <button class="garden-btn green sm" data-act="saveRun" ${running||blk.length?'disabled':''}>${ic('play','sm')}保存并启动</button></div>`;
+  }
+}
+
+/* ---------------- canopy ---------------- */
+function renderCanopy(){
+  const d=diff(), running=S.demo==='running';
+  const nc=$('#navCount'); nc.style.display=d.dirty?'':'none'; nc.textContent=d.count;
+  $('#launch').classList.toggle('running',running);
+  $('#sunLabel').textContent=running?'游戏运行中':d.dirty?'保存并启动':'启动游戏';
+  $('#sunIcon').innerHTML=`<use href="#i-${running?'gamepad':'play'}"/>`;
+  $('#sunBtn').disabled=running;
+  const rst=S.order.filter(id=>stateOf(id).run==='restart').length;
+  $('#sunMeta').textContent=running?'已运行 12 分钟':d.dirty?`先应用 ${d.count} 项更改`:rst?`${rst} 个模组等待重启`:'未运行';
+  $('#envPill').innerHTML=running?`<span class="env-pill warn">${ic('lock','sm')}游戏运行中 · 只读</span>`:'';
+  const sub=S.demo==='fresh'?'还没有模组 · 改动后点“保存”才会写入游戏':`<b>${S.order.length}</b> 个已启用 · ${MODS.filter(m=>!isEnabled(m.id)).length} 个可用 · 改动后点“保存”才会写入游戏`;
+  $('#modsSub').innerHTML=sub;
+  $('#modsBanner').innerHTML=running?`<div class="garden-sign-banner">${ic('lock')}<span class="grow"><b>游戏正在运行</b> · 可以先改好草稿，退出游戏后再保存，免得游戏用内存里的旧状态覆盖。</span><button class="garden-btn sm">切到游戏</button></div>`
+    :S.demo==='fresh'?`<div class="garden-sign-banner">${ic('sprout')}<span class="grow">已识别 <b>Probably Stolen 正式版</b>。去创意工坊订阅模组，或导入本地模组包，就可以开始了。</span><button class="garden-btn green sm" data-act="goWorkshop">打开创意工坊</button></div>`:'';
+}
+function placeVine(grow){
+  const a=document.querySelector(`#nav button[data-page="${S.page}"]`), v=$('#vine'); if(!a) return;
+  v.style.opacity=1; v.style.left=(a.offsetLeft+12)+'px'; v.style.width=Math.max(0,a.offsetWidth-24)+'px';
+  if(grow&&!reduced()){ v.classList.remove('grow'); void v.offsetWidth; v.classList.add('grow'); }
+}
+
+/* ---------------- workshop ---------------- */
+function wsItems(){
+  const own=MODS.filter(m=>m.wsid&&!m.legacy).map(m=>({id:m.id,name:m.name,tint:m.tint,cat:m.cat,author:m.author,updated:m.updated,subs:m.subs||'1,020',rating:m.rating||4.3,size:m.size,desc:m.desc.split('\n')[0],mod:m,ver:m.ver,status:m.download!=null?'dl':m.update?'upd':'sub'}));
+  return [...own,...WS_EXTRA.map(w=>({...w,ver:'1.0',status:'none'}))];
+}
+function renderWorkshop(){
+  const host=$('#page-workshop');
+  const head=`<div class="garden-intro"><div><h1>创意工坊</h1><p>Probably Stolen 在 Steam 创意工坊上的模组。订阅在 Steam 里完成，下载好后会出现在“模组”页。</p></div><div class="garden-intro-actions"><span class="env-pill">${ic('steam','sm')}<span style="color:var(--g-leaf-3)">●</span> Steam 已运行</span></div></div>
+   <div class="garden-card ws-howto"><div class="grow"><h2>订阅通过 Steam 客户端完成</h2><p>在 Steam 里订阅或取消订阅，Steam 负责下载和更新；PSMM 等下载完成、核对清单后再把模组放进可用列表。PSMM 不保存你的 Steam 密码。</p>
+    <details><summary>匿名下载：待确认</summary><p style="color:var(--g-text-3);margin-top:4px">还没有实测本游戏是否允许匿名获取。确认可用后，会作为本地副本安装，不算账号订阅。</p></details></div>
+    <button class="garden-btn green sm">${ic('steam','sm')}打开 Steam 创意工坊</button><button class="garden-btn sm" data-act="import">导入本地包</button></div>`;
+  if(S.ws.sel){
+    const w=wsItems().find(x=>x.id===S.ws.sel), m=w.mod;
+    const act=w.status==='none'?`<button class="garden-btn green">${ic('steam','sm')}在 Steam 中订阅</button><button class="garden-btn" disabled title="匿名下载待确认">匿名下载</button>`
+      :w.status==='dl'?`<button class="garden-btn" disabled>${ic('download','sm')}Steam 下载中 ${m.download}%</button>`
+      :`<button class="garden-btn green" data-goto="${w.id}">在模组页查看</button>${w.status==='upd'?`<button class="garden-btn">${ic('download','sm')}查看更新</button>`:''}<button class="garden-btn clay">取消订阅…</button>`;
+    const st={sub:'<span class="tg on">已订阅 · 已安装</span>',dl:`<span class="tg sky">下载中 ${m&&m.download}%</span>`,upd:'<span class="tg lilac">有更新</span>',none:'<span class="tg off">未订阅</span>'}[w.status];
+    host.innerHTML=head+`<div><button class="garden-link" data-act="wsBack" style="color:var(--g-text-2);margin:2px 0 14px">${ic('left','sm')}返回列表</button></div>
+     <div class="garden-card ws-detail-hero"><div class="ws-cover">${cover(w.id)}</div><div><div class="d-tags" style="margin:0"><span class="tg on">${esc(w.cat)}</span><span class="tg off">v${esc(w.ver)}</span>${st}</div><h1>${esc(w.name)}</h1><div class="d-by">${esc(w.author)}</div>
+      <div class="stats"><div class="stat"><small>订阅</small><b>${w.subs}</b></div><div class="stat"><small>评分</small><b>★ ${w.rating}</b></div><div class="stat"><small>更新</small><b>${w.updated.slice(5).replace('-','/')}</b></div><div class="stat"><small>大小</small><b>${fmtSize(w.size)}</b></div></div>
+      <div class="d-actions" style="margin-top:16px">${act}</div></div></div>
+     <div class="ws-cols"><div class="garden-card"><h2>介绍</h2><div class="quote">${esc(w.desc)}</div><div class="desc">${esc(m?m.desc:'（工坊页面的完整介绍）')}</div></div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+       ${m&&m.update?`<div class="sign-note"><b>更新 ${m.update.to} 新增权限：${m.update.addCaps.map(c=>CAPS[c].label).join('、')}</b><br>更新后游戏会要求重新批准。</div>`:''}
+       <div class="garden-card"><h2>${ic('git')}必需条目</h2><div class="lst" style="margin-top:8px">${m&&m.deps.length?m.deps.map(d=>`<div class="li">${pot(d)}<div class="ln"><b>${esc(MISSING[d]?d:byId[d].name)}</b><span>${MISSING[d]?'未安装':'已安装'}</span></div></div>`).join(''):'<span style="font-size:13.5px;color:var(--g-text-3)">工坊页面没有列出必需条目。</span>'}</div></div>
+       <div class="garden-card"><h2>${ic('shield')}权限</h2>${m?(m.caps.length?`<div class="perm-chips">${m.caps.map(c=>`<span class="perm-chip ${CAPS[c].level}">${ic(CAPS[c].icon,'xs')}${CAPS[c].label}</span>`).join('')}</div>`:'<p style="font-size:13.5px;color:var(--g-text-3);margin-top:6px">没有声明额外权限。</p>'):'<p style="font-size:13.5px;color:var(--g-text-3);margin-top:6px">下载后读取 manifest.xml 才能确定。</p>'}</div>
+      </div></div>`;
+    return;
+  }
+  const items=wsItems().filter(w=>S.ws.chip!=='mine'||w.status!=='none');
+  host.innerHTML=head+`<div class="ws-toolbar"><div class="garden-chips">${[['hot','最热门'],['recent','最近更新'],['new','最新发布'],['mine','我的订阅']].map(([k,l])=>`<button class="${S.ws.chip===k?'on':''}" data-wschip="${k}">${l}</button>`).join('')}</div><label class="garden-search">${ic('search','sm')}<input placeholder="搜索创意工坊"></label><button class="garden-btn sm" style="margin-left:auto">刷新</button></div>
+    <div class="garden-card queue-card" style="padding:12px 18px;margin-bottom:16px">${ic('download')}<b>下载队列</b><span>夜市天气</span><div class="garden-solar"><i style="width:62%"></i></div><span>62%</span><span style="color:var(--g-text-3);font-size:12.5px">由 Steam 下载</span></div>
+    <div class="ws-grid">${items.map(w=>`<div class="ws-card" data-ws="${w.id}"><div class="ws-cover">${cover(w.id)}<span class="tg dark tl">${esc(w.cat)}</span><span class="tg ghost tr">v${esc(w.ver)}</span><span class="bl">${{sub:'<span class="tg on">已订阅</span>',dl:`<span class="tg sky">下载中 ${w.mod&&w.mod.download}%</span>`,upd:'<span class="tg lilac">有更新</span>',none:''}[w.status]}</span></div>
+      <div class="ws-body"><b>${esc(w.name)}</b><small>${esc(w.author)} · ★ ${w.rating} · ${w.subs} 订阅</small><p>${esc(w.desc)}</p></div></div>`).join('')}</div>`;
+}
+
+/* ---------------- profiles ---------------- */
+function renderProfiles(){
+  $('#pfCount').textContent=PROFILES.filter(p=>!p.legacy).length;
+  $('#pfList').innerHTML=PROFILES.map(p=>`<button class="seed ${S.pfSel===p.id?'on':''}" data-pf="${p.id}"><span class="pk">${ic(p.legacy?'history':'sprout','sm')}</span><span><b>${esc(p.name)}</b><small>${p.legacy?'旧格式 · 待迁移':`${p.ids.length} 个启用 · ${esc(p.when)}`}</small></span></button>`).join('');
+  const p=PROFILES.find(x=>x.id===S.pfSel);
+  if(p.legacy){
+    $('#pfMain').innerHTML=`<div class="pf-head"><div><h2>${esc(p.name)}</h2><div class="meta"><span class="tg off">旧版方案 v2</span>${p.ids.length} 个模组 · ${p.when}</div></div><span class="sp"></span><button class="garden-btn green sm">迁移预览</button></div>
+     <div class="sign-note" style="margin-top:16px">旧方案只能预览迁移：能核对的原生模组会进入新方案；MelonMod、裸 DLL 和旧路径会列出不能迁移的原因，不会自动启用。</div>`;
+    return;
+  }
+  const off=MODS.filter(m=>!p.ids.includes(m.id)&&!m.legacy&&m.download==null);
+  const prow=(id,on,i)=>{const m=byId[id];return `<div class="row ${on?'':'off-row'}"><span class="pick"></span>${on?`<span class="ord">${String(i+1).padStart(2,'0')}</span>`:''}<div class="meta"><span class="nm">${esc(m.name)}</span><span class="sub">${srcText(m)} · v${esc(m.ver)}</span></div><button class="garden-btn soft icon xs" title="详情" data-goto="${id}">${ic('info','sm')}</button><button class="leaf-switch" aria-pressed="${on}" data-pftoggle="${id}"><span></span></button></div>`;};
+  $('#pfMain').innerHTML=`<div class="pf-head"><div><h2>${esc(p.name)}</h2><div class="meta">${S.pfDirty?'<span class="tg pend">有未保存的修改</span>':'<span class="tg on">已保存</span>'}${p.ids.length} 个启用 · ${off.length} 个停用</div></div><span class="sp"></span>
+     <button class="garden-btn soft icon sm" title="撤销">${ic('undo','sm')}</button><button class="garden-btn soft icon sm" title="重做" disabled>${ic('redo','sm')}</button>
+     ${S.pfDirty?'<button class="garden-btn sm">另存为…</button><button class="garden-btn green sm" data-pfsave>保存</button>':`<button class="garden-btn green sm" data-act="pfApply" ${p.cur?'disabled title="这就是游戏中当前的状态"':''}>应用到游戏</button>`}
+     <button class="garden-btn icon sm" data-act="pfMore" title="更多">${ic('more','sm')}</button></div>
+    <div style="display:flex;gap:10px;margin-top:14px"><label class="garden-search" style="flex:1">${ic('search','sm')}<input placeholder="搜索模组名称、版本或来源"></label><button class="garden-btn sm">${ic('plus','sm')}添加模组</button></div>
+    <div class="pf-cols"><section class="bed enabled"><div class="bed-head"><h2>${ic('check-circle','sm')}已启用</h2><span class="sp"></span><span class="bed-count">${p.ids.length}</span></div><div class="bed-list">${p.ids.map((id,i)=>prow(id,true,i)).join('')||'<div class="garden-empty">把模组拖到这里启用</div>'}</div></section>
+     <section class="bed avail"><div class="bed-head"><h2>${ic('pause-circle','sm')}已停用</h2><span class="sp"></span><span class="bed-count">${off.length}</span></div><div class="bed-list">${off.map(m=>prow(m.id,false)).join('')||'<div class="garden-empty">把模组拖到这里停用</div>'}</div></section></div>`;
+}
+
+/* ---------------- logs ---------------- */
+function renderLogs(){
+  const rst=S.order.filter(id=>stateOf(id).run==='restart').length;
+  $('#reconcile').innerHTML=`${ic('sun','sm')}<span>本次启动对账：<b>1 个已运行</b> · <b>${rst} 个已批准待重启</b> · 0 个失败</span><button class="garden-link" data-act="goMods" style="margin-left:auto">在模组页查看</button>`;
+  const L=['Mono path[0] = \'…/Probably Stolen_Data/Managed\'','Initialize engine version: 2021.3.45f2','[Steam] SteamAPI initialized · AppID 4348910','[ModLoader] Reading modOrder (7 entries)','[ModLoader] Trust list: 7 records','[ModLoader] Scanning local Mods: 0 packages','[ModLoader] Scanning workshop: 7 packages','[ModLoader] item_details: enabled, approved → LoadModDll','[ModLoader] ItemDetails.ItemDetailsMod Init OK','[ModLoader] ps_workshop_uploader: not enabled at startup','[ModLoader] mouse_keeper: not enabled at startup','[ModLoader] shop_assist: not enabled at startup','[ModLoader] xiaowo_tradeperks: not enabled at startup','[ModLoader] cyber_electronics: not enabled at startup','[ModLoader] probably_multiplayer: not enabled at startup','[ModLoader] ApplySavedOrder','[ModLoader] ValidatePrerequisites: OK','[ModLoader] Audit: item_details running=True','[ModUI] Approve ps_workshop_uploader → restart required','[ModUI] Approve cyber_electronics → restart required','[ModUI] … 4 more approvals → restart required'];
+  $('#logView').innerHTML=L.map((l,i)=>`<div class="log-line ${/running=True|Init OK/.test(l)?'good':/not enabled|restart/.test(l)?'mark':''}"><i>${i+18}</i><code>${esc(l)}</code></div>`).join('');
+  $('#convScroll').innerHTML=`<div class="msg user"><div class="bubble">为什么游戏里显示 7 个已激活，实际只有物品详情生效？</div></div>
+   <div class="msg assistant"><span class="avatar">${ic('sprout','sm')}</span><div class="bubble"><strong>PSMM 助手</strong>看日志第 25–35 行：启动时只有 <b>item_details</b> 处于启用且已批准状态，所以只有它被加载。其余 6 个是在这次启动之后才在菜单里批准并启用的（第 36–38 行），游戏标记为“需要重启”。<br><br>重启游戏后，回到这里就能看到新的对账结果。<div style="margin-top:10px"><button class="garden-btn amber sm">${ic('play','sm')}通过 Steam 重启游戏</button></div></div></div>`;
+}
+
+/* ====================== sheets ====================== */
+function openSheet(html,wide){ $('#veil').classList.add('on'); $('#sheetHost').innerHTML=`<div class="sheet ${wide?'wide':''}" role="dialog">${html}</div>`; }
+function closeSheet(){ $('#veil').classList.remove('on'); $('#sheetHost').innerHTML=''; }
+const shHead=(t,p)=>`<div class="sh-head"><div><h2>${t}</h2>${p?`<p>${p}</p>`:''}</div><button class="x" data-close title="关闭">${ic('x','sm')}</button></div>`;
+function openReverseDeps(ids,rev){
+  openSheet(shHead('其他模组依赖它',`停用 ${ids.map(i=>esc(short(byId[i]))).join('、')} 后，下面的模组会缺少依赖。`)+`<div class="sh-body"><div class="lst">${rev.map(i=>`<div class="li">${pot(i)}<div class="ln"><b>${esc(byId[i].name)}</b><span>依赖 ${byId[i].deps.filter(d=>ids.includes(d)||rev.includes(d)).map(d=>esc(short(byId[d]))).join('、')}</span></div></div>`).join('')}</div><div class="mint-note">停用只是移出启用列表，不删除文件，也不取消订阅。</div></div>
+   <div class="sh-foot"><span class="sp"></span><button class="garden-btn sm" data-close>取消</button><button class="garden-btn green sm" data-revboth='${JSON.stringify(ids)}'>一起停用这 ${rev.length+ids.length} 个</button></div>`);
+}
+function openAutoSort(){
+  const r=stableTopo(S.order);
+  if(r.cycle) return openSheet(shHead('存在循环依赖',r.cycle.map(i=>esc(short(byId[i]))).join(' → ')+' → …')+`<div class="sh-foot"><span class="sp"></span><button class="garden-btn sm" data-close>知道了</button></div>`);
+  const moves=[]; r.order.forEach((id,i)=>{ const from=S.order.indexOf(id); if(from!==i){ const later=S.order.filter(x=>byId[x].deps.includes(id)&&S.order.indexOf(x)<from); if(later.length) moves.push({id,from,to:i,why:`${short(byId[later[0]])} 依赖它，所以移到它前面`}); } });
+  const changed=r.order.join()!==S.order.join();
+  openSheet(shHead('自动排序','依赖在前；没有依赖约束的模组保持现在的先后。')+`<div class="sh-body">${changed?`<div class="lst">${moves.map(mv=>`<div class="li">${pot(mv.id)}<div class="ln"><b>${esc(short(byId[mv.id]))}：第 ${mv.from+1} 位 → 第 ${mv.to+1} 位</b><span>${esc(mv.why)}</span></div></div>`).join('')}</div>`:'<div class="mint-note">现在的顺序已经满足所有依赖，不需要调整。</div>'}
+   <div class="mint-note">这里调整的是<b>保存顺序</b>。当前版本的游戏先加载模组再应用顺序，所以排序不能保证初始化的先后。</div></div>
+   <div class="sh-foot"><span class="hint">应用后可以 Ctrl+Z 撤销</span><span class="sp"></span><button class="garden-btn sm" data-close>取消</button><button class="garden-btn green sm" data-apply-sort ${changed?'':'disabled'}>应用</button></div>`);
+}
+function openSave(run){
+  const d=diff(), blk=computeIssues().filter(x=>x.lvl==='block'), newPerm=d.added.filter(id=>byId[id].caps.length);
+  const chg=[...d.added.map(i=>['on','启用',i]),...d.removed.map(i=>['off','停用',i])];
+  openSheet(shHead(run?'保存并启动':'保存到游戏','写入前会重新读取游戏状态并自动备份；只改启用和顺序，游戏的其他设置保持不变。')+`<div class="sh-body">
+    ${blk.length?`<div class="care-note"><b>有 ${blk.length} 个阻断问题，暂时不能应用到游戏</b>${blk.map(b=>`<br>· ${esc(b.t)}`).join('')}<div class="note-act"><button class="garden-btn xs" data-close>返回处理</button></div></div>`:''}
+    <div class="sec" style="border:0;padding:0"><h3>本次变更</h3>${chg.map(([c,op,i])=>`<div class="chg"><span class="tg ${c}">${op}</span>${esc(byId[i].name)}</div>`).join('')}${d.moved?`<div class="chg"><span class="tg sky">顺序</span>${d.moved} 个模组的位置有变化</div>`:''}${!d.dirty?'<div class="chg">没有变更，直接启动游戏</div>':''}</div>
+    ${newPerm.length?`<div class="sec"><h3>启动后游戏会请求批准 <small>一次列出，不逐个弹窗</small></h3><div class="lst">${newPerm.map(i=>`<div class="li">${pot(i)}<div class="ln"><b>${esc(short(byId[i]))}</b><span>${byId[i].caps.map(c=>CAPS[c].label).join(' · ')}</span></div><button class="garden-link" data-goto-perm="${i}">权限详情</button></div>`).join('')}</div><p style="font-size:12.5px;color:var(--g-text-3);margin-top:8px">批准在游戏里完成，PSMM 不会代你批准。批准后游戏可能还要再重启一次。</p></div>`:''}
+    <div class="sec"><h3>恢复点</h3><p style="font-size:13.5px;color:var(--g-text-2)">将创建 <b>#13</b>：保存 SaveFile.es3 中 modOrder、modTrust 的原值，失败会自动恢复。</p></div></div>
+   <div class="sh-foot"><span class="hint">保存成功不等于模组已经运行，运行结果在启动后核对</span><span class="sp"></span><button class="garden-btn sm" data-close>取消</button>
+    ${run?`<button class="garden-btn sm" data-do-save="0" ${blk.length||!d.dirty?'disabled':''}>只保存</button><button class="garden-btn green sm" data-do-save="1" ${blk.length?'disabled':''}>${ic('play','sm')}保存并启动</button>`:`<button class="garden-btn green sm" data-do-save="0" ${blk.length?'disabled':''}>保存</button>`}</div>`);
+}
+function doSave(run){
+  const d=diff(), added=[...d.added], removed=[...d.removed];
+  const steps=[['确认游戏没有运行',''],['重新读取并比较外部变化',''],['创建恢复点 #13','SaveFile.es3'],['写入 modOrder / modTrust','只改这两个字段'],['读回验证','']];
+  if(run) steps.push(['通过 Steam 启动游戏',''],['等待游戏批准 / 重启',''],['读取本次 Player.log 对账','']);
+  const waitAt=run&&added.some(id=>byId[id].caps.length)?6:null;
+  const result=waiting=>`<div class="result"><div class="trust" style="margin:0;grid-template-columns:1fr"><div class="ok"><small>${ic('save','xs')}目标状态</small><b>已写入并读回一致</b><span>恢复点 #13</span></div></div><div class="trust" style="margin:0;grid-template-columns:1fr">${run?(waiting?`<div class="wait"><small>${ic('shield','xs')}运行确认</small><b>等待游戏批准</b><span>${added.filter(i=>byId[i].caps.length).map(i=>esc(short(byId[i]))).join('、')} · 请在游戏窗口里确认</span></div>`:`<div class="ok"><small>${ic('sun','xs')}运行确认</small><b>${S.order.length} 个模组本次已加载</b><span>来自新的 Player.log</span></div>`):`<div><small>${ic('sun','xs')}运行确认</small><b>还没有启动</b><span>启动游戏后在日志页核对</span></div>`}</div></div>`;
+  const draw=(k,w)=>shHead(k>=steps.length?'完成':run?'正在保存并启动':'正在保存','每一步都有记录；出错会自动恢复到 #13。')+`<div class="sh-body"><div class="steps">${steps.map(([t,s],i)=>`<div class="step ${i<k?'done':i===k?(w?'wait':'doing'):''}"><span class="si">${i<k?ic('check','xs'):w&&i===k?ic('shield','xs'):''}</span>${t}<small>${s}</small></div>`).join('')}</div>${k>=steps.length||w?result(w):''}</div>
+   <div class="sh-foot"><span class="sp"></span>${w?`<button class="garden-btn sm" data-close>稍后</button><button class="garden-btn green sm" data-sim-approve>模拟：已在游戏中批准并重启</button>`:k>=steps.length?`<button class="garden-btn green sm" data-close>完成</button>`:`<button class="garden-btn sm" disabled>处理中…</button>`}</div>`;
+  let k=0; openSheet(draw(0));
+  S.baseline=[...S.order]; S.past=[]; S.future=[];
+  added.forEach(id=>{ S.approvals[id]={trust:byId[id].caps.length?'pending':undefined,run:'pending'}; });
+  removed.forEach(id=>{ delete S.approvals[id]; });
+  const tick=()=>{ k++; if(waitAt!=null&&k===waitAt){ openSheet(draw(k,true)); renderAll(); return; } openSheet(draw(k)); if(k<steps.length) setTimeout(tick,420); else { if(run) finishRun(); renderAll(); } };
+  setTimeout(tick,420);
+  window.__finishSim=()=>{ added.forEach(id=>{S.approvals[id]={trust:'approved',run:'running'};}); finishRun(); k=steps.length; openSheet(draw(k)); renderAll(); };
+}
+function finishRun(){ S.order.forEach(id=>{ const m=byId[id]; if(m.run==='restart') m.run='running'; if(S.approvals[id]){ S.approvals[id].run='running'; if(m.caps.length){m.trust='approved';m.approvedAt='2026/10/29';} } }); }
+function openImport(){
+  openSheet(shHead('导入模组','支持完整的模组目录或 ZIP。会保留清单、依赖库和资源结构，不会运行任何 DLL。')+`<div class="sh-body"><div class="dropzone">${ic('import','lg')}<div style="margin-top:6px">把文件夹或 ZIP 拖到这里，或 <button class="garden-link">选择文件</button></div></div>
+    <div class="sec" style="border:0;padding:0"><h3>识别结果 · ExampleMod.zip</h3><div class="lst">
+     <div class="li">${ic('check-circle')}<div class="ln"><b>找到 manifest.xml</b><span>ExampleMod/manifest.xml · 根元素 &lt;Manifest&gt;</span></div></div>
+     <div class="li">${ic('check-circle')}<div class="ln"><b>example_mod · v1.0.0 · 适用 0.46D</b><span>声明 2 个 DLL，都在；Textures、Localization 共 23 个文件</span></div></div>
+     <div class="li">${ic('shield')}<div class="ln"><b>声明权限：反射访问</b><span>启用并启动后由游戏询问批准</span></div></div>
+     <div class="li">${ic('folder')}<div class="ln"><b>安装到 Mods\\ExampleMod\\</b><span>导入后出现在“可用模组”，不会自动启用</span></div></div></div></div>
+    <div class="sign-note">只有 DLL、没有 manifest.xml 的文件会提示“缺少原生包结构”，不会被拆开放进游戏目录。</div></div>
+   <div class="sh-foot"><span class="sp"></span><button class="garden-btn sm" data-close>取消</button><button class="garden-btn green sm" data-close>添加到包库</button></div>`);
+}
+function openInstallation(){
+  openSheet(shHead('选择游戏安装')+`<div class="sh-body"><p style="font-size:13.5px;color:var(--g-text-3)">启动时自动查找 Steam 中的游戏。也可以选择其他 Steam 库，或直接选择 Probably Stolen 游戏目录。</p>
+   <div class="inst-actions"><button class="garden-btn sm">重新查找 Steam 安装</button><button class="garden-btn sm">从 Steam 目录发现</button><button class="garden-btn sm">手动选择安装目录</button></div>
+   <div class="sec"><h3>已保存的安装</h3><div class="inst-row"><div style="flex:1"><b>Probably Stolen · Steam</b> · 已选<div style="font-size:12.5px;color:var(--g-text-3);margin-top:2px">E:\\Entertainment\\Steam\\steamapps\\common\\Probably Stolen</div></div><button class="garden-btn sm" disabled>当前安装</button></div></div>
+   <div class="sec"><h3>识别结果</h3><dl class="garden-facts" style="grid-template-columns:110px 1fr"><dt>版本</dt><dd>正式版 · 菜单 100-Rev3 · 兼容 0.46D · Steam Build 26284217</dd><dt>运行方式</dt><dd>Mono（原生模组加载器）</dd><dt>创意工坊</dt><dd><code>…\\steamapps\\workshop\\content\\4348910</code></dd><dt>用户数据</dt><dd><code>%USERPROFILE%\\AppData\\LocalLow\\Questing Goose Studio\\Probably Stolen</code></dd><dt>旧版残留</dt><dd>没有发现 MelonLoader 文件</dd></dl></div></div>
+   <div class="sh-foot"><span class="sp"></span><button class="garden-btn sm" data-close>关闭</button></div>`);
+}
+function openOrderHelp(){
+  openSheet(shHead('为什么说“保存顺序”','当前版本（Build 26284217）的加载过程')+`<div class="sh-body"><div class="logline">读取批准与 modOrder → 加载本地模组 → 加载工坊模组
+→ 应用保存顺序 → 检查依赖（只警告）→ 贴图 / 本地化 / 掉落表 / 书籍 / 音频</div>
+   <div class="mint-note">每个模组在加载时就已经打补丁并完成初始化，顺序在这之后才应用。所以顺序会影响之后的资源加载，<b>不能</b>保证初始化的先后。需要先初始化的组合会被标为风险。</div></div>
+   <div class="sh-foot"><span class="sp"></span><button class="garden-btn sm" data-close>知道了</button></div>`);
+}
+function openExpanded(){
+  const id=S.focus, m=byId[id];
+  openSheet(shHead(esc(m.name),`${esc(m.author)} · v${esc(m.ver)} · ${srcText(m)}`)+`<div class="sh-body" style="display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start">
+    <div class="d-body">${growthHTML(id)}${issueNotes(id,true)}${m.desc?`<div class="sec"><h3>简介</h3><div class="desc">${esc(m.desc)}</div></div>`:''}${factsHTML(m)}${filesTab(id)}</div>
+    <div class="d-body">${permSection(id,true)}${depsTab(id).replace(issueNotes(id,true),'')}</div></div>`,true);
+}
+
+/* ====================== menus ====================== */
+function showMenu(anchor,html){ const mn=$('#menu'); mn.innerHTML=html; mn.classList.add('on'); const r=anchor.getBoundingClientRect(); mn.style.left=Math.max(10,Math.min(window.innerWidth-mn.offsetWidth-10,r.right-mn.offsetWidth))+'px'; mn.style.top=(r.bottom+6)+'px'; if(r.bottom+6+mn.offsetHeight>window.innerHeight) mn.style.top=(r.top-6-mn.offsetHeight)+'px'; }
+function hideMenu(){ $('#menu').classList.remove('on'); }
+
+/* ====================== render all ====================== */
+function renderAll(){
+  renderCanopy(); renderNotice(); renderAvail(); renderEnabled(); renderDetail(); renderBasket();
+  $('#beds').classList.toggle('multi',S.sel.ids.size>1);
+  if(S.page==='workshop') renderWorkshop();
+  if(S.page==='profiles') renderProfiles();
+  if(S.page==='logs') renderLogs();
+  S.arrive.clear();
+}
+function go(page){
+  S.page=page;
+  document.querySelectorAll('#nav button').forEach(b=>{ if(b.dataset.page===page) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current'); });
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='page-'+page));
+  placeVine(true); renderAll();
+}
+function focusMod(id,tab){
+  S.focus=id; if(tab) S.tab=tab; S.drawer=true;
+  S.sel={list:isEnabled(id)?'en':'avail',ids:new Set([id]),anchor:id};
+  if(S.page!=='mods') go('mods'); else renderAll();
+  requestAnimationFrame(()=>{ const r=document.querySelector(`.row[data-id="${id}"]`); r&&r.scrollIntoView({block:'nearest'}); });
+}
+
+/* ====================== events ====================== */
+document.addEventListener('click',e=>{
+  const t=e.target;
+  if(!t.closest('#menu')&&!t.closest('[data-act="more"]')&&!t.closest('[data-act="pfMore"]')) hideMenu();
+  const nav=t.closest('#nav button'); if(nav) return go(nav.dataset.page);
+  if(t.closest('[data-close]')||t===$('#veil')) return closeSheet();
+  const rb=t.closest('[data-revboth]'); if(rb){ closeSheet(); return disable(JSON.parse(rb.dataset.revboth),'both'); }
+  if(t.closest('[data-apply-sort]')){ const r=stableTopo(S.order); closeSheet(); commit('自动排序'); S.order=r.order; notice('已按依赖排序。',false,true); return renderAll(); }
+  const ds=t.closest('[data-do-save]'); if(ds) return doSave(ds.dataset.doSave==='1');
+  if(t.closest('[data-sim-approve]')) return window.__finishSim&&window.__finishSim();
+  const gp=t.closest('[data-goto-perm]'); if(gp){ closeSheet(); return focusMod(gp.dataset.gotoPerm,'perm'); }
+  const gt=t.closest('[data-goto]'); if(gt){ closeSheet(); return focusMod(gt.dataset.goto); }
+  const tab=t.closest('[data-tab]'); if(tab){ S.tab=tab.dataset.tab; renderDetail(); const tb=$('#detail .d-tabs'); tb&&tb.scrollIntoView({block:'nearest'}); return; }
+  const chip=t.closest('[data-chip]'); if(chip){ S.availChip=chip.dataset.chip; return renderAvail(); }
+  const clr=t.closest('[data-clear]'); if(clr){ if(clr.dataset.clear==='avail'){S.availQ='';$('#availSearch').value='';$('#availSearchBox').classList.remove('has');} else {S.enQ='';$('#enSearch').value='';$('#enSearchBox').classList.remove('has');} return renderAll(); }
+  const fx=t.closest('[data-fix="enableDep"]'); if(fx){ const at=S.order.indexOf(S.focus); return enable([fx.dataset.dep],at<0?undefined:at); }
+  const jp=t.closest('[data-jump]'); if(jp){ const k=jp.dataset.jump, iss=computeIssues(); let id;
+    if(k==='block'||k==='warn') id=(iss.find(x=>x.lvl===k)||{}).id;
+    else if(k==='pending') id=S.order.find(i=>{const s=stateOf(i);return s.trust==='pending'||s.run==='pending';});
+    else id=S.order.find(i=>stateOf(i).run==='restart');
+    if(id) focusMod(id,k==='pending'?'perm':k==='restart'?'log':'deps'); return; }
+  const ws=t.closest('[data-ws]'); if(ws){ S.ws.sel=ws.dataset.ws; $('#page-workshop').scrollTop=0; return renderWorkshop(); }
+  const wc=t.closest('[data-wschip]'); if(wc){ S.ws.chip=wc.dataset.wschip; return renderWorkshop(); }
+  const pf=t.closest('[data-pf]'); if(pf){ S.pfSel=pf.dataset.pf; S.pfDirty=false; return renderProfiles(); }
+  const pt=t.closest('[data-pftoggle]'); if(pt){ const p=PROFILES.find(x=>x.id===S.pfSel), id=pt.dataset.pftoggle; p.ids=p.ids.includes(id)?p.ids.filter(x=>x!==id):[...p.ids,id]; S.pfDirty=true; return renderProfiles(); }
+  if(t.closest('[data-pfsave]')){ S.pfDirty=false; return renderProfiles(); }
+  const cp=t.closest('[data-copy]'); if(cp){ navigator.clipboard&&navigator.clipboard.writeText(cp.dataset.copy).catch(()=>{}); return notice('已复制 '+cp.dataset.copy); }
+  const sw=t.closest('[data-switch]'); if(sw){ const row=sw.closest('.row'), id=row.dataset.id;
+    const group=S.sel.list===row.dataset.where&&S.sel.ids.has(id)&&S.sel.ids.size>1?[...S.sel.ids]:[id];
+    return row.dataset.where==='en'?disable(group,false,sw):enable(group,undefined,sw); }
+  const pk=t.closest('[data-pick]'); if(pk){ const row=pk.closest('.row'), id=row.dataset.id, w=row.dataset.where;
+    if(S.sel.list!==w) S.sel={list:w,ids:new Set(),anchor:id};
+    S.sel.ids.has(id)?S.sel.ids.delete(id):S.sel.ids.add(id); S.sel.anchor=id; S.focus=id; return renderAll(); }
+  const ra=t.closest('[data-row-act]'); if(ra){ const id=ra.closest('.row').dataset.id; if(!S.sel.ids.has(id)||S.sel.list!=='en') S.sel={list:'en',ids:new Set([id]),anchor:id}; return moveSel(ra.dataset.rowAct); }
+  const act=t.closest('[data-act]'); if(act){ const a=act.dataset.act;
+    if(a==='undo') return undo(); if(a==='redo') return redo();
+    if(a==='autosort') return openAutoSort();
+    if(['top','up','down','bottom'].includes(a)) return moveSel(a);
+    if(a==='save') return openSave(false);
+    if(a==='saveRun') return openSave(true);
+    if(a==='discard'){ commit('放弃更改'); S.order=[...S.baseline]; notice('已恢复为游戏中保存的状态。',false,true); return renderAll(); }
+    if(a==='import') return openImport();
+    if(a==='installation') return openInstallation();
+    if(a==='goWorkshop'){ closeSheet(); S.ws.sel=null; return go('workshop'); }
+    if(a==='wsBack'){ S.ws.sel=null; return renderWorkshop(); }
+    if(a==='goLogs') return go('logs');
+    if(a==='goMods') return go('mods');
+    if(a==='orderHelp') return openOrderHelp();
+    if(a==='rescan') return notice('扫描完成，没有新的变化。');
+    if(a==='expand') return openExpanded();
+    if(a==='closeDetail'){ S.focus=null; S.drawer=false; return renderAll(); }
+    if(a==='toggleFocus') return isEnabled(S.focus)?disable([S.focus],false,act):enable([S.focus],undefined,act);
+    if(a==='pfApply') return notice('已载入方案到模组页的草稿，保存后才会写入游戏。');
+    if(a==='more'){ const m=byId[S.focus]; return showMenu(act,`<h4>${esc(short(m))}</h4><button>${ic('copy','sm')}<span>复制原生 ID / 工坊 ID</span></button><button>${ic('folder','sm')}<span>打开数据目录<small>ModConfigs、ModData 和自定义目录</small></span></button><button>${ic('history','sm')}<span>为它创建配置和数据快照</span></button><button>${ic('sprout','sm')}<span>让 AI 解释它的日志</span></button><hr>${m.src==='workshop'?`<button class="danger">${ic('steam','sm')}<span>取消订阅…<small>在 Steam 中完成；同 ID 的本地副本不受影响</small></span></button>`:`<button class="danger">${ic('x','sm')}<span>移除本地包…<small>先备份，可以从恢复点找回</small></span></button>`}`); }
+    if(a==='pfMore') return showMenu(act,`<button>重命名</button><button>复制为新方案</button><button>用当前模组列表覆盖</button><hr><button>复制分享码<small>只含模组 ID、顺序和来源，不含文件和批准记录</small></button><button>导出清单</button><button>查看清单内容</button><hr><button>恢复点…<small>每次写入游戏前自动创建</small></button><hr><button class="danger">删除方案…</button>`);
+  }
+  const row=t.closest('.row[data-where]'); if(row) selectRow(row,e);
+});
+document.addEventListener('dblclick',e=>{ const row=e.target.closest('.row[data-where]'); if(!row||e.target.closest('button')) return; const id=row.dataset.id; if(row.dataset.where==='avail') enable([id],undefined,row); else if(row.dataset.where==='en') disable([id],false,row); });
+function selectRow(row,e){
+  const id=row.dataset.id, w=row.dataset.where;
+  if(w==='missing'){ S.focus=id; S.drawer=true; S.sel={list:'avail',ids:new Set(),anchor:null}; return renderAll(); }
+  const ids=[...document.querySelectorAll(`.row[data-where="${w}"]`)].map(r=>r.dataset.id);
+  if(S.sel.list!==w||!(e.ctrlKey||e.metaKey||e.shiftKey)) S.sel={list:w,ids:new Set([id]),anchor:id};
+  else if(e.shiftKey&&S.sel.anchor){ const a=ids.indexOf(S.sel.anchor),b=ids.indexOf(id); S.sel.ids=new Set(ids.slice(Math.min(a,b),Math.max(a,b)+1)); }
+  else { S.sel.ids.has(id)?S.sel.ids.delete(id):S.sel.ids.add(id); S.sel.anchor=id; }
+  S.focus=id; S.drawer=true; renderAll();
+  $(w==='en'?'#enList':'#availList').focus({preventScroll:true});
+}
+['availSearch','enSearch'].forEach(k=>document.getElementById(k).addEventListener('input',e=>{ if(k==='availSearch'){S.availQ=e.target.value;$('#availSearchBox').classList.toggle('has',!!S.availQ);} else {S.enQ=e.target.value;$('#enSearchBox').classList.toggle('has',!!S.enQ);} renderAvail(); renderEnabled(); }));
+$('#availSort').addEventListener('change',e=>{S.availSort=e.target.value;renderAvail();});
+$('#demoSel').addEventListener('change',e=>setDemo(e.target.value));
+function setDemo(v){
+  S.demo=v; S.past=[]; S.future=[];
+  MODS.forEach(m=>{ if(BASE_ORDER.includes(m.id)){ m.trust='approved'; m.approvedAt='2026/10/28'; m.run=m.id==='item_details'?'running':'restart'; } });
+  S.order=v==='fresh'?[]:[...BASE_ORDER]; S.baseline=[...S.order]; S.approvals={};
+  S.focus=v==='fresh'?null:'cyber_electronics'; S.tab='overview'; S.sel={list:'en',ids:new Set(S.focus?[S.focus]:[]),anchor:S.focus};
+  history.replaceState(null,'','#demo='+v); renderAll();
+}
+document.addEventListener('keydown',e=>{
+  if($('#veil').classList.contains('on')){ if(e.key==='Escape') closeSheet(); return; }
+  if(e.key==='Escape'){ hideMenu(); return; }
+  const inInput=/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName), k=e.key.toLowerCase();
+  if((e.ctrlKey||e.metaKey)&&k==='z'&&!inInput){ e.preventDefault(); return e.shiftKey?redo():undo(); }
+  if((e.ctrlKey||e.metaKey)&&k==='y'&&!inInput){ e.preventDefault(); return redo(); }
+  if((e.ctrlKey||e.metaKey)&&k==='s'){ e.preventDefault(); if(diff().dirty&&S.demo!=='running') openSave(false); return; }
+  if((e.ctrlKey||e.metaKey)&&k==='f'&&S.page==='mods'){ e.preventDefault(); (S.sel.list==='avail'?$('#availSearch'):$('#enSearch')).focus(); return; }
+  if(inInput||S.page!=='mods') return;
+  if(e.altKey&&(e.key==='ArrowUp'||e.key==='ArrowDown')){ e.preventDefault(); return moveSel(e.key==='ArrowUp'?'up':'down'); }
+  if(e.altKey&&(e.key==='Home'||e.key==='End')){ e.preventDefault(); return moveSel(e.key==='Home'?'top':'bottom'); }
+  if(e.key==='ArrowUp'||e.key==='ArrowDown'){ const ids=[...document.querySelectorAll(`.row[data-where="${S.sel.list}"]`)].map(r=>r.dataset.id); if(!ids.length) return; e.preventDefault(); let i=ids.indexOf(S.focus); i=e.key==='ArrowUp'?Math.max(0,i-1):Math.min(ids.length-1,i+1); const id=ids[i]; if(e.shiftKey) S.sel.ids.add(id); else S.sel={list:S.sel.list,ids:new Set([id]),anchor:id}; S.focus=id; renderAll(); document.querySelector(`.row[data-id="${id}"]`).scrollIntoView({block:'nearest'}); return; }
+  if(e.key==='Enter'||(e.key==='ArrowRight'&&S.sel.list==='avail')){ if(S.sel.list==='avail'&&S.sel.ids.size){ e.preventDefault(); enable([...S.sel.ids],undefined,document.querySelector(`.row[data-id="${S.focus}"]`)); } return; }
+  if(e.key==='Delete'||(e.key==='ArrowLeft'&&S.sel.list==='en')){ if(S.sel.list==='en'&&S.sel.ids.size){ e.preventDefault(); disable([...S.sel.ids],false,document.querySelector(`.row[data-id="${S.focus}"]`)); } return; }
+  if(e.key===' '&&S.focus&&byId[S.focus]){ e.preventDefault(); isEnabled(S.focus)?disable([S.focus]):enable([S.focus]); }
+});
+/* drag & drop between beds */
+let drag=null;
+document.addEventListener('dragstart',e=>{ const row=e.target.closest&&e.target.closest('.row[data-where]'); if(!row) return; const id=row.dataset.id, w=row.dataset.where; const ids=S.sel.list===w&&S.sel.ids.has(id)?[...S.sel.ids]:[id]; drag={ids,from:w}; e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',ids.join(',')); requestAnimationFrame(()=>ids.forEach(i=>{const r=document.querySelector(`.row[data-id="${i}"]`); r&&r.classList.add('dragging');})); });
+document.addEventListener('dragend',()=>{ drag=null; document.querySelectorAll('.dragging').forEach(r=>r.classList.remove('dragging')); document.querySelectorAll('.drop-line').forEach(l=>l.style.display='none'); document.querySelectorAll('.drop-target').forEach(l=>l.classList.remove('drop-target')); });
+function dropIndex(list,y){ const rows=[...list.querySelectorAll('.row[data-where="en"]')]; for(const r of rows){ const b=r.getBoundingClientRect(); if(y<b.top+b.height/2) return {idx:S.order.indexOf(r.dataset.id),el:r,before:true}; } return {idx:S.order.length,el:rows[rows.length-1],before:false}; }
+['enList','availList'].forEach(lid=>{ const list=document.getElementById(lid);
+  list.addEventListener('dragover',e=>{ if(!drag) return; e.preventDefault(); const line=list.querySelector('.drop-line');
+    if(lid==='enList'){ if(S.enQ&&drag.from==='en'){ e.dataTransfer.dropEffect='none'; return; } const d=dropIndex(list,e.clientY); if(d.el){ const lr=list.getBoundingClientRect(), r=d.el.getBoundingClientRect(); line.style.top=((d.before?r.top-4:r.bottom+1)-lr.top+list.scrollTop)+'px'; line.style.display='block'; } else list.classList.add('drop-target'); }
+    else if(drag.from==='en') list.classList.add('drop-target'); });
+  list.addEventListener('dragleave',e=>{ if(!list.contains(e.relatedTarget)){ list.querySelector('.drop-line').style.display='none'; list.classList.remove('drop-target'); } });
+  list.addEventListener('drop',e=>{ if(!drag) return; e.preventDefault(); const d=drag; drag=null; if(lid==='enList'){ const at=dropIndex(list,e.clientY).idx; if(d.from==='en') reorderTo(d.ids,at); else enable(d.ids,at); } else if(d.from==='en') disable(d.ids); });
+});
+window.addEventListener('resize',()=>placeVine(false));
+
+/* ====================== self test (#selftest=1) ====================== */
+function selfTest(){
+  const log=[]; let fail=0;
+  const t=(name,fn)=>{ try{ const r=fn(); if(r===false){fail++;log.push('FAIL '+name);} else log.push('ok   '+name); }catch(err){ fail++; log.push('ERR  '+name+': '+err.message); } };
+  const tabs=['overview','perm','deps','config','files','log'];
+  MODS.forEach(m=>tabs.forEach(tb=>t(`render ${m.id}/${tb}`,()=>{S.focus=m.id;S.tab=tb;renderDetail();return document.querySelector('#detail .d-tabs')!=null;})));
+  MODS.forEach(m=>t(`expanded ${m.id}`,()=>{S.focus=m.id;openExpanded();const ok=!!document.querySelector('.sheet.wide');closeSheet();return ok;}));
+  t('render missing',()=>{S.focus='seasonal_core';renderDetail();return /缺失的依赖/.test($('#detail').textContent);});
+  t('enable pulls dependency',()=>{enable(['furniture_plus']);return isEnabled('ps_common_lib')&&S.order.indexOf('ps_common_lib')<S.order.indexOf('furniture_plus');});
+  t('basket shows changes',()=>$('#basket').classList.contains('dirty')&&/待保存 2 项/.test($('#basket').textContent));
+  t('enable legacy refused',()=>{enable(['cheat_menu_legacy']);return !isEnabled('cheat_menu_legacy');});
+  t('missing dep blocks',()=>{enable(['holiday_decor']);return computeIssues().some(x=>x.lvl==='block'&&x.dep==='seasonal_core');});
+  t('save disabled while blocked',()=>!!document.querySelector('#basket [data-act="save"][disabled]'));
+  t('disable base asks first',()=>{disable(['ps_common_lib']);const asked=$('#veil').classList.contains('on');closeSheet();return asked&&isEnabled('ps_common_lib');});
+  t('disable both',()=>{disable(['ps_common_lib'],'both');return !isEnabled('ps_common_lib')&&!isEnabled('furniture_plus')&&!isEnabled('holiday_decor');});
+  t('undo restores',()=>{undo();return isEnabled('furniture_plus')&&isEnabled('ps_common_lib');});
+  t('redo',()=>{redo();return !isEnabled('furniture_plus');});
+  t('undo again',()=>{undo();return isEnabled('furniture_plus');});
+  t('move top/bottom',()=>{S.sel={list:'en',ids:new Set(['probably_multiplayer']),anchor:'probably_multiplayer'};moveSel('top');const a=S.order[0]==='probably_multiplayer';moveSel('bottom');return a&&S.order[S.order.length-1]==='probably_multiplayer';});
+  t('drag reorder',()=>{reorderTo(['ps_common_lib'],S.order.length);return S.order.indexOf('ps_common_lib')>S.order.indexOf('furniture_plus');});
+  t('order warning shown',()=>computeIssues().some(x=>x.lvl==='warn'));
+  t('autosort fixes order',()=>{S.order=stableTopo(S.order).order;return S.order.indexOf('ps_common_lib')<S.order.indexOf('furniture_plus');});
+  t('autosort keeps unconstrained order',()=>{const b=S.order.filter(i=>BASE_ORDER.includes(i)).join();return stableTopo(S.order).order.filter(i=>BASE_ORDER.includes(i)).join()===b;});
+  t('autosort sheet',()=>{openAutoSort();const ok=$('#veil').classList.contains('on');closeSheet();return ok;});
+  t('save sheet blocked',()=>{openSave(true);const ok=!!document.querySelector('[data-do-save="1"][disabled]');closeSheet();return ok;});
+  t('filter keeps hidden items',()=>{const n=S.order.length;S.enQ='物品';renderEnabled();const shown=document.querySelectorAll('#enList .row').length;S.enQ='';renderEnabled();return shown<n&&S.order.length===n;});
+  t('leaf switch disables',()=>{const sw=document.querySelector('.row[data-id="mouse_keeper"] [data-switch]');sw.click();return !isEnabled('mouse_keeper');});
+  t('leaf switch enables',()=>{const sw=document.querySelector('.row[data-id="mouse_keeper"] [data-switch]');sw.click();return isEnabled('mouse_keeper');});
+  ['workshop','profiles','logs','settings','mods'].forEach(pg=>t('page '+pg,()=>{go(pg);return document.getElementById('page-'+pg).classList.contains('on');}));
+  t('workshop detail',()=>{go('workshop');S.ws.sel='furniture_plus';renderWorkshop();const ok=/返回列表/.test($('#page-workshop').textContent);S.ws.sel=null;go('mods');return ok;});
+  t('profile legacy',()=>{S.pfSel='legacy';renderProfiles();const ok=/迁移预览/.test($('#pfMain').textContent);S.pfSel='default';return ok;});
+  t('installation sheet',()=>{openInstallation();const ok=/Build 26284217/.test($('#sheetHost').textContent);closeSheet();return ok;});
+  ['running','fresh','normal'].forEach(d=>t('demo '+d,()=>{setDemo(d);return true;}));
+  t('save flow writes baseline',()=>{enable(['ps_common_lib']);doSave(false);return S.baseline.includes('ps_common_lib')&&!diff().dirty;});
+  const box=document.createElement('pre'); box.id='selftest';
+  box.style.cssText='position:fixed;inset:40px;z-index:999;overflow:auto;background:#fff;border:3px solid '+(fail?'#dc2626':'#16a34a')+';padding:12px;font:12px/1.4 Consolas,monospace;margin:0;border-radius:16px';
+  box.textContent=(fail?`SELFTEST FAILED: ${fail}`:'SELFTEST PASSED')+` (${log.length} checks)\n`+log.filter(l=>!/^ok   (render|expanded)/.test(l)).join('\n');
+  document.body.appendChild(box);
+}
+
+/* ====================== boot ====================== */
+(function(){
+  $('#rays').innerHTML=Array.from({length:12},(_,i)=>{const a=i*Math.PI/6;return `<line x1="${31+25*Math.cos(a)}" y1="${31+25*Math.sin(a)}" x2="${31+30*Math.cos(a)}" y2="${31+30*Math.sin(a)}"/>`;}).join('');
+  const h=new URLSearchParams(location.hash.slice(1));
+  if(h.get('still')==='1'){ const st=document.createElement('style'); st.textContent='*,*::before,*::after{animation:none!important;transition:none!important}'; document.head.appendChild(st); }
+  const demo=h.get('demo'); if(demo) $('#demoSel').value=demo;
+  setDemo(demo||'normal');
+  const pg=h.get('page'); go(pg||'mods');
+  const mod=h.get('mod'); if(mod&&byId[mod]){ S.focus=mod; S.sel={list:isEnabled(mod)?'en':'avail',ids:new Set([mod]),anchor:mod}; S.drawer=true; }
+  const en=h.get('enable'); if(en){ enable(en.split(',').filter(i=>byId[i])); S.past=[]; }
+  const tab=h.get('tab'); if(tab) S.tab=tab;
+  const ws=h.get('ws'); if(ws){ S.ws.sel=ws; }
+  const pf=h.get('pf'); if(pf) S.pfSel=pf;
+  renderAll(); requestAnimationFrame(()=>placeVine(false));
+  if(h.get('selftest')==='1') return selfTest();
+  const dlg=h.get('dialog');
+  if(dlg==='save') openSave(true); else if(dlg==='sort') openAutoSort(); else if(dlg==='import') openImport(); else if(dlg==='install') openInstallation(); else if(dlg==='expand'&&S.focus) openExpanded();
+})();
+</script>
+</body>
+</html>

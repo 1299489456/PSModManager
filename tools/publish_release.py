@@ -29,7 +29,7 @@ def checked_assets(directory, tag):
     with zipfile.ZipFile(archive) as stream:
         manifest = json.loads(stream.read('PSModManager/build-manifest.json'))
         if (manifest['version'] != tag[1:] or manifest['product'] != 'PSModManager'
-                or manifest.get('distribution_profile') != 'public-cpp2il-only'):
+                or manifest.get('distribution_profile') != 'public-native-mono'):
             raise ValueError('Release archive identity/profile mismatch')
     return archive, checksums
 
@@ -91,8 +91,8 @@ def publish(api, directory, tag, commit):
     notes = (f'## PSModManager {tag}\n\n'
         + changes + '\n\n## 下载与使用\n\n'
         '下载下方 Windows x64 ZIP，完整解压后运行 PSModManager.exe。\n\n'
-        '公开版内置 Cpp2IL 和配套插件的离线恢复资源；Unity 运行库由 MelonLoader '
-        '在首次生成或游戏更新后联网下载。\n\n'
+        '适用于 Probably Stolen 正式版原生 Mono 模组；无需 MelonLoader。'
+        '工坊订阅与更新使用本机已登录 Steam，会话不可用时可打开官方页面。\n\n'
         '需要 Windows 10/11 x64、.NET Framework 4.8+ 和 WebView2 Runtime。'
         '软件未签名，系统可能显示安全提示。\n\n'
         f'源码提交：`{commit}`。`SHA256SUMS.txt` 可用于核对下载文件。\n\n'

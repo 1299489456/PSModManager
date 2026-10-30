@@ -1,5 +1,5 @@
 """A small boot locator and a copy-before-switch desktop data migration."""
-from contextlib import ExitStack, closing
+from contextlib import ExitStack, closing, nullcontext
 import json
 import os
 from pathlib import Path
@@ -126,8 +126,10 @@ class StorageLocation:
         with self._lock:
             result = dict(self._state)
         result['locations'] = [dict(label=label, path=str(root / child)) for label, child in (
+            ('原生模组方案、规则与恢复点', 'native-mods'),
             ('Mod 包库', 'library'), ('方案与安装记录', 'psmodmanager.sqlite3'),
             ('应用配置', 'config.json'), ('部署历史与恢复记录', 'deployments'),
+            ('工坊信息与封面缓存', 'cache/workshop'), ('AI 翻译缓存', 'ai-translations.json'),
             ('下载缓存', 'downloads'), ('导入暂存', 'imports'),
             ('方案分享暂存', 'sharing'), ('元数据临时工作区', 'import-worker'),
             ('应用日志', 'logs'), ('WebView 缓存', 'webview2'))]
@@ -159,9 +161,16 @@ class StorageLocation:
         return target
 
     def start(self, target):
-        with self._lock:
+        policy = getattr(self.context, 'workshop_updates', None)
+        with self._lock, (policy.migration_gate() if policy is not None else nullcontext()):
             if self.blocked:
                 raise StorageError('STORAGE_BUSY')
+            workshop = getattr(self.context, 'workshop', None)
+            if workshop is not None and workshop.is_busy():
+                # A Steam operation is not a cancellable local JobManager task.
+                # Do not discard its callback receipt by closing the service to
+                # migrate app data while Steam can still change package files.
+                raise StorageError('STORAGE_OPERATIONS_RUNNING')
             destination = self._target(target)
             from .storage_history import validate_migration_source
             try:
@@ -200,7 +209,7 @@ class StorageLocation:
             credentials_copied = copy_saved_credentials(self.context, target)
             # Commit last. A failed/incomplete copy never becomes a startup root.
             _write(source / REDIRECT, target)
-            warning = '' if credentials_copied else ' 部分 Windows 凭据未能迁移，请在新目录重新填写 AI / Nexus 密钥。'
+            warning = '' if credentials_copied else ' 部分 Windows 凭据未能迁移，请在新目录重新填写 AI 密钥。'
             if self.locator is not None:
                 try:
                     _write(self.locator, target)
@@ -251,11 +260,19 @@ def copy_saved_credentials(context, target):
     from .paths import AppPaths
     from backend.ai.credentials import CredentialStore
     success = True
-    pairs = [(context.nexus.credentials, context.nexus.config)]
+    pairs = []
     try:
-        config = context.ai._config()
-        if config.get('model'):
-            pairs.append((context.ai.credentials, config))
+        registry = context.preferences.read_config().get('ai_providers')
+        if registry is not None:
+            for provider in registry['providers']:
+                if provider.get('model'):
+                    config = {name: provider[name] for name in ('provider', 'base_url', 'model')}
+                    config['_provider_id'] = provider['id']
+                    pairs.append((context.ai.credentials, config))
+        else:
+            config = context.ai._config()
+            if config.get('model'):
+                pairs.append((context.ai.credentials, config))
     except ValueError:
         success = False
     for credentials, config in pairs:

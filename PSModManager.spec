@@ -11,6 +11,8 @@ bundle_data = packaging.bundle_data
 
 excluded = ['tkinter', 'PyQt5', 'PyQt6', 'PySide2', 'PySide6', 'gi', 'pytest', 'tests',
             'settings', 'backend.settings', 'backend.managers', 'backend.api',
+            'backend.loaders.melonloader', 'backend.online.nexus',
+            'backend.online.api', 'backend.online.nxm_protocol',
             'backend.ai.ai_service', 'backend.ai.ai_gateway', 'backend.ai.ai_definitions',
             'litellm', 'openai', 'numpy', 'pandas', 'scipy', 'matplotlib',
             'webview.platforms.gtk', 'webview.platforms.qt', 'webview.platforms.cocoa',

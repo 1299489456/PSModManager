@@ -8,11 +8,11 @@ import { safeWebLink } from '../../shared/lib/safeMarkdown.js'
 import PlanCard from './PlanCard.vue'
 import { Download, MessageSquarePlus, Paperclip, SendHorizontal, Sprout } from 'lucide-vue-next'
 
-const props = defineProps({ bridge: { type: Object, required: true }, installation: { type: Object, default: null }, autoAnalyzeToken: { type: Number, default: 0 }, active: { type: Boolean, default: true } })
-const emit = defineEmits(['mod-changed'])
+const props = defineProps({ bridge: { type: Object, required: true }, installation: { type: Object, default: null }, autoAnalyzeToken: { type: Number, default: 0 }, active: { type: Boolean, default: true },settingsRevision:Number })
+const emit = defineEmits(['mod-changed', 'reveal-mod','settings'])
 const state = reactive({}), logs = reactive({}), actionState = reactive({})
-const settingsOpen = ref(false), sourceOpen = ref(false), attachOpen = ref(false), search = ref(''), onlyErrors = ref(false), messageList = ref(null)
-const actions = createAiActionRuntime(props.bridge, actionState, () => emit('mod-changed'))
+const sourceOpen = ref(false), attachOpen = ref(false), search = ref(''), onlyErrors = ref(false), messageList = ref(null)
+const actions = createAiActionRuntime(props.bridge, actionState, card => card.kind === 'native_mod' ? emit('reveal-mod', card.mod_id) : emit('mod-changed'))
 const runtime = createLocalAiRuntime(props.bridge, state, { evidencePicker: false, onSuggestions: actions.setSuggestions, onReset: actions.clear, isActionBusy: () => actionState.busy })
 const diagnostics = createLogDiagnosticsRuntime(props.bridge, runtime, state, logs)
 const working = computed(() => state.busy || actionState.busy)
@@ -68,19 +68,19 @@ const hasLogContent = computed(() => logs.preview?.logs.some(row => row.text.tri
 const context = computed(() => logs.preview?.context || {})
 const attachLabel = computed(() => state.diagnosticSnapshotId ? `已附带 ${logs.preview?.logs.length || 0} 份日志${logs.includeContext && logs.installationId ? ' + Mod 状态' : ''}` : '未附带日志')
 const taskStatus = computed(() => state.cancelling ? '正在取消…' : state.taskKind === 'test' ? '正在测试连接…' : state.querying ? 'AI 正在查询 Mod 与环境信息…' : state.streamedText ? 'AI 正在生成分析…' : '正在等待 AI 回复…')
-const keyStatus = computed(() => ({ saved: '密钥已保存在 Windows 凭据', session: '密钥仅供本次会话使用', unavailable: 'Windows 凭据不可读', missing: '未保存密钥' })[state.settings?.key_status] || '')
+
 const modState = value => ({ enabled: '启用', disabled: '停用', not_installed: '未安装', drifted: '文件有变化', unknown: '状态未知' })[value] || value
 const sizeText = value => value < 1024 ? `${value} B` : `${(value / 1024).toFixed(1)} KB`
-async function analyze() { if (!state.settings?.configured) settingsOpen.value = true; await diagnostics.analyze() }
-async function send() { if (!state.settings?.configured) { settingsOpen.value = true; state.error = '先配置 AI 服务和模型。'; return }; await runtime.send() }
-async function saveSettings() { if (await runtime.saveSettings()) settingsOpen.value = false }
+async function analyze() { if (!state.settings?.configured) emit('settings'); await diagnostics.analyze() }
+async function send() { if (!state.settings?.configured) { emit('settings'); state.error = '先配置 AI 服务和模型。'; return }; await runtime.send() }
+
 async function openTextLink(event) {
   const anchor = event.target.closest?.('a')
   if (!anchor) return
   event.preventDefault()
   const url = safeWebLink(anchor.getAttribute('href'))
   if (url) {
-    try { await props.bridge.request('nexus.open', { page: 'link', url }) }
+    try { await props.bridge.request('app.open_link', { url }) }
     catch { state.error = '这个链接无法打开。' }
   }
 }
@@ -127,7 +127,10 @@ watch(() => state.messages, () => {
   if (!state.messages.length && !state.streamedText) { keepLatestReply = true; replyReadOffset = 0 }
   if (!state.busy) void restoreReplyPosition()
 })
-watch(() => props.active, active => { if (active) void restoreReplyPosition() })
+let settingsPending=false
+watch(() => props.active, active => { if (active)void restoreReplyPosition() })
+watch(()=>props.settingsRevision,()=>{if(state.busy)settingsPending=true;else void runtime.loadSettings()})
+watch(()=>state.busy,busy=>{if(!busy&&settingsPending){settingsPending=false;void runtime.loadSettings()}})
 onMounted(() => {
   document.addEventListener('pointerdown', closeAttach)
   void runtime.loadSettings()
@@ -169,11 +172,12 @@ onUnmounted(() => {
         <div v-if="logObservation?.source_modified_at" class="log-observation" data-testid="diagnostic-log-time"><span>日志写入于 {{ logTime(logObservation.source_modified_at) }}</span><span v-if="logObservation.game_files_modified_at">游戏文件更新于 {{ logTime(logObservation.game_files_modified_at) }}</span></div>
         <p v-if="logObservation?.freshness_message" class="warning update-warning" data-testid="diagnostic-stale-log" role="status">{{ logObservation.freshness_message }}</p>
         <p v-if="activeLog" class="log-range" data-testid="diagnostic-range"><template v-if="logs.viewMode === 'analysis'">{{ activeLog.selection_mode === 'error_context' ? `包含 ${activeLog.error_matches} 处错误及上下文` : '日志末尾内容' }} · 读取 {{ sizeText(activeLog.scanned_bytes) }} / {{ sizeText(activeLog.bytes_total) }}{{ activeLog.truncated ? ' · 内容已截断' : '' }} · 行号对应发送内容</template><template v-else>已加载 {{ sizeText(activeLog.byte_end - activeLog.byte_start) }} / {{ sizeText(activeLog.bytes_total) }}{{ activeLog.reachedStart ? ' · 已到开头' : ' · 向上滚动加载更早内容' }}</template> · 已隐藏个人信息</p>
+        <div v-if="logs.reconciliation" class="runtime-reconcile" data-testid="runtime-reconciliation"><span v-if="['available','partial','stale'].includes(logs.reconciliation.status)">最近启动对账：<b>{{ logs.reconciliation.running_count ?? 0 }} 个已加载</b> · <b>{{ logs.reconciliation.pending_restart_count ?? 0 }} 个已批准待重启</b> · {{ logs.reconciliation.failed_count ?? 0 }} 个失败<template v-if="logs.reconciliation.unknown_count"> · {{ logs.reconciliation.unknown_count }} 个待核对</template><template v-if="logs.reconciliation.partial_count"> · {{ logs.reconciliation.partial_count }} 个部分加载</template></span><span v-else>最近启动对账：还没有可读取的启动审计记录。</span><button @click="emit('reveal-mod', logs.reconciliation.entries?.[0]?.mod_id)">在模组页查看</button></div>
         <div ref="logScroll" class="log-scroll" data-testid="diagnostic-log-text" tabindex="0" aria-label="日志内容" @scroll.passive="logScrolled">
           <section v-if="logs.viewMode === 'analysis' && startupLines.length" class="startup-context" data-testid="diagnostic-startup-context"><h4>文件开头的启动信息 · 日志记载</h4><div v-for="line in startupLines" :key="line.number" class="log-line"><span class="line-number" aria-hidden="true">{{ line.number }}</span><code>{{ line.text }}</code></div><h4>错误与相邻上下文</h4></section>
           <p v-if="logs.viewMode === 'original' && activeLog && lines.length" class="log-edge" data-testid="diagnostic-log-edge" role="status">{{ logs.pageReading ? '正在加载更早的日志…' : activeLog.reachedStart ? '已到日志开头' : logs.pages.length >= MAX_CACHED_PAGES ? '已加载的内容较多，更早的部分请在日志文件中查看' : '向上滚动加载更早的日志' }}</p>
           <p v-if="logs.loading || logs.reading || (logs.pageReading && !logs.pages.length)" class="empty-state" role="status">正在读取日志…</p>
-          <p v-else-if="!activeLog" class="empty-state">{{ logs.sources.length ? '选择日志来源后即可查看和分析。' : '还没有可用的日志。选择游戏后可读取 MelonLoader 日志，管理器日志随时可以查看。' }}</p>
+          <p v-else-if="!activeLog" class="empty-state">{{ logs.sources.length ? '选择日志来源后即可查看和分析。' : '还没有可用的日志。选择游戏后可读取 Player.log，管理器日志随时可以查看。' }}</p>
           <p v-else-if="!activeLog.text.trim()" class="empty-state">这份日志还是空的。运行游戏后刷新，或切换日志来源。</p>
           <p v-else-if="!lines.length" class="empty-state">没有匹配的日志行。清除搜索或关闭“只看错误”。</p>
           <div v-for="line in lines" v-else :key="line.number" class="log-line" :class="{ 'error-line': line.error }"><span class="line-number" aria-hidden="true">{{ line.number }}</span><code>{{ line.text || ' ' }}</code></div>
@@ -183,17 +187,8 @@ onUnmounted(() => {
         <p v-for="warning in [...logs.warnings, ...(logs.preview?.warnings || [])]" :key="warning" class="warning">{{ warning }}</p>
       </section>
       <section class="conversation-pane" aria-label="智能分析对话">
-        <div class="pane-heading conversation-heading"><h3>智能分析</h3><button class="model-chip" data-testid="ai-settings-toggle" :aria-expanded="settingsOpen" :title="state.settings?.base_url || ''" @click="settingsOpen = !settingsOpen"><span data-testid="ai-target">{{ state.settings?.configured ? state.settings.model : '配置 AI 服务' }}</span><span aria-hidden="true">{{ settingsOpen ? '⌃' : '⌄' }}</span></button><span class="heading-space"></span><button class="ghost" data-testid="ai-new-session" :disabled="actionState.busy" title="开始新对话" @click="runtime.newSession"><MessageSquarePlus :size="16" aria-hidden="true"/>新对话</button><button class="ghost" data-testid="ai-export" :disabled="!state.sessionId || working" title="导出对话" @click="runtime.exportSession"><Download :size="16" aria-hidden="true"/>导出</button><button class="primary" data-testid="diagnostic-analyze" :disabled="blocked || !hasLogContent" @click="analyze">分析日志</button></div>
-      <section v-if="settingsOpen" class="connection-settings" aria-label="AI 连接设置">
-        <div class="settings-grid">
-          <label>服务地址<input v-model="state.form.base_url" data-testid="ai-base-url" type="url" maxlength="2048" :disabled="working || state.saving" autocomplete="off" spellcheck="false"/></label>
-          <label>模型<input v-model="state.form.model" data-testid="ai-model" maxlength="200" :disabled="working || state.saving" placeholder="服务支持的模型名称" autocomplete="off" spellcheck="false"/></label>
-          <label>API key<input v-model="state.form.api_key" data-testid="ai-api-key" type="password" maxlength="4096" :disabled="working || state.saving" placeholder="留空保留密钥；本地免密服务可留空" autocomplete="new-password"/></label>
-        </div>
-        <div class="settings-actions"><label class="checkbox"><input v-model="state.form.remember" data-testid="ai-remember" type="checkbox" :disabled="working || state.saving"/>记住密钥（Windows 凭据）</label><span>{{ keyStatus }}</span><button data-testid="ai-save" :disabled="working || state.saving" @click="saveSettings">{{ state.saving ? '保存中…' : '保存设置' }}</button><button data-testid="ai-test" :disabled="!state.settings?.configured || working || state.saving" @click="runtime.testConnection">测试连接</button><button data-testid="ai-clear-key" :disabled="!state.settings || working || state.saving" @click="runtime.clearCredentials">清除密钥</button></div>
-        <p class="muted">支持 OpenAI 兼容协议和本地服务。保存设置不会连接服务。</p>
-      </section>
-        <div v-if="!state.settings?.configured && !state.loading" class="configure-prompt"><span>配置 AI 服务后，直接分析左侧日志。</span><button @click="settingsOpen = true">配置服务</button></div>
+        <div class="pane-heading conversation-heading"><h3>智能分析</h3><button class="model-chip" data-testid="ai-settings-toggle"  :title="state.settings?.base_url || ''" @click="emit('settings')"><span data-testid="ai-target">{{ state.settings?.configured ? state.settings.model : '配置 AI 服务' }}</span><span aria-hidden="true">设置</span></button><span class="heading-space"></span><button class="ghost" data-testid="ai-new-session" :disabled="actionState.busy" title="开始新对话" @click="runtime.newSession"><MessageSquarePlus :size="16" aria-hidden="true"/>新对话</button><button class="ghost" data-testid="ai-export" :disabled="!state.sessionId || working" title="导出对话" @click="runtime.exportSession"><Download :size="16" aria-hidden="true"/>导出</button><button class="primary" data-testid="diagnostic-analyze" :disabled="blocked || !hasLogContent" @click="analyze">分析日志</button></div>
+        <div v-if="!state.settings?.configured && !state.loading" class="configure-prompt"><span>配置 AI 服务后，直接分析左侧日志。</span><button @click="emit('settings')">配置服务</button></div>
         <div ref="messageList" class="conversation-scroll" data-testid="ai-messages" :data-session-id="state.sessionId || ''" aria-live="polite" aria-relevant="additions text" @scroll.passive="rememberReplyPosition" @click="openTextLink">
           <div v-if="!state.messages.length && !state.pendingQuestion && !state.streamedText" class="conversation-empty"><h4>遇到了什么问题？</h4><p>分析左侧日志，或描述游戏、Mod、管理器的异常。</p></div>
           <article v-for="(message, index) in state.messages" :key="index" class="message" :class="message.role" :data-role="message.role" :data-testid="message.role === 'assistant' ? 'ai-response' : 'ai-user-message'"><span v-if="message.role === 'assistant'" class="message-avatar" aria-hidden="true"><Sprout :size="16"/></span><div class="bubble"><strong :class="{ 'sr-only': message.role === 'user' }">{{ message.role === 'user' ? '你' : 'AI' }}</strong><div class="formatted-reply" v-html="diagnosticMarkdown(message.content)"></div></div></article>

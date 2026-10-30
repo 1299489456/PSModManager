@@ -1,8 +1,10 @@
 # 从源码运行与开发 PSModManager
 
-当前桌面入口是 `main.py` → `backend/app` → `frontend/src/app`。主流程为“选择游戏 → 导入 Mod → 启停 → 保存 → 运行”，AI 只在需要时辅助日志排错。
+当前桌面入口是 `main.py` → `backend/app` → `frontend/src/app`。面向 Probably Stolen 正式版的原生 Mono 模组，主流程为“选择游戏 → 导入目录 / ZIP 或打开 Steam 创意工坊 → 启用与排序 → 保存 → 运行”。AI 只在需要时辅助日志排错。
 
-以下命令使用 **Windows x64 + PowerShell**，除单独说明外均在仓库根目录执行。开发和测试使用独立数据目录与合成样本；隔离数据目录不会把真实游戏变成测试副本，请勿为调试选择真实游戏并执行安装、启停或启动。
+界面和交互以已确认的[正式版温室原型](../design/formal-release-ui/prototype.html)及其[说明](../design/formal-release-ui/README.md)为准，不重新设计设置、日志与外框。模组页为“可用模组 → 启用与顺序 → 模组详情”三栏；启用不弹权限提示，权限列在详情中，游戏批准仍由游戏完成。原型演示数据不得作为正式版运行状态。
+
+以下命令使用 **Windows x64 + PowerShell**，除单独说明外均在仓库根目录执行。开发和测试使用独立数据目录与获准的隔离副本；合成样本用于边界情况，不替代真实包的只读检查。隔离数据目录不会把真实游戏变成测试副本，请勿为调试选择真实游戏并执行写入或启动。
 
 ## 1. 准备工具并克隆
 
@@ -59,29 +61,15 @@ Pop-Location
 
 脚本使用已安装的 .NET 10 SDK 和 reference pack，不执行 NuGet restore 或联网下载。默认产物是 `tools/PSModManager.Metadata/bin/PSModManager.Metadata.dll` 及相邻的 `runtimeconfig.json`；源码模式需要系统上的 .NET 10 运行时，SDK 安装已包含它。helper 只解析程序集元数据，不执行被检查的 Mod DLL。协议及自包含构建细节见 [helper 文档](../../tools/PSModManager.Metadata/README.md)。
 
-## 4. 准备本地离线修复资源
+## 4. 原生游戏与写入边界
 
-Git 仓库不包含生成依赖压缩包 `backend/loaders/melonloader/resources/toolchain.zip`。以下步骤准备原有本地完整包；资源用于 MelonLoader 0.7.3 的 Cpp2IL / Unity 依赖修复，**不是 MelonLoader 安装包**。对外分发应使用第 8 节的公开包流程，仅内置 Cpp2IL 和插件，不再分发 Unity 库。
+正式版不需要 MelonLoader、Cpp2IL 或 Unity 生成依赖；源码启动、本地打包和公开构建都不下载、不安装、不打包这些工具。历史准备脚本与许可材料保留，不再是启动前置。打包器拒绝旧 `--offline-resources` 参数并提示移除；旧 `PSMM_OFFLINE_RESOURCES` 环境变量不参与资源收集。
 
-从已提交的 [`manifest.json`](../../backend/loaders/melonloader/resources/manifest.json) 中读取官方来源，下载到本地准备目录，再用仓库脚本组装：
+原生模组读取游戏 `Mods` 和同一 Steam 库的 `workshop/content/4348910`。用户状态来自游戏的 `SaveFile.es3`，配置来自 `ModConfigs`，运行证据来自 `Player.log`。分别记录已安装、目标启用、游戏批准和最近启动的加载结果；不能从已启用或已批准推断正在运行。排序仅保存 `modOrder`，当前游戏先加载 DLL 再应用顺序，不能承诺初始化顺序。
 
-```powershell
-$source = Join-Path (Get-Location).Path '.preview\toolchain-source'
-New-Item -ItemType Directory -Path $source -Force | Out-Null
-$manifest = Get-Content .\backend\loaders\melonloader\resources\manifest.json -Raw | ConvertFrom-Json
-$names = @{
-    'Cpp2IL' = 'Cpp2IL.exe'
-    'Cpp2IL.Plugin.StrippedCodeRegSupport' = 'Cpp2IL.Plugin.StrippedCodeRegSupport.dll'
-    'UnityDependencies' = 'Managed.zip'
-}
-foreach ($asset in $manifest.sources) {
-    Invoke-WebRequest -Uri $asset.url -OutFile (Join-Path $source $names[$asset.component])
-}
-Copy-Item .\backend\loaders\melonloader\resources\licenses\* -Destination $source
-.\.venv\Scripts\python.exe .\tools\prepare_melonloader_offline.py --source $source
-```
+原生写入必须经过进程 guard、并发版本核对与恢复点；游戏运行中或无法确认是否运行时，只编辑草稿。修改 ES3 保留类型包装与未知字段，不创建批准记录。工坊订阅、取消和更新通过本机已登录 Steam 的官方 UGC 接口请求，管理器不手写 ACF 或工坊文件。发起操作时也检查游戏运行状态；已被 Steam 接受的任务由客户端继续执行，不受原生恢复点回滚。匿名下载不是订阅，未验证本游戏支持前保持不可用。服务接口见[原生契约](../../backend/native_mods/CONTRACT.md)与[工坊契约](../../backend/workshop/CONTRACT.md)。
 
-下载的三个资源是 Cpp2IL `2022.1.0-pre-release.21` Windows EXE、同版 `StrippedCodeRegSupport` 插件，以及 Unity `2021.3.45` 的 `Managed.zip`。下载完成后，组装脚本本身离线运行，不启动这些二进制，也不读取游戏。它生成 `toolchain.zip` 和对应清单；不要将下载材料或生成的 ZIP 提交到源码仓库。修改版本或准备对外分发时，先核对 [第三方材料说明](../../THIRD_PARTY_NOTICES.md) 中的许可和再分发条件。
+Steam UGC 使用独立 spawn 子进程与私有管道；`main.py` 在桌面参数解析前调用 `multiprocessing.freeze_support()`。原生 DLL 仅从所选游戏的 `Probably Stolen_Data/Plugins/x86_64/steam_api64.dll` 读取，先固定文件句柄并核验 Valve 签名，不复制进程序包。冻结验收除主窗口外还须覆盖实际子进程启动、只读状态返回、退出和原生输出静默；源码测试不能代替这条路径。
 
 ## 5. 使用隔离数据启动
 
@@ -92,22 +80,22 @@ $dataRoot = Join-Path (Get-Location).Path '.preview\dev-data'
 
 这里传入绝对路径，数据写入 `.preview/dev-data`，不使用正常用户的默认数据目录。需要保留多套调试环境时，更换目录名即可。不要将数据目录放在游戏、Mod 来源目录或已有 RimCrow 数据中。
 
-首次启动会显示数据位置选择；继续使用该独立目录即可。源码模式不提供打包版的 `nxm://` 注册入口。AI 和 Nexus 都可不配置；需要真实网络验证时只使用自己的账户，在界面中输入密钥，不放入源码、环境示例、测试快照或日志。
+首次启动会显示数据位置选择；继续使用该独立目录即可。AI 可不配置；需要真实网络验证时只使用自己的账户，在界面中输入 AI 密钥，不放入源码、环境示例、测试快照或日志。工坊公开浏览不要求账号；直接订阅和更新使用官方客户端会话，不读取密码或登录令牌。独立应用数据目录不会隔离 Steam 账号副作用，实际订阅写入需单独获准；当前不注册 `nxm://` 协议。
 
 ## 6. 按改动运行测试
 
 先跑与改动相关的测试。下面给出后端基础和前端主流程的直接入口，不启动游戏：
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests/unit/test_app_identity.py tests/unit/test_contracts.py -q
-node --test frontend/src/app/bridge/client.test.js frontend/src/features/catalog/modWorkspaceRuntime.test.mjs
+.\.venv\Scripts\python.exe -m pytest tests/unit/test_app_identity.py tests/unit/test_contracts.py tests/native_mods tests/workshop -q
+node --test frontend/src/app/bridge/client.test.js frontend/src/features/native/nativeWorkspaceRuntime.test.mjs frontend/src/features/native/nativeModel.test.mjs
 ```
 
 其他常用范围：
 
 ```powershell
-# 数据位置迁移与方案删除，使用测试临时目录
-.\.venv\Scripts\python.exe -m pytest tests/integration/test_storage_location.py tests/integration/test_profile_delete.py -q
+# 数据位置迁移，使用测试临时目录
+.\.venv\Scripts\python.exe -m pytest tests/integration/test_storage_location.py -q
 
 # 静态元数据解析：需要 .NET 10 SDK，样本由测试自行生成
 .\.venv\Scripts\python.exe -m pytest tests/metadata/test_static_parser.py -q
@@ -121,7 +109,7 @@ node --test $frontendTests
 
 测试目录按用途划分：`tests/unit` 为模块检查，`tests/integration` 为服务与文件操作集成检查，`tests/metadata` 为解析和隔离边界检查，`tests/desktop` 为桌面相关检查。其中不少桌面测试检查的是桥接与状态逻辑；真实窗口体验、DPI、干净机器和真实游戏需要单独验证。新增测试优先使用临时目录与合成样本，不能把实际游戏或默认用户数据当测试夹具。
 
-当前已有前端生产构建成功和最终便携包布局检查 24 项通过的本地记录；**不代表全套测试全绿**。运行中检测的历史回归仍有 8 项失败，WebView 退出残留也有未解决的历史失败，详见[已知限制](known-limitations.md)。记录本次命令、通过 / 失败 / 跳过与未测范围，不继承历史结论。
+每次记录本次命令、通过 / 失败 / 跳过与未测范围，不继承历史构建或截图结论。[已知限制](known-limitations.md)保留历史和当前缺口。尤其要分别验证保存后回读、实际游戏启动后的 `Player.log` 对账、真实鼠标拖动与快捷键、WebView2 和系统缩放；接口测试不能替代这些检查。
 
 ## 7. 构建 Windows x64 便携包
 
@@ -144,7 +132,7 @@ if ($LASTEXITCODE) { throw '版本号或更新记录不一致，请先修正。'
 npm --prefix frontend run build
 ```
 
-先完成前端 build 和离线资源准备。打包器会核对 Python、Python / npm 依赖、helper runtime 与 `third_party/notices/build-baseline.json` 中的许可基线是否一致，同时校验本地 npm 安装与 `package-lock.json`。当前基线为 Python `3.11.14`、helper runtime `10.0.11`，其余确切依赖版本见该 JSON。
+先完成前端 build。打包器会核对 Python、Python / npm 依赖、helper runtime 与 `third_party/notices/build-baseline.json` 中的许可基线是否一致，同时校验本地 npm 安装与 `package-lock.json`。当前基线为 Python `3.11.14`、helper runtime `10.0.11`，其余确切依赖版本见该 JSON。原生 Mono 构建不需要任何加载器离线资源。
 
 helper 选择本机最高版本的 .NET 10 SDK；当前使用 SDK `10.0.400`，其 runtime 和 reference pack 版本均为 `10.0.11`。需要匹配的 runtime、reference pack 与 win-x64 host pack；安装更高 SDK 后应重新核对许可基线，而不是假设仍产出同版运行时。打包还需要对应的 `Microsoft.NETCore.App.Runtime.win-x64` 本地 NuGet 缓存；准备好匹配的 SDK 后，可**显式联网**缓存一次：
 
@@ -193,22 +181,20 @@ Remove-Item Env:PSMM_PORTABLE_ROOT, Env:PSMM_PORTABLE_ZIP, Env:PSMM_FINAL_DELIVE
 确认该提交的 Actions 构建成功，再推送相同版本的标签，例如：
 
 ```powershell
-# 示例仅适用于已更新为 0.1.1 的提交；标签与源码版本必须一致。
-git tag -a v0.1.1 -m "Release PSModManager 0.1.1"
-git push origin v0.1.1
+# 示例仅适用于已更新为 0.2.3 的提交；标签与源码版本必须一致。
+git tag -a v0.2.3 -m "Release PSModManager 0.2.3"
+git push origin v0.2.3
 ```
 
 CI 固定 Windows 2022 x64、uv `0.10.0`、Python `3.11.14`、Node `24.19.0`、.NET SDK `10.0.400`；通过 `uv sync --locked`、`npm ci` 和 runtime `10.0.11` 准备干净构建环境。第三方 Actions 固定到提交。升级构建版本时，同时更新工作流和许可基线；不要绕过打包器的版本检查。
 
-公开包构建使用现有单入口，但传入独立的 Cpp2IL-only 资源，不修改本地完整资源目录：
+公开包与本地包使用相同原生资源清单；`--public-release` 仅选择公开交付标识：
 
 ```powershell
-# 显式联网下载两项官方工具，校验来源清单中的大小和 SHA-256。
-.venv\Scripts\python.exe tools/prepare_public_toolchain.py --download --output-dir .preview\public-toolchain-01
-.venv\Scripts\python.exe pack_pyinstaller.py --public-release --offline-resources .preview\public-toolchain-01 --output-root .preview\public-release-01
+.venv\Scripts\python.exe pack_pyinstaller.py --public-release --output-root .preview\public-release-01
 ```
 
-已有下载文件时用 `--source <文件目录>` 代替 `--download`，目录需包含 `Cpp2IL.exe` 和 `Cpp2IL.Plugin.StrippedCodeRegSupport.dll`。公开包的包体验证在第 7 节命令之外加 `$env:PSMM_PUBLIC_RELEASE = '1'`；检查后移除此环境变量。公开包只保留两项离线工具，Unity 库由 MelonLoader 首次生成时下载，国内网络可能仍影响 Unity 下载。
+构建清单的 `distribution_profile` 分别为 `public-native-mono` 与 `local-native-mono`。公开包的包体验证在第 7 节命令之外加 `$env:PSMM_PUBLIC_RELEASE = '1'`；检查后移除此环境变量。发布校验只接受公开原生包，拒绝旧加载器包和本地标识包。许可文本、元数据 helper、自包含运行时与完整性校验继续保留。
 
 工作流先通过定向测试、构建和实际 ZIP 检查，再以单独发布任务的 `contents: write` 权限创建草稿，上传 ZIP 与 ZIP 外部的 `SHA256SUMS.txt`，两者成功才公开。无需填写个人 PAT 或其他 Secret；构建任务只有读权限。仓库需允许 GitHub Actions 和相应工作流令牌写入 Release。
 
@@ -222,16 +208,15 @@ Release 资产和 Actions artifact 都只包含便携 ZIP、校验清单，不�
 |---|---|
 | 桌面启动、数据位置、桥接、窗口生命周期 | `main.py`、`backend/app/` |
 | 主界面、设置、前后端通信 | `frontend/src/app/`、`frontend/src/app/bridge/` |
-| Mod 列表、导入与版本替换 | `frontend/src/features/catalog/`、`frontend/src/features/imports/`、`backend/catalog/` |
-| 保存启停、文件部署与恢复 | `backend/deployments/mod_workspace.py`、`ordinary.py`、`mods.py` |
-| 方案、分享与删除 | `backend/profiles/`、`frontend/src/features/profiles/` |
-| 游戏识别、启动、MelonLoader 环境与安装 | `backend/games/probably_stolen/`、`backend/loaders/melonloader/` |
+| 原生包扫描、依赖排序、启用状态、配置与恢复点 | `backend/native_mods/`，接口见同目录 `CONTRACT.md` |
+| 原生方案与旧方案迁移预览 | `backend/native_mods/`、`backend/profiles/` |
+| 游戏识别与启动 | `backend/games/probably_stolen/` |
 | DLL 静态元数据与隔离 worker | `backend/scanning/`、`tools/PSModManager.Metadata/` |
 | 日志与可选 AI | `backend/diagnostics/`、`backend/ai/desktop_runtime.py`、`frontend/src/features/ai/` |
-| Nexus 获取与 `nxm://` 接收 | `backend/online/`、`frontend/src/features/online/` |
+| Steam 创意工坊浏览、订阅、下载状态与更新 | `backend/workshop/`，接口见同目录 `CONTRACT.md` |
 | SQLite 数据、异步任务 | `backend/storage/`、`backend/runtime/` |
 
-仓库保留了部分 RimCrow 历史模块；当前产品不从 `backend/api`、`backend/managers` 或旧 `settings` 入口启动。修改前沿当前桌面调用链确认消费者，避免把历史功能接回新入口。
+仓库保留了部分 RimCrow、MelonLoader、Nexus 历史模块；当前产品不从 `backend/api`、`backend/managers` 或旧 `settings` 入口启动。旧方案只预览迁移，不调用旧文件启停执行器。修改前沿当前桌面调用链确认消费者，避免把历史功能接回新入口。
 
 ## 贡献与设计资料
 

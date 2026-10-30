@@ -1,0 +1,900 @@
+{
+  "captured_at": "2026-10-29T03:46:58.766711+00:00",
+  "purpose": "Read-only real DTO evidence; paths and opaque revisions redacted. Not application sample data or fixed acceptance values.",
+  "snapshot": {
+    "installation_id": "read-only-evidence",
+    "revision": "<opaque-revision>",
+    "ready": true,
+    "enabled_ids": [
+      "item_details",
+      "loyce_shop_assist"
+    ],
+    "issues": [],
+    "runtime": {
+      "state": "unknown",
+      "writable": false
+    },
+    "paths": {
+      "game_root": "<GAME_ROOT>",
+      "mods_root": "<MODS_ROOT>",
+      "workshop_root": "<WORKSHOP_ROOT>",
+      "persistent_root": "<PERSISTENT_ROOT>",
+      "state_file": "<STATE_FILE>",
+      "config_root": "<CONFIG_ROOT>",
+      "log_path": "<LOG_PATH>"
+    },
+    "rules": [],
+    "runtime_reconciliation": {
+      "source": "Player.log",
+      "scope": "latest_log_startup_audit",
+      "status": "available",
+      "game_version": "0.46D",
+      "unity_version": "2021.3.45f2",
+      "audit_line": 66,
+      "configured_count": 2,
+      "running_count": 2,
+      "not_running_count": 5,
+      "failed_count": 0,
+      "partial_count": 0,
+      "unknown_count": 0,
+      "pending_restart_count": 0,
+      "entries": [
+        {
+          "mod_id": "item_details",
+          "configured_enabled": true,
+          "runtime_state": "running",
+          "running": true,
+          "restart_pending": false,
+          "audit_line": 67,
+          "audit_lines": [
+            67
+          ],
+          "trust_state": "Match",
+          "observed_entry_count": 1,
+          "running_entry_count": 1,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 67
+            }
+          ]
+        },
+        {
+          "mod_id": "CyberElectronics",
+          "configured_enabled": false,
+          "runtime_state": "not_running",
+          "running": false,
+          "restart_pending": false,
+          "audit_line": 72,
+          "audit_lines": [
+            72
+          ],
+          "trust_state": "NotChecked",
+          "observed_entry_count": 1,
+          "running_entry_count": 0,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 72
+            }
+          ]
+        },
+        {
+          "mod_id": "lemocuber_probablymultiplayer",
+          "configured_enabled": false,
+          "runtime_state": "not_running",
+          "running": false,
+          "restart_pending": false,
+          "audit_line": 73,
+          "audit_lines": [
+            73
+          ],
+          "trust_state": "NotChecked",
+          "observed_entry_count": 1,
+          "running_entry_count": 0,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 73
+            }
+          ]
+        },
+        {
+          "mod_id": "xiaowo_trade_perks",
+          "configured_enabled": false,
+          "runtime_state": "not_running",
+          "running": false,
+          "restart_pending": false,
+          "audit_line": 71,
+          "audit_lines": [
+            71
+          ],
+          "trust_state": "NotChecked",
+          "observed_entry_count": 1,
+          "running_entry_count": 0,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 71
+            }
+          ]
+        },
+        {
+          "mod_id": "cx_rat_keeper",
+          "configured_enabled": false,
+          "runtime_state": "not_running",
+          "running": false,
+          "restart_pending": false,
+          "audit_line": 70,
+          "audit_lines": [
+            70
+          ],
+          "trust_state": "NotChecked",
+          "observed_entry_count": 1,
+          "running_entry_count": 0,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 70
+            }
+          ]
+        },
+        {
+          "mod_id": "probablystolen.workshop.uploader",
+          "configured_enabled": false,
+          "runtime_state": "not_running",
+          "running": false,
+          "restart_pending": false,
+          "audit_line": 69,
+          "audit_lines": [
+            69
+          ],
+          "trust_state": "NotChecked",
+          "observed_entry_count": 1,
+          "running_entry_count": 0,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 69
+            }
+          ]
+        },
+        {
+          "mod_id": "loyce_shop_assist",
+          "configured_enabled": true,
+          "runtime_state": "running",
+          "running": true,
+          "restart_pending": false,
+          "audit_line": 68,
+          "audit_lines": [
+            68
+          ],
+          "trust_state": "Match",
+          "observed_entry_count": 1,
+          "running_entry_count": 1,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 68
+            }
+          ]
+        }
+      ],
+      "by_id": {
+        "item_details": {
+          "mod_id": "item_details",
+          "configured_enabled": true,
+          "runtime_state": "running",
+          "running": true,
+          "restart_pending": false,
+          "audit_line": 67,
+          "audit_lines": [
+            67
+          ],
+          "trust_state": "Match",
+          "observed_entry_count": 1,
+          "running_entry_count": 1,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 67
+            }
+          ]
+        },
+        "CyberElectronics": {
+          "mod_id": "CyberElectronics",
+          "configured_enabled": false,
+          "runtime_state": "not_running",
+          "running": false,
+          "restart_pending": false,
+          "audit_line": 72,
+          "audit_lines": [
+            72
+          ],
+          "trust_state": "NotChecked",
+          "observed_entry_count": 1,
+          "running_entry_count": 0,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 72
+            }
+          ]
+        },
+        "lemocuber_probablymultiplayer": {
+          "mod_id": "lemocuber_probablymultiplayer",
+          "configured_enabled": false,
+          "runtime_state": "not_running",
+          "running": false,
+          "restart_pending": false,
+          "audit_line": 73,
+          "audit_lines": [
+            73
+          ],
+          "trust_state": "NotChecked",
+          "observed_entry_count": 1,
+          "running_entry_count": 0,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 73
+            }
+          ]
+        },
+        "xiaowo_trade_perks": {
+          "mod_id": "xiaowo_trade_perks",
+          "configured_enabled": false,
+          "runtime_state": "not_running",
+          "running": false,
+          "restart_pending": false,
+          "audit_line": 71,
+          "audit_lines": [
+            71
+          ],
+          "trust_state": "NotChecked",
+          "observed_entry_count": 1,
+          "running_entry_count": 0,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 71
+            }
+          ]
+        },
+        "cx_rat_keeper": {
+          "mod_id": "cx_rat_keeper",
+          "configured_enabled": false,
+          "runtime_state": "not_running",
+          "running": false,
+          "restart_pending": false,
+          "audit_line": 70,
+          "audit_lines": [
+            70
+          ],
+          "trust_state": "NotChecked",
+          "observed_entry_count": 1,
+          "running_entry_count": 0,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 70
+            }
+          ]
+        },
+        "probablystolen.workshop.uploader": {
+          "mod_id": "probablystolen.workshop.uploader",
+          "configured_enabled": false,
+          "runtime_state": "not_running",
+          "running": false,
+          "restart_pending": false,
+          "audit_line": 69,
+          "audit_lines": [
+            69
+          ],
+          "trust_state": "NotChecked",
+          "observed_entry_count": 1,
+          "running_entry_count": 0,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 69
+            }
+          ]
+        },
+        "loyce_shop_assist": {
+          "mod_id": "loyce_shop_assist",
+          "configured_enabled": true,
+          "runtime_state": "running",
+          "running": true,
+          "restart_pending": false,
+          "audit_line": 68,
+          "audit_lines": [
+            68
+          ],
+          "trust_state": "Match",
+          "observed_entry_count": 1,
+          "running_entry_count": 1,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 68
+            }
+          ]
+        }
+      },
+      "coverage": {
+        "complete": true,
+        "startup_audit_observed": true,
+        "entry_scope": "reported_entries_only",
+        "lines": 800,
+        "error_line_count": 1
+      },
+      "source_modified_at": "2026-10-29T02:42:50.251633+00:00",
+      "process_verified": false
+    },
+    "mods": [
+      {
+        "id": "item_details",
+        "name": "Item Details / 物品详情",
+        "author": "Nwflower（千川白浪）",
+        "version": "0.4.1",
+        "source": "workshop",
+        "source_id": "workshop:3828868413",
+        "workshop_id": "3828868413",
+        "prerequisites": [],
+        "capabilities": [],
+        "assemblies": [
+          "ItemDetails.dll"
+        ],
+        "installed": true,
+        "target_enabled": true,
+        "approval": {
+          "state": "approved",
+          "declared": [],
+          "detected": [],
+          "approved_at": "2026-10-28T14:05:00.9677161Z",
+          "updated_at": "2026-10-29T00:53:38.7240739Z",
+          "scan_status": "historical_record",
+          "current_scan_status": "not_scanned",
+          "game_version": "0.46D",
+          "historical_declared": [],
+          "developer_mode": false
+        },
+        "run": {
+          "mod_id": "item_details",
+          "configured_enabled": true,
+          "runtime_state": "running",
+          "running": true,
+          "restart_pending": false,
+          "audit_line": 67,
+          "audit_lines": [
+            67
+          ],
+          "trust_state": "Match",
+          "observed_entry_count": 1,
+          "running_entry_count": 1,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 67
+            }
+          ],
+          "state": "running",
+          "log_path": "<LOG_PATH>"
+        },
+        "pending_restart": false,
+        "entry_count": null,
+        "metadata_status": "not_scanned",
+        "issues": []
+      },
+      {
+        "id": "CyberElectronics",
+        "name": "霓虹旧货：电子产品 + Probably Stolen English Translation Patch",
+        "author": "Custom Mod",
+        "version": "1.4.31",
+        "source": "workshop",
+        "source_id": "workshop:3828902092",
+        "workshop_id": "3828902092",
+        "prerequisites": [],
+        "capabilities": [
+          "files",
+          "reflection-external",
+          "dynamic-code",
+          "native"
+        ],
+        "assemblies": [
+          "System.Runtime.CompilerServices.Unsafe.dll",
+          "System.Buffers.dll",
+          "System.Numerics.Vectors.dll",
+          "System.ValueTuple.dll",
+          "System.Memory.dll",
+          "System.Threading.Tasks.Extensions.dll",
+          "Microsoft.Bcl.AsyncInterfaces.dll",
+          "System.Text.Encodings.Web.dll",
+          "System.Text.Json.dll",
+          "Pawnshop.ModRuntime.dll",
+          "CyberElectronics.Items.dll",
+          "CyberElectronics.Npcs.dll",
+          "CyberElectronics.dll",
+          "ProbablyStolenEnglishTranslationPatch.dll"
+        ],
+        "installed": true,
+        "target_enabled": false,
+        "approval": {
+          "state": "unknown",
+          "declared": [
+            "files",
+            "reflection-external",
+            "dynamic-code",
+            "native"
+          ],
+          "detected": [],
+          "approved_at": null,
+          "updated_at": null,
+          "scan_status": "unknown",
+          "current_scan_status": "not_scanned",
+          "game_version": null
+        },
+        "run": {
+          "mod_id": "CyberElectronics",
+          "configured_enabled": false,
+          "runtime_state": "not_running",
+          "running": false,
+          "restart_pending": false,
+          "audit_line": 72,
+          "audit_lines": [
+            72
+          ],
+          "trust_state": "NotChecked",
+          "observed_entry_count": 1,
+          "running_entry_count": 0,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 72
+            }
+          ],
+          "state": "not_running",
+          "log_path": "<LOG_PATH>"
+        },
+        "pending_restart": false,
+        "entry_count": null,
+        "metadata_status": "not_scanned",
+        "issues": []
+      },
+      {
+        "id": "lemocuber_probablymultiplayer",
+        "name": "Probably Multiplayer",
+        "author": "Lemocuber",
+        "version": "2.0.2",
+        "source": "workshop",
+        "source_id": "workshop:3828909239",
+        "workshop_id": "3828909239",
+        "prerequisites": [],
+        "capabilities": [
+          "files",
+          "network",
+          "process",
+          "reflection-external"
+        ],
+        "assemblies": [
+          "ProbablyMultiplayer-2.0.2.dll"
+        ],
+        "installed": true,
+        "target_enabled": false,
+        "approval": {
+          "state": "unknown",
+          "declared": [
+            "files",
+            "network",
+            "process",
+            "reflection-external"
+          ],
+          "detected": [],
+          "approved_at": null,
+          "updated_at": null,
+          "scan_status": "unknown",
+          "current_scan_status": "not_scanned",
+          "game_version": null
+        },
+        "run": {
+          "mod_id": "lemocuber_probablymultiplayer",
+          "configured_enabled": false,
+          "runtime_state": "not_running",
+          "running": false,
+          "restart_pending": false,
+          "audit_line": 73,
+          "audit_lines": [
+            73
+          ],
+          "trust_state": "NotChecked",
+          "observed_entry_count": 1,
+          "running_entry_count": 0,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 73
+            }
+          ],
+          "state": "not_running",
+          "log_path": "<LOG_PATH>"
+        },
+        "pending_restart": false,
+        "entry_count": null,
+        "metadata_status": "not_scanned",
+        "issues": []
+      },
+      {
+        "id": "xiaowo_trade_perks",
+        "name": "小窝特性扩展 / XIAOWO-TradePerks",
+        "author": "遗忘的小窝",
+        "version": "2.0.2",
+        "source": "workshop",
+        "source_id": "workshop:3828949943",
+        "workshop_id": "3828949943",
+        "prerequisites": [],
+        "capabilities": [
+          "reflection-external"
+        ],
+        "assemblies": [
+          "XIAOWOTradePerks.dll"
+        ],
+        "installed": true,
+        "target_enabled": false,
+        "approval": {
+          "state": "unknown",
+          "declared": [
+            "reflection-external"
+          ],
+          "detected": [],
+          "approved_at": null,
+          "updated_at": null,
+          "scan_status": "unknown",
+          "current_scan_status": "not_scanned",
+          "game_version": null
+        },
+        "run": {
+          "mod_id": "xiaowo_trade_perks",
+          "configured_enabled": false,
+          "runtime_state": "not_running",
+          "running": false,
+          "restart_pending": false,
+          "audit_line": 71,
+          "audit_lines": [
+            71
+          ],
+          "trust_state": "NotChecked",
+          "observed_entry_count": 1,
+          "running_entry_count": 0,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 71
+            }
+          ],
+          "state": "not_running",
+          "log_path": "<LOG_PATH>"
+        },
+        "pending_restart": false,
+        "entry_count": null,
+        "metadata_status": "not_scanned",
+        "issues": []
+      },
+      {
+        "id": "cx_rat_keeper",
+        "name": "小鼠养殖管家",
+        "author": "小澈 / Codex",
+        "version": "0.2.0",
+        "source": "workshop",
+        "source_id": "workshop:3829024993",
+        "workshop_id": "3829024993",
+        "prerequisites": [],
+        "capabilities": [],
+        "assemblies": [
+          "RatKeeper.dll"
+        ],
+        "installed": true,
+        "target_enabled": false,
+        "approval": {
+          "state": "unknown",
+          "declared": [],
+          "detected": [],
+          "approved_at": null,
+          "updated_at": null,
+          "scan_status": "unknown",
+          "current_scan_status": "not_scanned",
+          "game_version": null
+        },
+        "run": {
+          "mod_id": "cx_rat_keeper",
+          "configured_enabled": false,
+          "runtime_state": "not_running",
+          "running": false,
+          "restart_pending": false,
+          "audit_line": 70,
+          "audit_lines": [
+            70
+          ],
+          "trust_state": "NotChecked",
+          "observed_entry_count": 1,
+          "running_entry_count": 0,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 70
+            }
+          ],
+          "state": "not_running",
+          "log_path": "<LOG_PATH>"
+        },
+        "pending_restart": false,
+        "entry_count": null,
+        "metadata_status": "not_scanned",
+        "issues": []
+      },
+      {
+        "id": "probablystolen.workshop.uploader",
+        "name": "Probably Stolen Workshop Uploader",
+        "author": "Probably Stolen Workshop Uploader contributors",
+        "version": "0.4.1",
+        "source": "workshop",
+        "source_id": "workshop:3829050213",
+        "workshop_id": "3829050213",
+        "prerequisites": [],
+        "capabilities": [
+          "files",
+          "process",
+          "network",
+          "native"
+        ],
+        "assemblies": [
+          "ProbablyStolenWorkshopUploader.dll",
+          "CodeKicker.BBCode.dll"
+        ],
+        "installed": true,
+        "target_enabled": false,
+        "approval": {
+          "state": "unknown",
+          "declared": [
+            "files",
+            "process",
+            "network",
+            "native"
+          ],
+          "detected": [],
+          "approved_at": null,
+          "updated_at": null,
+          "scan_status": "unknown",
+          "current_scan_status": "not_scanned",
+          "game_version": null
+        },
+        "run": {
+          "mod_id": "probablystolen.workshop.uploader",
+          "configured_enabled": false,
+          "runtime_state": "not_running",
+          "running": false,
+          "restart_pending": false,
+          "audit_line": 69,
+          "audit_lines": [
+            69
+          ],
+          "trust_state": "NotChecked",
+          "observed_entry_count": 1,
+          "running_entry_count": 0,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 69
+            }
+          ],
+          "state": "not_running",
+          "log_path": "<LOG_PATH>"
+        },
+        "pending_restart": false,
+        "entry_count": null,
+        "metadata_status": "not_scanned",
+        "issues": []
+      },
+      {
+        "id": "loyce_shop_assist",
+        "name": "店铺助手 / Shop Assist",
+        "author": "loyce",
+        "version": "1.1.0",
+        "source": "workshop",
+        "source_id": "workshop:3829106910",
+        "workshop_id": "3829106910",
+        "prerequisites": [],
+        "capabilities": [
+          "reflection-external"
+        ],
+        "assemblies": [
+          "ShopAssist.dll"
+        ],
+        "installed": true,
+        "target_enabled": true,
+        "approval": {
+          "state": "approved",
+          "declared": [
+            "reflection-external"
+          ],
+          "detected": [
+            "reflection-external"
+          ],
+          "approved_at": "2026-10-29T01:02:03.9482778Z",
+          "updated_at": "2026-10-29T01:02:03.9482778Z",
+          "scan_status": "historical_record",
+          "current_scan_status": "not_scanned",
+          "game_version": "0.46D",
+          "historical_declared": [
+            "reflection-external"
+          ],
+          "developer_mode": false
+        },
+        "run": {
+          "mod_id": "loyce_shop_assist",
+          "configured_enabled": true,
+          "runtime_state": "running",
+          "running": true,
+          "restart_pending": false,
+          "audit_line": 68,
+          "audit_lines": [
+            68
+          ],
+          "trust_state": "Match",
+          "observed_entry_count": 1,
+          "running_entry_count": 1,
+          "error_entry_count": 0,
+          "events": [
+            {
+              "kind": "startup_audit",
+              "line": 68
+            }
+          ],
+          "state": "running",
+          "log_path": "<LOG_PATH>"
+        },
+        "pending_restart": false,
+        "entry_count": null,
+        "metadata_status": "not_scanned",
+        "issues": []
+      }
+    ]
+  },
+  "detail": {
+    "revision": "<opaque-revision>",
+    "mod": {
+      "id": "item_details",
+      "name": "Item Details / 物品详情",
+      "author": "Nwflower（千川白浪）",
+      "version": "0.4.1",
+      "description": "在物品 tooltip 中显示真伪、真实价值构成、瑕疵价值影响、违禁溢价、荧光莓品质，并在鉴定服务标题显示真实价格；顾客到店时提示通缉犯/改造体。 / Rich item details in tooltips, plus wanted/augmented customer alerts.",
+      "game_versions": [
+        "0.46"
+      ],
+      "prerequisites": [],
+      "capabilities": [],
+      "assemblies": [
+        "ItemDetails.dll"
+      ],
+      "manifest_revision": "<opaque-revision>",
+      "source": "workshop",
+      "workshop_id": "3828868413",
+      "source_id": "workshop:3828868413",
+      "folder_path": "<WORKSHOP_ROOT>\\3828868413",
+      "files": [
+        {
+          "path": "ItemDetails.dll",
+          "size": 117248,
+          "mtime_ns": 1793234584849177100,
+          "ctime_ns": 1793234584849177100,
+          "identity": "<file-identity>"
+        },
+        {
+          "path": "manifest.xml",
+          "size": 683,
+          "mtime_ns": 1793234584602784900,
+          "ctime_ns": 1793234584602784900,
+          "identity": "<file-identity>"
+        },
+        {
+          "path": "preview.png",
+          "size": 602185,
+          "mtime_ns": 1793234583550643700,
+          "ctime_ns": 1793234583550643700,
+          "identity": "<file-identity>"
+        }
+      ],
+      "size_bytes": 720116,
+      "updated_at": "2026-10-29T00:43:04.849177+00:00",
+      "preview_path": "<WORKSHOP_ROOT>\\3828868413\\preview.png",
+      "installed": true,
+      "package_revision": "<opaque-revision>",
+      "issues": [],
+      "entry_count": null,
+      "metadata_status": "not_scanned",
+      "sources": [
+        {
+          "source_id": "workshop:3828868413",
+          "source": "workshop",
+          "workshop_id": "3828868413",
+          "folder_path": "<WORKSHOP_ROOT>\\3828868413",
+          "version": "0.4.1",
+          "package_revision": "<opaque-revision>",
+          "active": true
+        }
+      ],
+      "target_enabled": true,
+      "approval": {
+        "state": "approved",
+        "declared": [],
+        "detected": [],
+        "approved_at": "2026-10-28T14:05:00.9677161Z",
+        "updated_at": "2026-10-29T00:53:38.7240739Z",
+        "scan_status": "historical_record",
+        "current_scan_status": "not_scanned",
+        "game_version": "0.46D",
+        "historical_declared": [],
+        "developer_mode": false
+      },
+      "run": {
+        "mod_id": "item_details",
+        "configured_enabled": true,
+        "runtime_state": "running",
+        "running": true,
+        "restart_pending": false,
+        "audit_line": 67,
+        "audit_lines": [
+          67
+        ],
+        "trust_state": "Match",
+        "observed_entry_count": 1,
+        "running_entry_count": 1,
+        "error_entry_count": 0,
+        "events": [
+          {
+            "kind": "startup_audit",
+            "line": 67
+          }
+        ],
+        "state": "running",
+        "log_path": "<LOG_PATH>"
+      },
+      "pending_restart": false,
+      "required_by": [],
+      "data_locations": [
+        {
+          "kind": "native_config",
+          "path": "<CONFIG_ROOT>\\item_details.json",
+          "exists": true
+        },
+        {
+          "kind": "native_data",
+          "path": "<PERSISTENT_ROOT>\\ModData\\item_details",
+          "exists": false
+        }
+      ],
+      "patch_intersections": null,
+      "patch_coverage": "not_scanned"
+    }
+  }
+}

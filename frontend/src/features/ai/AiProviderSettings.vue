@@ -1,0 +1,38 @@
+<script setup>
+import { computed, onUnmounted, reactive, ref, watch } from 'vue'
+import { createProviderSettingsRuntime, providerFormValues } from './providerSettingsRuntime.js'
+import { Bot, Plus, Trash2 } from 'lucide-vue-next'
+const props=defineProps({bridge:Object,active:Boolean})
+const emit=defineEmits(['changed'])
+const state=reactive({}),runtime=createProviderSettingsRuntime(props.bridge,state,()=>emit('changed'))
+const selected=ref(null),confirm=ref(null)
+const form=reactive(providerFormValues(null))
+const current=computed(()=>state.providers.find(p=>p.id===selected.value))
+const bound=computed(()=>Object.values(state.bindings).includes(selected.value))
+const keyText=value=>({saved:'密钥已保存在 Windows 凭据',session:'密钥仅供当前会话使用',missing:'没有保存密钥',unavailable:'Windows 凭据当前不可读'})[value]||'未设置密钥'
+function select(item){selected.value=item?.id||null;Object.assign(form,providerFormValues(item));confirm.value=null}
+async function refresh(){if(await runtime.load()){if(current.value)select(current.value);else if(state.providers.length)select(state.providers[0])}}
+async function save(){const r=await runtime.save(form);if(r)select(state.providers.find(p=>p.id===r.saved_provider_id)||current.value)}
+async function confirmAction(){const id=selected.value;if(!id)return;const r=confirm.value==='delete'?await runtime.remove(id):await runtime.clearKey(id);if(r){confirm.value=null;select(state.providers.find(p=>p.id===id)||state.providers[0])}}
+watch(()=>props.active,value=>{if(value&&!state.providers.length&&!state.busy)void refresh()},{immediate:true})
+onUnmounted(()=>{form.api_key='';runtime.dispose()})
+</script>
+<template>
+  <article class="garden-card wide provider-settings" data-testid="ai-provider-settings">
+    <header><div><h2><Bot :size="19"/>AI 服务</h2><p>为日志分析和工坊翻译分别指定服务与模型。保存不会发送请求，密钥不会回显。</p></div><button class="garden-btn sm" :disabled="state.busy" @click="select(null)"><Plus :size="15"/>添加服务</button></header>
+    <div class="provider-bindings"><label v-for="[purpose,label] in [['analysis','日志分析'],['translation','工坊翻译']]" :key="purpose">{{ label }}<select :data-testid="'ai-binding-'+purpose" :value="state.bindings[purpose]||''" :disabled="state.busy||!state.providers.length" @change="runtime.bind(purpose,$event.target.value)"><option disabled value="">选择服务</option><option v-for="p in state.providers" :key="p.id" :value="p.id">{{ p.name }} · {{ p.model }}</option></select></label></div>
+    <div class="provider-layout"><div class="provider-list"><button v-for="p in state.providers" :key="p.id" :class="{on:selected===p.id}" @click="select(p)"><b>{{ p.name }}</b><small>{{ p.model }}</small><span>{{ p.configured?'已配置':'未配置完整' }}</span></button><span v-if="!state.providers.length" class="muted">添加一个 OpenAI 兼容服务或本地服务。</span></div><form class="provider-form" @submit.prevent="save">
+      <label>服务名称<input v-model="form.name" data-testid="ai-provider-name" maxlength="80" placeholder="例如：日常分析" required/></label><label>模型<input v-model="form.model" data-testid="ai-provider-model" maxlength="200" placeholder="提供商的模型名称" required/></label>
+      <label class="full">服务地址<input v-model="form.base_url" data-testid="ai-provider-url" type="url" maxlength="2048" placeholder="https://…/v1" autocomplete="off" spellcheck="false" required/></label>
+      <label class="full">API key<input v-model="form.api_key" data-testid="ai-provider-key" type="password" maxlength="4096" placeholder="留空保留当前密钥；更换地址需要重新输入" autocomplete="new-password"/></label>
+      <div class="full provider-key-status"><label><input v-model="form.remember" type="checkbox"/>记住密钥（Windows 凭据）</label><span>{{ keyText(current?.key_status) }}</span></div>
+      <div class="full provider-actions"><button class="garden-btn green sm" :disabled="state.busy||!form.name.trim()||!form.base_url.trim()||!form.model.trim()" data-testid="ai-provider-save">{{ state.busy?'处理中…':'保存服务' }}</button><button type="button" class="garden-btn sm" :disabled="!current?.configured||state.busy||Boolean(state.testing)" data-testid="ai-provider-test" @click="runtime.test(selected)">测试连接</button><button v-if="state.testing" type="button" class="garden-btn sm" @click="runtime.cancelTest">停止测试</button><button type="button" class="garden-link" :disabled="!current||state.busy" @click="confirm='key'">清除密钥</button><button type="button" class="garden-link danger" :disabled="!current||state.busy||bound" :title="bound?'先将使用它的功能绑定到其他服务':'删除服务'" @click="confirm='delete'"><Trash2 :size="14"/>删除服务</button></div>
+      <p v-if="bound" class="full muted">此服务正在用于{{ state.bindings.analysis===selected?'日志分析':'' }}{{ state.bindings.analysis===selected&&state.bindings.translation===selected?'、':'' }}{{ state.bindings.translation===selected?'工坊翻译':'' }}；删除前请先更换上方绑定。</p>
+      <div v-if="confirm" class="full provider-confirm"><span>{{ confirm==='delete'?'删除这个服务配置？':'清除当前服务的密钥？服务地址和模型会保留。' }}</span><button type="button" class="garden-btn sm" @click="confirm=null">取消</button><button type="button" class="garden-btn clay sm" :disabled="state.busy" @click="confirmAction">确认{{ confirm==='delete'?'删除':'清除' }}</button></div>
+    </form></div>
+    <p v-if="state.error" class="check-error" role="alert">{{ state.error }}<button class="garden-link" @click="refresh">重新读取</button></p><p v-else-if="state.notice" class="provider-note" role="status">{{ state.notice }}</p><p v-if="state.testText" class="provider-note" role="status">{{ state.testText }}</p>
+  </article>
+</template>
+<style scoped>
+.provider-settings header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.provider-settings h2{display:flex;align-items:center;gap:8px}.provider-settings p{line-height:1.65}.provider-bindings{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:16px 0 20px;border-bottom:1px solid var(--g-line)}.provider-bindings label,.provider-form>label{display:grid;gap:7px;font-size:13px;font-weight:600;color:var(--g-ink)}.provider-settings input:not([type=checkbox]),.provider-settings select{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--g-line);border-radius:14px;background:#fff;color:var(--g-ink);font:inherit;min-width:0}.provider-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:24px;margin-top:20px}.provider-list{display:flex;flex-direction:column;gap:8px}.provider-list button{display:grid;gap:5px;text-align:left;padding:13px 15px;border:1px solid var(--g-line);background:#f8fdf9;border-radius:18px;color:var(--g-ink);cursor:pointer}.provider-list button.on{background:#ecfdf3;border-color:var(--g-green)}.provider-list small,.provider-list span{font-size:12px;color:var(--g-text-2);overflow-wrap:anywhere}.provider-form{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px}.provider-form .full{grid-column:1/-1}.provider-key-status,.provider-key-status label,.provider-actions,.provider-confirm{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px}.provider-key-status span{color:var(--g-text-2)}.provider-actions .garden-link{display:inline-flex;align-items:center;gap:4px}.provider-confirm{background:#fff9e9;border-radius:14px;padding:12px}.provider-note{font-size:13px;color:var(--g-text-2)}.provider-settings .muted{font-size:12px;color:var(--g-text-2)}.provider-settings input:focus-visible,.provider-settings select:focus-visible{outline:2px solid var(--g-green);outline-offset:2px}.provider-settings button:disabled{opacity:.5;cursor:not-allowed}@media(max-width:950px){.provider-layout{grid-template-columns:180px minmax(0,1fr);gap:16px}}@media(max-width:720px){.provider-layout,.provider-bindings{grid-template-columns:1fr}.provider-list{flex-direction:row;overflow:auto}.provider-list button{min-width:150px}}
+</style>

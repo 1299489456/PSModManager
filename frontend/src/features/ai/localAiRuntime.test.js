@@ -338,7 +338,7 @@ test('legacy AI text rendering remains safe and the app uses the full diagnostic
   assert.match(component, /\{\{ state\.streamedText \}\}/)
   assert.equal(/v-html|localStorage|aiStore|markdown-it/.test(component), false)
   assert.match(app, /<LogDiagnosticsWorkspace\s/)
-  assert.match(app, /v-show="workspaceTab==='ai'"/)
+  assert.match(app, /v-show="workspaceTab\s*===\s*'ai'"/)
   assert.match(app, /workspaceTab = ref\('mods'\)/)
 })
 

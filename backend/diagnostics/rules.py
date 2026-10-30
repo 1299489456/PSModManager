@@ -56,8 +56,9 @@ def evaluate(entries, evidence, *, installation_id, generation, fingerprint, cov
     loader = fingerprint.get('loader_version')
     if loader is None and isinstance(fingerprint.get('loader'), dict):
         loader = fingerprint['loader'].get('version')
-    from backend.loaders.melonloader.v073 import supports_version
-    known_loader = supports_version(loader)
+    # Historical evidence remains explainable without shipping an obsolete loader.
+    known_loader = (isinstance(loader,str) and len(loader)<=256 and
+                    re.fullmatch(r'v?0\.7\.3(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?',loader) is not None)
     diagnostics = []; truncated = False
 
     def resolve(names):

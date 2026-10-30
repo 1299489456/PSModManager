@@ -12,7 +12,7 @@ from uuid import UUID
 
 from backend.contracts import Component, FileEntry, Relation, RuntimeFingerprint
 from backend.contracts.models import Source
-from backend.loaders.melonloader import v073
+from backend.scanning import legacy_loader_rules as v073
 
 RULE_VERSION = 'psmm-compatibility-1'
 MAX_COMPONENTS = 1000

@@ -23,8 +23,12 @@ VERSION = next(ast.literal_eval(node.value) for node in
         and target.id == 'APP_VERSION' for target in node.targets))
 EXCLUDED_MANIFEST = ['build-manifest.json', 'SHA256SUMS.txt']
 NOTICE_ROOT = 'third_party/notices'
-DELIVERY_DOCUMENTS = ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'docs/development/known-limitations.md']
-OFFLINE_RESOURCES = 'backend/loaders/melonloader/resources'
+DELIVERY_DOCUMENTS = ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'docs/development/known-limitations.md',
+                      'docs/development/workshop-usability-2026-10-28.md',
+                      'docs/development/workshop-performance-settings-2026-10-29.md',
+                      'docs/development/workshop-recovery-scope-fix-2026-10-29.md']
+HISTORICAL_NOTICE_TEXTS = {'licenses/Cpp2IL/Cpp2IL-LICENSE.txt',
+                           'licenses/UnityDependencies/UnityDependencies-README.md'}
 
 
 def delivery_documents(root):
@@ -97,24 +101,18 @@ def check_notice_baseline(baseline, *, python_version=None, packages=None,
 
 def preflight(root, *, offline_resources=None, public_release=False):
     """Reject incomplete public checkouts before creating output or running builds."""
+    if offline_resources is not None:
+        raise ValueError('--offline-resources is retired for the native Mono build. '
+                         'Remove this argument; no MelonLoader/Cpp2IL resources are used.')
     required = ['frontend/dist/index.html', 'frontend/package-lock.json',
                 'backend/app/resources/psmm-icon.ico',
                 NOTICE_ROOT+'/distribution-materials.json', NOTICE_ROOT+'/build-baseline.json',
                 'docs/user/quick-start.md', *delivery_documents(root)]
     missing = [name for name in required if not (root/name).is_file() or (root/name).stat().st_size == 0]
-    resources = Path(offline_resources) if offline_resources else root/OFFLINE_RESOURCES
-    resource_names = ['toolchain.zip', 'manifest.json', 'licenses/Cpp2IL-LICENSE.txt']
-    if not public_release:
-        resource_names.append('licenses/UnityDependencies-README.md')
-    missing += [(resources/name).as_posix() for name in resource_names
-                if not (resources/name).is_file() or (resources/name).stat().st_size == 0]
     if missing:
-        raise RuntimeError('Required offline build resources are missing: '+', '.join(sorted(set(missing)))
-            + '. Prepare the frontend dist and local toolchain first; use '
-            'tools/prepare_melonloader_offline.py --source <local-upstream-materials> '
-            'and docs/development/README.md. No download or installation was attempted.')
-    if public_release:
-        validate_public_resources(resources)
+        raise RuntimeError('Required build resources are missing: '+', '.join(sorted(set(missing)))
+            + '. Prepare the frontend dist and checked-in delivery materials first; see '
+            'docs/development/README.md. No download or installation was attempted.')
     try:
         catalog, materials = notice_materials(root)
         baseline = json.loads((root/NOTICE_ROOT/'build-baseline.json').read_text(encoding='utf-8'))
@@ -144,20 +142,6 @@ def preflight(root, *, offline_resources=None, public_release=False):
     return baseline, catalog, materials
 
 
-def validate_public_resources(resources):
-    from backend.loaders.melonloader.offline import OfflineToolchain
-    toolchain = OfflineToolchain(resources)
-    manifest = toolchain.manifest()
-    if manifest.get('profile') != 'cpp2il-only':
-        raise RuntimeError('Public releases require cpp2il-only resources; Unity binaries must not be bundled')
-    # Empty targets still validate every archived member and its bound bytes.
-    toolchain.extract(Path(resources), [])
-    allowed = {'manifest.json', 'toolchain.zip', 'licenses/Cpp2IL-LICENSE.txt'}
-    if {path.relative_to(resources).as_posix() for path in Path(resources).rglob('*')
-            if path.is_file()} != allowed:
-        raise RuntimeError('Unexpected public toolchain resource')
-
-
 def delivery_materials(root, bundle, materials, *, public_release=False):
     """Include distribution documents before binding the manifest and ZIP."""
     for name in delivery_documents(root):
@@ -178,13 +162,15 @@ def delivery_materials(root, bundle, materials, *, public_release=False):
         '无需安装 Python、Node 或 .NET SDK；元数据 helper 带独立 .NET 运行时。\n\n'
         '首次启动选择数据位置；默认 %LOCALAPPDATA%\\PSModManager（LocalAppData）。\n'
         '以后可在“设置 → 数据位置”迁移到其他本地目录。删除程序目录不会清除数据或游戏 Mod。\n'
-        '不包含游戏、Mod、存档、凭据或 RimCrow 数据迁移；AI 与 Nexus 按需配置。\n\n'
+        '面向 Probably Stolen 正式版原生 Mono 模组；不包含游戏、Mod、存档或凭据。\n'
+        '无需安装 MelonLoader；不包含 Cpp2IL 或 Unity 生成依赖。\n'
+        'Steam 创意工坊订阅与更新使用本机已登录客户端；会话不可用时可打开官方页面。\n'
+        '管理器自动更新模组默认关闭；这不能关闭 Steam 客户端自己的更新。\n'
+        '不分发 Steam API DLL；AI 服务在设置页按分析/翻译分别选择。\n\n'
         '使用说明：docs/user/quick-start.md\n'
         '备份与重装：docs/user/data-and-reinstall.md\n'
         '已知限制：docs/development/known-limitations.md\n'
-        '许可与第三方材料：LICENSE、THIRD_PARTY_NOTICES.md、licenses/\n'
-        + ('\n公开版内置 Cpp2IL 和配套插件的离线恢复资源，不包含 Unity 运行库。\n'
-           'Unity 依赖由 MelonLoader 在首次生成或游戏更新后联网下载。\n' if public_release else ''),
+        '许可与第三方材料：LICENSE、THIRD_PARTY_NOTICES.md、licenses/\n',
         encoding='utf-8-sig')
     return ['licenses/'+name for name in names]
 
@@ -201,8 +187,6 @@ def bundle_data(root, helper):
     """Explicit resource roots, not the workspace or imported game content."""
     paths = list((root/'frontend/dist').rglob('*'))
     paths += list((root/'backend/diagnostics/rules').glob('*.json'))
-    resources = Path(os.environ.get('PSMM_OFFLINE_RESOURCES', root/OFFLINE_RESOURCES))
-    paths += list(resources.rglob('*'))
     paths += [root/'backend/app/resources/psmm-icon.ico']
     paths += list(helper.iterdir())
     output = []
@@ -211,9 +195,7 @@ def bundle_data(root, helper):
             raise ValueError('Redirected bundle resource')
         if not path.is_file():
             continue
-        if path.is_relative_to(resources):
-            relative = Path(OFFLINE_RESOURCES)/path.relative_to(resources)
-        elif path.is_relative_to(helper):
+        if path.is_relative_to(helper):
             relative = Path('tools/PSModManager.Metadata/bin')/path.name
         else:
             relative = path.relative_to(root)
@@ -222,16 +204,24 @@ def bundle_data(root, helper):
 
 
 def forbidden(relative):
+    # Version-bound notice texts remain distributable; this does not admit the
+    # retired tool binaries or resource archive. notice_materials validates bytes.
+    if relative in HISTORICAL_NOTICE_TEXTS:
+        return False
     # Public vendor trust roots are runtime resources, not private credentials.
     if relative == '_internal/certifi/cacert.pem':
         return False
     path = PurePosixPath(relative)
     lowered = {part.lower() for part in path.parts}
     return (bool(lowered & {'mods', 'toolmods', 'saves', 'userdata', 'updates', '.venv',
+                           'melonloader', 'cpp2il', 'unitydependencies',
                            '.git', 'node_modules', 'tests', '.preview', 'credentials'})
             or path.suffix.lower() in {'.sqlite', '.sqlite3', '.db', '.key', '.pem', '.pfx'}
-            or path.name.lower() in {'config.json', 'credentials.json', '.env', 'gameassembly.dll',
-                                    'assembly-csharp.dll', 'probably stolen.exe', 'settings.py'}
+            or path.name.lower() in {'config.json', 'credentials.json', 'ai-translations.json', '.env', 'gameassembly.dll',
+                                    'assembly-csharp.dll', 'probably stolen.exe', 'settings.py',
+                                    'melonloader.dll', 'cpp2il.exe', 'toolchain.zip',
+                                    'steam_api.dll', 'steam_api64.dll', 'steamclient.dll',
+                                    'steamclient64.dll', 'steam_appid.txt'}
             or any(part.lower().startswith('.env.') for part in path.parts))
 
 
@@ -314,14 +304,15 @@ def build(output, *, offline_resources=None, public_release=False):
     output = output.resolve()
     if not output.is_relative_to(ROOT) or output==ROOT or output.exists():
         raise ValueError('Use a new output directory inside this workspace')
-    resources = Path(offline_resources).resolve() if offline_resources else ROOT/OFFLINE_RESOURCES
-    baseline, _, materials = preflight(ROOT, offline_resources=resources, public_release=public_release)
+    baseline, _, materials = preflight(ROOT, offline_resources=offline_resources,
+                                       public_release=public_release)
     output.mkdir(parents=True)
     (output/'.psmm-build-owner.json').write_text(json.dumps(dict(product=PRODUCT,output=str(output))),encoding='utf-8')
     env = os.environ.copy()
     env.update(PSMM_HELPER_OUTPUT=str(output/'helper'), PYTHONUTF8='1', PYTHONHASHSEED='0',
         SETUPTOOLS_USE_DISTUTILS='stdlib', PYINSTALLER_CONFIG_DIR=str(output/'pyi-cache'),
-        SOURCE_DATE_EPOCH='1791859200', PSMM_OFFLINE_RESOURCES=str(resources))
+        SOURCE_DATE_EPOCH='1791859200')
+    env.pop('PSMM_OFFLINE_RESOURCES', None)
     run([sys.executable,ROOT/'tools/PSModManager.Metadata/build.py','--self-contained',
          '--output-dir',output/'helper'], output/'helper.log',env)
     helper = json.loads((output/'helper/helper-build.json').read_text(encoding='utf-8'))
@@ -340,7 +331,7 @@ def build(output, *, offline_resources=None, public_release=False):
               NOTICE_ROOT+'/build-baseline.json', NOTICE_ROOT+'/distribution-materials.json']
     manifest = dict(schema_version=1,product=PRODUCT,version=VERSION,target='windows-x64',
         build_utc=datetime.now(timezone.utc).isoformat(), packaging='PyInstaller onedir; shared _internal',
-        distribution_profile='public-cpp2il-only' if public_release else 'local-full',
+        distribution_profile='public-native-mono' if public_release else 'local-native-mono',
         requirements=['Windows 10/11 x64','.NET Framework 4.8+','WebView2 Runtime'],
         tools=dict(python=sys.version,pyinstaller=metadata.version('pyinstaller')),
         dependencies=packages,licenses=license_paths,helper=helper,
@@ -370,9 +361,10 @@ def build(output, *, offline_resources=None, public_release=False):
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description='Offline PSModManager Windows x64 portable build')
     parser.add_argument('--output-root',type=Path,required=True)
-    parser.add_argument('--offline-resources', type=Path)
+    parser.add_argument('--offline-resources', type=Path,
+        help='Retired: native Mono builds reject this legacy argument')
     parser.add_argument('--public-release', action='store_true',
-        help='Require public Cpp2IL-only resources; exclude Unity runtime libraries')
+        help='Mark the native Mono portable as a public-release candidate')
     args = parser.parse_args()
     print(json.dumps(build(args.output_root, offline_resources=args.offline_resources,
                            public_release=args.public_release),indent=2))

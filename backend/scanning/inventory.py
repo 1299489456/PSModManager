@@ -11,7 +11,7 @@ import tomllib
 
 from backend.games.probably_stolen.layout import safe_path, identity, signature, LOADERS
 from backend.games.probably_stolen.fingerprint import Budget, DiscoveryCancelled, read_file, file_version
-from backend.loaders.melonloader import v073
+from backend.scanning import legacy_loader_rules as v073
 from backend.runtime.jobs import RuntimePolicyError, _Cancelled
 from backend.storage import Store
 from backend.storage.inventory_repository import InventoryRepository
