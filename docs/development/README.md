@@ -2,7 +2,7 @@
 
 当前桌面入口是 `main.py` → `backend/app` → `frontend/src/app`。面向 Probably Stolen 正式版的原生 Mono 模组，主流程为“选择游戏 → 导入目录 / ZIP 或打开 Steam 创意工坊 → 启用与排序 → 保存 → 运行”。AI 只在需要时辅助日志排错。
 
-界面和交互以已确认的[正式版温室原型](../design/formal-release-ui/prototype.html)及其[说明](../design/formal-release-ui/README.md)为准，不重新设计设置、日志与外框。模组页为“可用模组 → 启用与顺序 → 模组详情”三栏；启用不弹权限提示，权限列在详情中，游戏批准仍由游戏完成。原型演示数据不得作为正式版运行状态。
+界面和交互以已确认的[正式版温室原型](../design/formal-release-ui/prototype.html)及其[说明](../design/formal-release-ui/README.md)为准，不重新设计设置、日志与外框。模组页为“可用模组 → 启用与顺序 → 模组详情”三栏；启用不弹权限提示，权限列在详情中。0.3.3 将“模组检查”放到顶部独立页面：普通页面及启动不发 `security.*` 请求，进入检查页才读取，明确点击才扫描。普通保存按清单与声明 DLL 指纹写入用户启用批准，不调用扫描器、不把批准称为审计。原型演示数据不得作为正式版运行状态。
 
 以下命令使用 **Windows x64 + PowerShell**，除单独说明外均在仓库根目录执行。开发和测试使用独立数据目录与获准的隔离副本；合成样本用于边界情况，不替代真实包的只读检查。隔离数据目录不会把真实游戏变成测试副本，请勿为调试选择真实游戏并执行写入或启动。
 
@@ -67,7 +67,7 @@ Pop-Location
 
 原生模组读取游戏 `Mods` 和同一 Steam 库的 `workshop/content/4348910`。用户状态来自游戏的 `SaveFile.es3`，配置来自 `ModConfigs`，运行证据来自 `Player.log`。分别记录已安装、目标启用、游戏批准和最近启动的加载结果；不能从已启用或已批准推断正在运行。排序仅保存 `modOrder`，当前游戏先加载 DLL 再应用顺序，不能承诺初始化顺序。
 
-原生写入必须经过进程 guard、并发版本核对与恢复点；游戏运行中或无法确认是否运行时，只编辑草稿。修改 ES3 保留类型包装与未知字段，不创建批准记录。工坊订阅、取消和更新通过本机已登录 Steam 的官方 UGC 接口请求，管理器不手写 ACF 或工坊文件。发起操作时也检查游戏运行状态；已被 Steam 接受的任务由客户端继续执行，不受原生恢复点回滚。匿名下载不是订阅，未验证本游戏支持前保持不可用。服务接口见[原生契约](../../backend/native_mods/CONTRACT.md)与[工坊契约](../../backend/workshop/CONTRACT.md)。
+原生写入必须经过进程 guard、并发版本核对与恢复点；游戏运行中或无法确认是否运行时，只编辑草稿。显式保存使用 `NativeModService.apply`，核对清单与声明 DLL 后写入 `modOrder` 与当前内容的 `modTrust`，保留 ES3 类型包装、未知字段和无关设置；`detected=null`、`approval_basis=user_enable` 明确这不是安全审计。内部停用及恢复路径不调用批准。手动检查报告不自动阻断普通保存/启动；主动隔离和未完成处置继续生效。工坊订阅、取消和更新通过本机已登录 Steam 的官方 UGC 接口请求，管理器不手写 ACF 或工坊文件。发起操作时也检查游戏运行状态；已被 Steam 接受的任务由客户端继续执行，不受原生恢复点回滚。匿名下载不是订阅，未验证本游戏支持前保持不可用。服务接口见[原生契约](../../backend/native_mods/CONTRACT.md)与[工坊契约](../../backend/workshop/CONTRACT.md)。
 
 Steam UGC 使用独立 spawn 子进程与私有管道；`main.py` 在桌面参数解析前调用 `multiprocessing.freeze_support()`。原生 DLL 仅从所选游戏的 `Probably Stolen_Data/Plugins/x86_64/steam_api64.dll` 读取，先固定文件句柄并核验 Valve 签名，不复制进程序包。冻结验收除主窗口外还须覆盖实际子进程启动、只读状态返回、退出和原生输出静默；源码测试不能代替这条路径。
 
@@ -181,9 +181,9 @@ Remove-Item Env:PSMM_PORTABLE_ROOT, Env:PSMM_PORTABLE_ZIP, Env:PSMM_FINAL_DELIVE
 确认该提交的 Actions 构建成功，再推送相同版本的标签，例如：
 
 ```powershell
-# 示例仅适用于已更新为 0.2.3 的提交；标签与源码版本必须一致。
-git tag -a v0.2.3 -m "Release PSModManager 0.2.3"
-git push origin v0.2.3
+# 示例仅适用于已更新为 0.3.3 的提交；标签与源码版本必须一致。
+git tag -a v0.3.3 -m "Release PSModManager 0.3.3"
+git push origin v0.3.3
 ```
 
 CI 固定 Windows 2022 x64、uv `0.10.0`、Python `3.11.14`、Node `24.19.0`、.NET SDK `10.0.400`；通过 `uv sync --locked`、`npm ci` 和 runtime `10.0.11` 准备干净构建环境。第三方 Actions 固定到提交。升级构建版本时，同时更新工作流和许可基线；不要绕过打包器的版本检查。

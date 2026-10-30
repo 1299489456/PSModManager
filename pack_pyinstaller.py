@@ -26,7 +26,11 @@ NOTICE_ROOT = 'third_party/notices'
 DELIVERY_DOCUMENTS = ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'docs/development/known-limitations.md',
                       'docs/development/workshop-usability-2026-10-28.md',
                       'docs/development/workshop-performance-settings-2026-10-29.md',
-                      'docs/development/workshop-recovery-scope-fix-2026-10-29.md']
+                      'docs/development/workshop-recovery-scope-fix-2026-10-29.md',
+                      'docs/development/mod-security-implementation-2026-10-30.md',
+                      'docs/development/interaction-reliability-fix-2026-10-30.md',
+                      'docs/development/manual-mod-check-2026-10-30.md',
+                      'docs/development/standalone-mod-check-2026-10-29.md']
 HISTORICAL_NOTICE_TEXTS = {'licenses/Cpp2IL/Cpp2IL-LICENSE.txt',
                            'licenses/UnityDependencies/UnityDependencies-README.md'}
 
@@ -157,6 +161,9 @@ def delivery_materials(root, bundle, materials, *, public_release=False):
         f'PSModManager {VERSION} — Windows x64 便携版\n\n'
         '完整解压 PSModManager 文件夹，再运行 PSModManager.exe。\n'
         '请保留同目录的 _internal 和 PSModManager.WorkerHost.exe，不要只复制 EXE。\n\n'
+        '升级时先保留旧窗口的未保存选择并正常退出，再从本目录启动。\n'
+        f'在“应用信息”核对实际运行版本 {VERSION}；解压新包不会更新仍打开的旧窗口。\n'
+        '普通保存和启动不自动异常扫描；手动检查在顶部独立“模组检查”页。\n\n'
         '运行环境：Windows 10/11 x64、Microsoft .NET Framework 4.8+、\n'
         'Microsoft Edge WebView2 Runtime。缺少时会提示，不会自动安装。\n'
         '无需安装 Python、Node 或 .NET SDK；元数据 helper 带独立 .NET 运行时。\n\n'
@@ -215,7 +222,8 @@ def forbidden(relative):
     lowered = {part.lower() for part in path.parts}
     return (bool(lowered & {'mods', 'toolmods', 'saves', 'userdata', 'updates', '.venv',
                            'melonloader', 'cpp2il', 'unitydependencies',
-                           '.git', 'node_modules', 'tests', '.preview', 'credentials'})
+                           '.git', 'node_modules', 'tests', '.preview', 'credentials',
+                           'mod-security', 'mod-security-analysis'})
             or path.suffix.lower() in {'.sqlite', '.sqlite3', '.db', '.key', '.pem', '.pfx'}
             or path.name.lower() in {'config.json', 'credentials.json', 'ai-translations.json', '.env', 'gameassembly.dll',
                                     'assembly-csharp.dll', 'probably stolen.exe', 'settings.py',
@@ -326,6 +334,8 @@ def build(output, *, offline_resources=None, public_release=False):
     inputs = ['main.py','PSModManager.spec','pack_pyinstaller.py','pyproject.toml','uv.lock',
               'frontend/package-lock.json','backend/scanning/worker_host.py','backend/scanning/worker_client.py',
               'tools/PSModManager.Metadata/build.py','tools/PSModManager.Metadata/Program.cs',
+              'tools/PSModManager.Metadata/SecurityAnalysis.cs',
+              'tools/PSModManager.Metadata/ApprovalAnalysis.cs',
               'tools/PSModManager.Metadata/PSModManager.Metadata.csproj',
               'tools/PSModManager.Metadata/console_host_main.py','frontend/dist/index.html',
               NOTICE_ROOT+'/build-baseline.json', NOTICE_ROOT+'/distribution-materials.json']

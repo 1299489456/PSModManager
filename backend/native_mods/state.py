@@ -1,4 +1,4 @@
-"""Field-preserving ES3 typed JSON; no authority to create trust records."""
+"""Field-preserving ES3 typed JSON and explicit content-bound authorizations."""
 import copy
 import hashlib
 import json
@@ -127,6 +127,26 @@ def with_order(state, ids):
         trust = copy.deepcopy(state['trust_document'])
         trust['records'] = [r for r in trust['records'] if r['id'] not in removed]
         doc['modTrust']['value'] = json.dumps(trust, ensure_ascii=False, separators=(',', ':'))
+    return doc
+
+
+def with_authorizations(document, authorizations):
+    """Merge explicit current approvals without discarding unknown ES3 fields.
+
+    Callers own content checks and authorization. Recovery and order-only save
+    deliberately never call this helper. Like ModTrust.Approve, replace every
+    duplicate of the approved ID; retain extensions on its first native record.
+    """
+    doc = copy.deepcopy(document)
+    wrapper = doc.setdefault('modTrust', {'__type': 'string', 'value': '{"records":[]}'})
+    trust = decode(wrapper['value'].encode('utf-8'))
+    for approval in authorizations:
+        ident = approval['id']
+        previous = next((r for r in trust['records'] if r['id'] == ident), {})
+        record = {**copy.deepcopy(previous), **copy.deepcopy(approval)}
+        trust['records'] = [r for r in trust['records'] if r['id'] != ident]
+        trust['records'].append(record)
+    wrapper['value'] = json.dumps(trust, ensure_ascii=False, separators=(',', ':'))
     return doc
 
 

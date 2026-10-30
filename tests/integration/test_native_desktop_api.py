@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import threading
 from uuid import uuid4
 
 import pytest
@@ -44,6 +45,11 @@ def app(tmp_path, monkeypatch):
         'unrelated': {'__type': 'string', 'value': 'preserve gameplay preferences'}}))
     context = DesktopContext(resolve_paths(str(tmp_path / 'manager')))
     context.initialize()
+    # Only explicit manual checks use this fixture parser. Ordinary saving must
+    # never call it; real parser evidence is covered by the separate cycle.
+    from tests.mod_security.test_service import Worker
+    worker = Worker()
+    context.mod_security.worker = worker
     identity = register(context, root)
     resolve = native_api.installation
     monkeypatch.setattr(native_api, 'installation', lambda ctx, ident: {
@@ -67,7 +73,7 @@ def test_native_bridge_save_restore_and_state_independence(app):
     assert saved['saved'] and saved['enabled_ids'] == ['test.core', 'test.addon']
     assert saved['identity']['runtime'] == 'mono'
     assert saved['runtime']['writable'] is True
-    assert all(m['approval']['state'] != 'approved' and m['run']['state'] != 'running' for m in saved['mods'])
+    assert all(m['approval']['state'] == 'approved' and m['run']['state'] != 'running' for m in saved['mods'])
     assert json.loads((data/'SaveFile.es3').read_text())['unrelated']['value'] == 'preserve gameplay preferences'
     assert (root/'Mods/test.core/Main.dll').is_file()
     records = ok(ctx, 'native.recovery.list', installation_id=identity)['items']
@@ -203,6 +209,47 @@ def test_unknown_or_running_game_fails_closed(app, monkeypatch):
                      expected_revision=snap['revision'], enabled_ids=['test.core'])
         assert not result['ok'] and result['error']['code'] == 'GUARD_PROCESS_' + status.upper()
         assert (data/'SaveFile.es3').read_bytes() == before
+
+
+@pytest.mark.parametrize('state,blockers,owns,ready', [
+    ('clear', ['GUARD_LEASE_BUSY'], True, True),
+    ('clear', ['GUARD_LEASE_BUSY'], False, False),
+    ('clear', ['GUARD_LEASE_BUSY', 'GUARD_RECOVERY_REQUIRED'], True, False),
+    ('running', ['GUARD_LEASE_BUSY'], True, False),
+    ('unknown', ['GUARD_LEASE_BUSY'], True, False),
+])
+def test_foreground_readiness_only_preempts_proven_read_only_probe(app, monkeypatch, state, blockers, owns, ready):
+    ctx, identity, _, _ = app
+    monkeypatch.setattr(ctx.deployment_guards, 'status', lambda _: dict(
+        process_status=state, blockers=list(blockers), ready=False))
+    monkeypatch.setattr(ctx.workshop, 'probe_owns_lease', lambda _: owns)
+    selected = native_api.installation(ctx, identity)
+    assert native_api.process_status(ctx, selected)['writable'] is False  # SDK never gets the exemption
+    snap = ok(ctx, 'native.snapshot', installation_id=identity)
+    assert snap['runtime']['writable'] is ready
+    if ready:
+        assert snap['runtime']['busy_owner'] == 'workshop_probe' and not snap['runtime']['blockers']
+    else:
+        assert snap['runtime']['blockers'] == blockers
+
+
+def test_manual_scan_does_not_block_normal_save_or_read_progress(app):
+    ctx, identity, _, _ = app
+    snap = ok(ctx, 'native.snapshot', installation_id=identity)
+    worker = ctx.mod_security.worker
+    worker.release = threading.Event()
+    ok(ctx, 'security.scan', installation_id=identity, ids=['test.core'])
+    try:
+        assert worker.entered.wait(5)
+        progress = ok(ctx, 'security.activity', installation_id=identity)
+        assert progress['scanning'] and progress['operation']['current_id'] == 'test.core'
+        saved = ok(ctx, 'native.save', installation_id=identity,
+            expected_revision=snap['revision'], enabled_ids=['test.core'])
+        assert saved['saved'] and saved['mods'][0]['approval']['detected'] is None
+        assert worker.calls == ['Main.dll']  # Only the explicitly started scan.
+        assert rpc(ctx, 'app.storage.start', target='unused')['error']['code'] == 'STORAGE_OPERATIONS_RUNNING'
+    finally:
+        worker.release.set()
 
 
 def test_real_external_process_prevents_native_state_write(app, tmp_path):

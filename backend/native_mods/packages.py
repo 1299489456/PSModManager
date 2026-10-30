@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import struct
 import xml.etree.ElementTree as ET
@@ -66,15 +67,20 @@ def read_manifest(path):
         root = ET.fromstring(raw)
     except (ET.ParseError, ValueError):
         raise NativeModError('NATIVE_MANIFEST_INVALID') from None
-    text = lambda name: (root.findtext(name) or '').strip()
+    # XElement.Element uses the first direct child; XElement.Value includes all
+    # descendant text. Matching that matters because approval hashes the exact
+    # declared DLL list rather than every similarly named XML node.
+    value_of = lambda node: ''.join(node.itertext()).strip() if node is not None else ''
+    text = lambda name: value_of(root.find(name))
+    children = lambda name, child: [] if root.find(name) is None else root.find(name).findall(child)
     ident = text('ID')
     if not valid_id(ident):
         raise NativeModError('NATIVE_INVALID_ID')
     if root.find('Assemblies') is None or root.find('Capabilities') is None:
         raise NativeModError('NATIVE_MANIFEST_REQUIRED_ELEMENTS', {'id': ident})
     assemblies, seen = [], set()
-    for node in root.findall('Assemblies/Assembly'):
-        value = (node.text or '').strip().replace('\\', '/')
+    for node in children('Assemblies', 'Assembly'):
+        value = value_of(node).replace('\\', '/')
         if not value:
             continue
         value = relative(value)
@@ -84,14 +90,14 @@ def read_manifest(path):
             assemblies.append(value); seen.add(value.casefold())
     if not assemblies:
         raise NativeModError('NATIVE_MANIFEST_NO_ASSEMBLIES', {'id': ident})
-    capabilities = list(dict.fromkeys((n.text or '').strip().lower() for n in root.findall('Capabilities/Capability') if (n.text or '').strip()))
+    capabilities = list(dict.fromkeys(value_of(n).lower() for n in children('Capabilities', 'Capability') if value_of(n)))
     if set(capabilities) - set(CAPABILITIES):
         raise NativeModError('NATIVE_UNKNOWN_CAPABILITY', {'id': ident})
-    prerequisites = list(dict.fromkeys((n.text or '').strip() for n in root.findall('Prerequisites/Mod') if (n.text or '').strip()))
+    prerequisites = list(dict.fromkeys(value_of(n) for n in children('Prerequisites', 'Mod') if value_of(n)))
     if any(not valid_id(x) for x in prerequisites):
         raise NativeModError('NATIVE_INVALID_DEPENDENCY', {'id': ident})
     return dict(id=ident, name=text('Name') or ident, author=text('Author'), version=text('ModVersion'),
-                description=text('Description'), game_versions=[(n.text or '').strip() for n in root.findall('GameVersions/Version') if (n.text or '').strip()],
+                description=text('Description'), game_versions=[value_of(n) for n in children('GameVersions', 'Version') if value_of(n)],
                 prerequisites=prerequisites, capabilities=capabilities, assemblies=assemblies,
                 manifest_revision=revision(raw))
 
@@ -164,19 +170,62 @@ def inspect_package(folder, source, workshop_id=None, *, check_binaries=False):
             'entry_count': None, 'metadata_status': 'managed_header_checked' if check_binaries else 'not_scanned'}
 
 
-def native_fingerprint(package):
-    """Exact native approval fingerprint; called only for trust comparison."""
+def native_fingerprint_details(package, *, check=lambda: None):
+    """ModFingerprint.Compute/FileEntries, preserving declared spelling and order.
+
+    This is the game's approval identity (manifest and listed DLLs), not the
+    stronger whole-package security identity used by an explicit apply.
+    """
     folder = Path(package['folder_path'])
-    manifest = read_bytes(folder / 'manifest.xml', 1024 * 1024)
-    if manifest is None:
+    def hash_file(path, limit):
+        check()
+        try:
+            with safe(path).open('rb') as stream:
+                before = os.fstat(stream.fileno())
+                digest, size = hashlib.sha256(), 0
+                while block := stream.read(256 * 1024):
+                    check()
+                    size += len(block)
+                    if size > limit:
+                        raise NativeModError('NATIVE_FILE_LIMIT')
+                    digest.update(block)
+                after = os.fstat(stream.fileno())
+                if ((before.st_size, before.st_mtime_ns, before.st_ctime_ns)
+                        != (after.st_size, after.st_mtime_ns, after.st_ctime_ns) or size != before.st_size):
+                    raise NativeModError('NATIVE_STATE_CHANGED')
+                return digest.hexdigest()
+        except FileNotFoundError:
+            return None
+    manifest_hash = hash_file(folder / 'manifest.xml', 1024 * 1024)
+    if manifest_hash is None:
         raise NativeModError('NATIVE_STATE_CHANGED')
-    text = hashlib.sha256(manifest).hexdigest()
+    if manifest_hash != package['manifest_revision']:
+        raise NativeModError('NATIVE_STATE_CHANGED')
+    text, entries = manifest_hash, []
     for assembly in package['assemblies']:
-        raw = read_bytes(folder / assembly, MAX_FILE)
-        text += '\n' + assembly + '|' + ('missing' if raw is None else hashlib.sha256(raw).hexdigest())
+        digest = hash_file(folder / assembly, MAX_FILE)
+        entry = assembly + '|' + (digest if digest is not None else 'missing')
+        entries.append(entry)
+        text += '\n' + entry
     if tree_revision(tree_files(folder)) != package['package_revision']:
         raise NativeModError('NATIVE_STATE_CHANGED')
-    return hashlib.sha256(text.encode('utf-8')).hexdigest()
+    return dict(manifestHash=manifest_hash, files=entries,
+                combinedHash=hashlib.sha256(text.encode('utf-8')).hexdigest())
+
+
+def native_fingerprint(package):
+    return native_fingerprint_details(package)['combinedHash']
+
+
+def native_source_identity(package):
+    """ModSource.ToString and UInt64.ToString(InvariantCulture)."""
+    if package.get('source') == 'local':
+        return 'Local', '0'
+    value = package.get('workshop_id')
+    if (package.get('source') != 'workshop' or not isinstance(value, str)
+            or re.fullmatch('[0-9]{1,20}', value) is None or not 0 < int(value) <= 2**64 - 1):
+        raise NativeModError('NATIVE_APPROVAL_SOURCE_UNPROVEN', {'mod_id': package.get('id')})
+    return 'Workshop', str(int(value))
 
 
 def zip_entries(path):

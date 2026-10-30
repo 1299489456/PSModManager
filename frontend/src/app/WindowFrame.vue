@@ -5,7 +5,7 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import { Minus, Square, Copy, X } from 'lucide-vue-next'
 import appIcon from '../shared/branding/psmm-icon-64.png?inline'
 
-const props = defineProps({ bridge: { type: Object, required: true } })
+const props = defineProps({ bridge: { type: Object, required: true }, version: String })
 const maximized = ref(false)
 const edges = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
 let syncTimer = 0, lastPress = { time: 0, x: 0, y: 0 }
@@ -39,6 +39,7 @@ onUnmounted(() => { clearTimeout(syncTimer); window.removeEventListener('resize'
   <header class="garden-titlebar" :class="{ maximized }" data-testid="window-titlebar" @mousedown="drag">
     <img class="titlebar-logo" :src="appIcon" alt="" aria-hidden="true" draggable="false"/>
     <span class="titlebar-name">PSMM</span>
+    <small v-if="version" class="titlebar-version" data-testid="app-version">v{{ version }}</small>
     <span class="titlebar-space"></span>
     <div class="titlebar-controls">
       <button type="button" class="titlebar-button" data-testid="window-minimize" aria-label="最小化" title="最小化" @click="control('minimize')"><Minus :size="16"/></button>

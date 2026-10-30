@@ -482,3 +482,58 @@
 .garden-shell .formal-ui .ws-cover .bl {right:10px;}
 .garden-shell .formal-ui .ws-cover .bl .tg {max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .garden-shell .formal-ui .ws-detail-hero .d-actions {flex-wrap:wrap;}
+
+/* Manual checking is an independent workspace using the existing garden system. */
+.garden-shell .formal-ui .native-security {min-width:0;font-size:13px;line-height:1.65}
+.garden-shell .formal-ui .security-conclusion {padding:14px;background:var(--g-mint);border:1px solid var(--g-line);border-radius:18px}
+.garden-shell .formal-ui .security-conclusion.bad {background:#fff3f1;border-color:#f4bdb5}
+.garden-shell .formal-ui .security-conclusion.pend {background:#fffbed;border-color:#f3df9b}
+.garden-shell .formal-ui .security-conclusion p {margin:8px 0}
+.garden-shell .formal-ui .security-conclusion>small {color:var(--g-text-3)}
+.garden-shell .formal-ui .security-conclusion ul,.garden-shell .formal-ui .security-gaps {padding-left:20px;margin:8px 0}
+.garden-shell .formal-ui .security-composition {display:grid;gap:10px}
+.garden-shell .formal-ui .security-composition>div {display:grid;grid-template-columns:1fr auto;gap:4px 10px}
+.garden-shell .formal-ui .security-composition .garden-solar {grid-column:1/-1;height:5px}
+.garden-shell .formal-ui .security-composition small {color:var(--g-text-3)}
+.garden-shell .formal-ui .security-tech {padding:10px 0;border-top:1px solid var(--g-line);margin-top:8px}
+.garden-shell .formal-ui .security-tech summary {cursor:pointer;font-weight:600;color:var(--g-ink)}
+.garden-shell .formal-ui .security-file {display:flex;gap:12px;justify-content:space-between;padding:6px 0;align-items:baseline}
+.garden-shell .formal-ui .security-file code {overflow-wrap:anywhere;min-width:0;font-size:11.5px;white-space:normal}
+.garden-shell .formal-ui .security-file>span {flex:none;color:var(--g-text-3);font-size:12px}
+.garden-shell .formal-ui .security-diff-counts {display:flex;gap:6px;flex-wrap:wrap}
+.garden-shell .formal-ui .security-finding {border:1px solid var(--g-line);border-radius:16px;padding:12px;margin:10px 0;background:#fff}
+.garden-shell .formal-ui .security-finding>div:first-child {display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.garden-shell .formal-ui .security-finding p {margin:7px 0;white-space:pre-wrap}
+.garden-shell .formal-ui .security-evidence {margin-top:10px;padding:10px;border-radius:10px;background:#f7faf8;overflow-wrap:anywhere}
+.garden-shell .formal-ui .security-evidence code,.garden-shell .formal-ui .security-hash {font-size:11px;overflow-wrap:anywhere;white-space:normal}
+.garden-shell .formal-ui .security-empty {padding:12px 0}
+.garden-shell .formal-ui .security-conclusion {scroll-margin-top:100px}
+.garden-shell .formal-ui .security-workspace {gap:12px;overflow:hidden}
+.garden-shell .formal-ui .security-workspace .garden-intro {margin-bottom:0;flex:none}
+.garden-shell .formal-ui .security-panel-tools {display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex:none;font-size:13px}
+.garden-shell .formal-ui .security-panel-tools .sp {flex:1}
+.garden-shell .formal-ui .security-panel-progress {padding:12px 15px;background:var(--g-mint);border-radius:16px;flex:none}
+.garden-shell .formal-ui .security-panel-progress>div {display:flex;justify-content:space-between;gap:10px}
+.garden-shell .formal-ui .security-panel-progress progress {width:100%;height:8px;accent-color:var(--g-leaf);display:block;margin:8px 0}
+.garden-shell .formal-ui .security-panel-progress p {margin:4px 0;overflow-wrap:anywhere}
+.garden-shell .formal-ui .security-panel-progress code {display:block;font-size:12px}
+.garden-shell .formal-ui .security-panel-layout {display:grid;grid-template-columns:minmax(220px,26%) minmax(0,1fr);gap:18px;min-height:0;flex:1}
+.garden-shell .formal-ui .security-report-sidebar {display:flex;flex-direction:column;min-height:0;background:#ffffffd9;border:1px solid var(--g-line);border-radius:24px;padding:14px 8px 12px 14px}
+.garden-shell .formal-ui .security-list-tools {display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:0 6px 12px 0;font-size:13px}
+.garden-shell .formal-ui .security-list-tools .garden-search {flex-basis:100%;height:36px}
+.garden-shell .formal-ui .security-report-list {overflow:auto;min-height:0;padding:3px 6px 3px 0}
+.garden-shell .formal-ui .security-report-entry {display:flex;align-items:flex-start;gap:6px;border:1px solid transparent;border-radius:16px;padding:12px;margin-bottom:6px}
+.garden-shell .formal-ui .security-report-entry.on {background:var(--g-mint);border-color:var(--g-leaf)}
+.garden-shell .formal-ui .security-report-entry input {flex:none;margin:3px 0 0;accent-color:var(--g-leaf-3)}
+.garden-shell .formal-ui .security-report-list button {min-width:0;flex:1;text-align:left;display:flex;align-items:flex-start;flex-direction:column;gap:5px;border:0;background:none;color:var(--g-text);padding:0;overflow-wrap:anywhere}
+.garden-shell .formal-ui .security-report-list button>span:not(.tg) {font-size:12px;color:var(--g-text-3)}
+.garden-shell .formal-ui .security-panel-report {overflow:auto;padding:20px;min-width:0;background:#ffffffed;border:1px solid var(--g-line);border-radius:24px}
+.garden-shell .formal-ui .security-report-head {display:flex;justify-content:space-between;gap:15px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.garden-shell .formal-ui .security-report-head h3 {color:var(--g-ink);margin:0;font-size:18px}
+.garden-shell .formal-ui .security-report-head small {color:var(--g-text-3);overflow-wrap:anywhere}
+.garden-shell .formal-ui .security-send-preview {border:1px solid var(--g-line);padding:12px;border-radius:14px;margin:12px 0;max-height:34vh;overflow:auto;background:#f7faf8}
+.garden-shell .formal-ui .security-ai pre {white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.6;margin:10px 0}
+.garden-shell .formal-ui .security-send-preview pre {font-size:12px}
+.garden-shell .formal-ui .security-ai .garden-facts dd {overflow-wrap:anywhere}
+.garden-shell .formal-ui .security-ai-reply {border-top:1px solid var(--g-line);margin-top:18px;padding-top:14px}
+@media(max-width:760px){.garden-shell .formal-ui .security-panel-layout{grid-template-columns:180px minmax(0,1fr);gap:12px}.garden-shell .formal-ui .security-panel-report{padding:14px}}

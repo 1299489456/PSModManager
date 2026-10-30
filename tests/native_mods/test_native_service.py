@@ -27,6 +27,7 @@ def cli_fixture():
     struct.pack_into('<IIII', raw, 152 + 224 + 8, 512, 0x2000, 512, 512)
     struct.pack_into('<II', raw, 512 + 8, 0x2048, 128)
     raw[584:588] = b'BSJB'
+    raw[-5:] = b'IMod\0'  # Match the game's inert IsWellFormed byte-marker precheck.
     return bytes(raw)
 
 

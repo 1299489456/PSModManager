@@ -13,6 +13,7 @@ def issue(code, mod_id=None, *, severity='error', **detail):
 
 
 MESSAGES = {
+    'NATIVE_APPROVAL_SOURCE_UNPROVEN': '来源身份不符合游戏原生格式，无法写入对应批准。',
     'NATIVE_STATE_CHANGED': '游戏状态或模组文件已被其他程序修改，请刷新后重新确认。',
     'NATIVE_PROCESS_UNKNOWN': '无法确认游戏已经退出，当前只读；请退出游戏后重试。',
     'NATIVE_STATE_FORMAT': '游戏状态文件不是受支持的 ES3 明文类型 JSON，已停止写入。',

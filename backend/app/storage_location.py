@@ -127,6 +127,8 @@ class StorageLocation:
             result = dict(self._state)
         result['locations'] = [dict(label=label, path=str(root / child)) for label, child in (
             ('原生模组方案、规则与恢复点', 'native-mods'),
+            ('模组安全报告与处置记录', 'mod-security'),
+            ('模组静态分析缓存', 'mod-security-analysis'),
             ('Mod 包库', 'library'), ('方案与安装记录', 'psmodmanager.sqlite3'),
             ('应用配置', 'config.json'), ('部署历史与恢复记录', 'deployments'),
             ('工坊信息与封面缓存', 'cache/workshop'), ('AI 翻译缓存', 'ai-translations.json'),
@@ -165,6 +167,9 @@ class StorageLocation:
         with self._lock, (policy.migration_gate() if policy is not None else nullcontext()):
             if self.blocked:
                 raise StorageError('STORAGE_BUSY')
+            security = getattr(self.context, 'mod_security', None)
+            if security is not None and security.is_busy():
+                raise StorageError('STORAGE_OPERATIONS_RUNNING')
             workshop = getattr(self.context, 'workshop', None)
             if workshop is not None and workshop.is_busy():
                 # A Steam operation is not a cancellable local JobManager task.

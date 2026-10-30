@@ -22,5 +22,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="SecurityAnalysis.cs" />
+    <Compile Include="ApprovalAnalysis.cs" />
   </ItemGroup>
 </Project>

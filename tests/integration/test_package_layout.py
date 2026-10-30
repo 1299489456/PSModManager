@@ -20,7 +20,7 @@ REPO = Path(__file__).resolve().parents[2]
 FORBIDDEN_DIRECTORIES = {
     '.git', '.venv', 'node_modules', '__pycache__', 'userdata', 'saves',
     'mods', 'plugins', 'melonloader', 'cpp2il', 'unitydependencies', 'data', 'private-data',
-    'synthetic-game', 'tests', 'settings',
+    'synthetic-game', 'tests', 'settings', 'mod-security', 'mod-security-analysis',
 }
 FORBIDDEN_FILENAMES = {
     '.env', 'config.json', 'settings.json', 'credentials.json', 'secrets.json', 'ai-translations.json',
@@ -164,6 +164,11 @@ def test_portable_python_archive_excludes_legacy_entry_modules(portable_root):
                                    'backend.workshop.remote', 'backend.workshop.cache', 'backend.workshop.steam_session',
                                    'backend.workshop.steam_native', 'backend.workshop.signature',
                                    'backend.ai.providers', 'backend.ai.translation_cache',
+                                   'backend.ai.security_report', 'backend.app.security_ai_api',
+                                   'backend.mod_security.service', 'backend.mod_security.storage',
+                                   'backend.mod_security.evidence', 'backend.mod_security.rules',
+                                   'backend.mod_security.errors', 'backend.mod_security.defender',
+                                   'backend.scanning.worker_client',
                                    'httpx', 'httpcore', 'html.parser'}
             assert native_dependencies <= modules, (
                 f'Missing native/Workshop dependencies: {native_dependencies - modules}')
@@ -223,6 +228,12 @@ def test_portable_metadata_helper_contains_its_runtime(portable_root):
     assert build['self_contained'] is True and build['target'] == 'win-x64'
     assert build['commands_exit_codes'] == [0, 0]
     assert re.fullmatch(r'[0-9a-f]{64}', build['runtime_package_sha256'])
+    assert re.fullmatch(r'[0-9a-f]{64}', build['security_source_sha256'])
+    assert re.fullmatch(r'[0-9a-f]{64}', build['approval_source_sha256'])
+    manifest = json.loads((portable_root / 'build-manifest.json').read_text('utf-8'))
+    inputs = {row['path']: row['sha256'] for row in manifest['inputs']}
+    assert build['security_source_sha256'] == inputs['tools/PSModManager.Metadata/SecurityAnalysis.cs']
+    assert build['approval_source_sha256'] == inputs['tools/PSModManager.Metadata/ApprovalAnalysis.cs']
 
 
 def test_portable_has_no_private_game_or_legacy_migration_payload(portable_root):
@@ -242,7 +253,11 @@ def test_local_delivery_includes_current_docs_and_license_materials(portable_roo
     documents = ['LICENSE', 'THIRD_PARTY_NOTICES.md', 'docs/development/known-limitations.md',
                  'docs/development/workshop-usability-2026-10-28.md',
                  'docs/development/workshop-performance-settings-2026-10-29.md',
-                 'docs/development/workshop-recovery-scope-fix-2026-10-29.md']
+                 'docs/development/workshop-recovery-scope-fix-2026-10-29.md',
+                 'docs/development/mod-security-implementation-2026-10-30.md',
+                 'docs/development/interaction-reliability-fix-2026-10-30.md',
+                 'docs/development/manual-mod-check-2026-10-30.md',
+                 'docs/development/standalone-mod-check-2026-10-29.md']
     documents += [path.relative_to(REPO).as_posix() for path in (REPO / 'docs/user').glob('*.md')]
     for name in documents:
         assert (portable_root / name).read_bytes() == (REPO / name).read_bytes(), name
@@ -260,6 +275,10 @@ def test_local_delivery_includes_current_docs_and_license_materials(portable_roo
                  'docs/development/workshop-usability-2026-10-28.md',
                  'docs/development/workshop-performance-settings-2026-10-29.md',
                  'docs/development/workshop-recovery-scope-fix-2026-10-29.md',
+                 'docs/development/mod-security-implementation-2026-10-30.md',
+                 'docs/development/interaction-reliability-fix-2026-10-30.md',
+                 'docs/development/manual-mod-check-2026-10-30.md',
+                 'docs/development/standalone-mod-check-2026-10-29.md',
                  *[p.relative_to(REPO).as_posix() for p in (REPO / 'docs/user').glob('*.md')]]:
         for link in re.findall(r'\]\(([^)]+)\)', (portable_root / name).read_text('utf-8')):
             if urlsplit(link).scheme or link.startswith('#'):
@@ -346,6 +365,8 @@ def test_checksum_checker_rejects_owned_negative_samples(tmp_path, mutation):
 @pytest.mark.parametrize('relative', [
     'game/Probably Stolen.exe', 'Mods/owned-fixture.dll', 'UserData/save.bin',
     'catalog.db', 'credentials.json', 'ai-translations.json', '.env', 'settings/main.py', 'other/cacert.pem',
+    'mod-security/installation/report.json', '_internal/mod-security/installation/dispositions.json',
+    'mod-security-analysis/fixture-cache.json',
     '_internal/backend/loaders/melonloader/resources/toolchain.zip',
     'Cpp2IL/Cpp2IL.exe', 'UnityDependencies/UnityEngine.dll',
     '_internal/steam_api64.dll', '_internal/steam_api.dll',

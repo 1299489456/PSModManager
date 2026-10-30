@@ -206,8 +206,8 @@ def test_ui_pagination_converts_official_30_without_gaps(tmp_path, size):
                     has_more=page * 30 < 100, page=page, page_size=30, source='steam_community')
     service.client.browse = browse
     try:
-        one = service.browse(page_size=size)
-        two = service.browse(page=2, page_size=size)
+        one = wait_until(lambda: (value if not value['refreshing'] else None) if (value := service.browse(page_size=size)) else None)
+        two = wait_until(lambda: (value if not value['refreshing'] else None) if (value := service.browse(page=2, page_size=size)) else None)
         assert [x['workshop_id'] for x in one['items'] + two['items']] == [str(1000 + i) for i in range(size * 2)]
         assert one['page_size'] == size and two['total'] == 100
         assert len(calls) == len(set(calls))

@@ -362,7 +362,7 @@ class DesktopApi:
             'mod.workspace': (WorkspaceQuery, lambda rid,p: self._mod_job(rid, lambda task: context.mod_workspace.list(str(p.installation_id), check=task.check_cancelled))),
             'mod.workspace.detail': (WorkspaceDetail, lambda rid,p: self._mod_job(rid, lambda task: context.mod_workspace.detail(str(p.installation_id),str(p.id),p.offset,p.limit,check=task.check_cancelled))),
             'mod.workspace.save': (WorkspaceSave, lambda rid,p: self._mod_job(rid, lambda task: context.mod_workspace.save(p.model_dump(),check=task.check_cancelled,commit=task.commit,progress=task.progress))),
-            'game.launch': (UseInstallationPayload, lambda _, p: context.launcher.launch(str(p.installation_id))),
+            'game.launch': (UseInstallationPayload, lambda _, p: context.launch_game(str(p.installation_id))),
             'game.status': (UseInstallationPayload, lambda _, p: context.launcher.status(str(p.installation_id))),
             'config.read': (ConfigReadPayload, lambda _, p: context.mod_configs.read(str(p.installation_id), p.adapter_id)),
             'config.save': (ConfigSavePayload, lambda _, p: context.mod_configs.save(
@@ -458,10 +458,16 @@ class DesktopApi:
         self._commands.update(workshop_commands(context))
         from .ai_provider_api import commands as provider_commands
         self._commands.update(provider_commands(context))
+        from .security_api import commands as security_commands
+        self._commands.update(security_commands(context))
+        from .security_ai_api import commands as security_ai_commands
+        self._commands.update(security_ai_commands(context))
         from backend.native_mods import MESSAGES as NATIVE_MESSAGES
         from backend.workshop import MESSAGES as WORKSHOP_MESSAGES
+        from backend.mod_security import MESSAGES as SECURITY_MESSAGES
         MESSAGES.update(NATIVE_MESSAGES)
         MESSAGES.update(WORKSHOP_MESSAGES)
+        MESSAGES.update(SECURITY_MESSAGES)
         # This is constructor injection for the real desktop test harness only.
         # It has no request flag, environment toggle or command to enable it.
         for name, definition in (test_commands or {}).items():
@@ -487,7 +493,7 @@ class DesktopApi:
                     or not valid_id or not isinstance(request['command'], str) or type(request['payload']) is not dict
                     or len(json.dumps(request, ensure_ascii=False, allow_nan=False).encode('utf-8')) >
                     (1048576 if request.get('command') == 'native.config.save' else
-                     262144 if str(request.get('command', '')).startswith('native.') else
+                     262144 if str(request.get('command', '')).startswith(('native.', 'security.')) else
                      32768 if request.get('command') == 'ai.chat.send' else 16384)):
                 return failure('INVALID_REQUEST')
             with self._admit(request) as (handler, payload):
@@ -510,10 +516,11 @@ class DesktopApi:
 
     @contextmanager
     def _admit(self, request):
-        """Remote public reads must not hold the desktop's command mutex.
+        """Remote reads and native save must not hold the UI mutex.
 
-        Mutating commands retain their previous serialization. Close drains
-        admitted reads; data migration cannot move their cache underneath them.
+        Native save owns revision/lease concurrency for its atomic commit. Manual
+        report reads and optional AI previews stay independent. Close drains these
+        admitted operations; migration cannot move their data underneath them.
         """
         from backend.runtime.events import RuntimePolicyError
         command = request['command']
@@ -530,7 +537,8 @@ class DesktopApi:
                 raise RuntimePolicyError('STORAGE_OPERATIONS_RUNNING')
             schema, handler = self._commands[command]
             payload = schema.model_validate(request['payload'])
-            if command not in {'workshop.browse', 'workshop.query', 'workshop.detail', 'workshop.image', 'ai.translation.cache'}:
+            if command not in {'workshop.browse', 'workshop.query', 'workshop.detail', 'workshop.image', 'ai.translation.cache',
+                              'security.status', 'security.activity', 'security.detail', 'security.ai.preview', 'native.save'}:
                 yield handler, payload
                 return
             self._active_reads += 1

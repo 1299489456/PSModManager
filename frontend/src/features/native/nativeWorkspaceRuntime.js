@@ -3,7 +3,7 @@ import { changes, equalOrder, dependencies, reverseDependencies, draftIssues, mo
 const message = error => error?.message || '操作未完成，请刷新后重试。'
 export function createNativeWorkspaceRuntime(bridge, state = {}) {
   let epoch = 0, disposed = false
-  Object.assign(state, { installationId: null, snapshot: null, order: [], baseline: [], past: [], future: [], rules: [], busy: false, loading: false, error: '', notice: '', externalChanged: false })
+  Object.assign(state, { installationId: null, snapshot: null, order: [], baseline: [], past: [], future: [], rules: [], busy: false, phase:null, loading: false, error: '', errorCode:'', notice: '', externalChanged: false })
   const dirty = () => changes(state.order, state.baseline).dirty
   const payload = () => ({ installation_id: state.installationId })
   function adopt(snapshot) {
@@ -28,7 +28,7 @@ export function createNativeWorkspaceRuntime(bridge, state = {}) {
     finally { if (token === epoch && !disposed) state.loading = false }
   }
   async function setInstallation(id) {
-    ++epoch; state.installationId = id || null; state.snapshot = null; state.order = []; state.baseline = []; state.past = []; state.future = []; state.rules = []; state.busy = false; state.loading = false; state.error = ''; state.notice = ''; state.externalChanged = false
+    ++epoch; state.installationId = id || null; state.snapshot = null; state.order = []; state.baseline = []; state.past = []; state.future = []; state.rules = []; state.busy = false; state.phase=null; state.loading = false; state.error = ''; state.errorCode=''; state.notice = ''; state.externalChanged = false
     if (id) return refresh(true)
     return false
   }
@@ -73,22 +73,34 @@ export function createNativeWorkspaceRuntime(bridge, state = {}) {
   function redo() { if(state.busy)return false; const next = state.future.pop(); if (!next) return false; state.past.push({ order: [...state.order], label: next.label }); state.order = next.order; state.notice = `已重做：${next.label}`; return true }
   const issues = () => [...draftIssues(state.order, state.snapshot?.mods || [], state.rules), ...(state.snapshot?.issues || []).filter(x => x.severity === 'error').map(x=>({...x,level:'block',message:x.message || x.code}))]
   const canWrite = () => state.snapshot?.runtime?.state === 'stopped' && state.snapshot?.runtime?.writable !== false && !state.busy && !state.externalChanged
+  function observeProcess(value) {
+    if(!state.snapshot||value?.installation_id!==state.installationId)return false
+    const next=value.state==='running'?'running':['not_started','exited','failed'].includes(value.state)?'stopped':'unknown'
+    const previous=state.snapshot.runtime||{}
+    state.snapshot.runtime={...previous,state:next,...(next!=='stopped'?{writable:false,message:value.message}: {})}
+    // A stopped process is not permission to write. Re-read the host guard after
+    // a process transition or a previous lock; never manufacture writable=true.
+    return next==='stopped' && (previous.state!=='stopped'||previous.writable===false)
+  }
   async function save() {
-    if (!canWrite() || issues().some(i => i.level === 'block')) { state.error = state.externalChanged ? '外部状态有变化，请先重新读取。' : '请先处理阻断问题，并确认游戏已经退出。'; return null }
-    if (!dirty()) return state.snapshot
-    const token = epoch; state.busy = true; state.error = ''
+    state.error='';state.errorCode=''
+    if (!canWrite() || issues().some(i => i.level === 'block')) { state.error = state.externalChanged ? '外部状态有变化，请先重新读取。' : issues().some(i=>i.level==='block') ? '请先处理启用列表中的依赖或包结构问题。' : state.snapshot?.runtime?.message || '请确认游戏已经退出，并刷新安装状态。';state.errorCode=state.snapshot?.runtime?.blocking_reason||''; return null }
+    // An explicit save also records user approval for current content when order did
+    // not change. Invalidate older inventory reads before entering this write.
+    const token = ++epoch; state.busy = true; state.loading=false;state.phase='validating'
     try {
       const validation = await bridge.request('native.validate', { ...payload(), enabled_ids: [...state.order], rules: [...state.rules] })
       if (token !== epoch || disposed) return null
       if (validation.blocking) throw new Error('原生加载条件未满足，请处理依赖或包检查问题。')
+      state.phase='saving'
       const result = await bridge.request('native.save', { ...payload(), expected_revision: state.snapshot.revision, enabled_ids: [...state.order] })
       if (token !== epoch || disposed) return null
       if (result.saved !== true) throw new Error('写入结果尚未确认，请刷新核对；草稿已保留。')
-      adopt(result); state.notice = '目标状态已写入并读回一致；运行结果等待新的游戏日志确认。'; return result
-    } catch (error) { if (token === epoch && !disposed) { state.error = message(error); if (error?.code === 'NATIVE_STATE_CHANGED') state.externalChanged = true } return null }
-    finally { if (token === epoch && !disposed) state.busy = false }
+      adopt(result); state.error='';state.errorCode='';state.notice = '启用顺序与本次启用同意已保存；运行结果等待新的启动日志确认。'; return result
+    } catch (error) { if (token === epoch && !disposed) { state.error = message(error); state.errorCode=error?.code||'';if (error?.code === 'NATIVE_STATE_CHANGED') state.externalChanged = true } return null }
+    finally { if (token === epoch && !disposed){state.busy = false;state.phase=null} }
   }
-  return { setInstallation, refresh, refreshInventory, adopt, enable, disable, undo, redo, change, dirty, issues, canWrite, save,
+  return { setInstallation, refresh, refreshInventory, observeProcess, adopt, enable, disable, undo, redo, change, dirty, issues, canWrite, save,
     move: (ids, mode) => change(moveSelection(state.order, ids, mode), '调整保存顺序'),
     drop: (ids, at) => change(dropSelection(state.order, ids, at), '拖动调整保存顺序'),
     sorted: () => stableSort(state.order, state.snapshot?.mods || [], state.rules),

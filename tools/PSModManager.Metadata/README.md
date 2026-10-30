@@ -1,4 +1,4 @@
-# Static metadata helper (protocol 1)
+# Static metadata helper (protocols 1 and 2)
 
 Build offline with the already installed .NET 10 SDK/reference pack:
 
@@ -51,8 +51,9 @@ Timeout or connection refusal never establishes the boundary. This probe is one
 fail-closed check in addition to the parent's sandbox and access boundary checks;
 it is not a claim that a generic child process provides isolation.
 
-No arguments is accepted solely for self-authored fixture direct invocation;
-all other argument lists are rejected. stdin is exactly one UTF-8
+For protocol 1, no arguments is accepted solely for self-authored fixture direct
+invocation. Protocol 2 has the separate arguments documented below; other
+argument lists are rejected. stdin is exactly one UTF-8
 JSON document followed by EOF:
 
 ```json
@@ -98,3 +99,118 @@ and never execute input fixtures. Existing PS-00-05 fixture sources are retained
 The native fixture is a self-authored PE with the CLI directory removed; it is a
 classification fixture, not a runnable native application. .NET API behavior is
 documented by the installed reference pack's `System.Reflection.Metadata.xml`.
+
+## Security evidence: separate protocol 2
+
+Use `MetadataWorker(data_root).inspect_security(package_root, relative_file,
+cancelled=callback)` from the trusted host. It preserves the legacy result envelope:
+`{file_name,relative_path,sha256,size,status,error,metadata,process}`. The SHA-256
+binds the result to the staged input bytes; a source change during parsing returns
+`changed`, `INPUT_CHANGED`, and `metadata:null`. The legacy `inspect()` and protocol
+1 remain unchanged. Missing isolation/runtime, cancellation, crash, timeout,
+cleanup failure or invalid output cannot produce usable security metadata.
+
+The parent runs `--require-isolation --security` with
+`{"protocol_version":2,"input_path":"<absolute-staged-copy>"}`. The helper keeps
+the same four-field response envelope and status/exit-code vocabulary, now with
+`protocol_version:2`. `--security` without the isolation flag is only for
+self-authored fixture tests. Protocol 1 and 2 requests cannot be interchanged.
+The helper performs the same pre-open network-boundary check; candidates are
+never loaded into the CLR. `System.Reflection.Emit.OpCodes` reflection is against
+the trusted framework opcode table, not against candidate assemblies.
+
+On `managed`/`native`, `metadata` contains
+`machine,cli_flags,any_cpu,assembly_name,assembly_version,references,security`.
+The `security` object has these stable fields:
+
+- `schema_version:2`, `analyzer:"psmm-static-security-v2"`. Protocol 2 schema 1
+  caches must be invalidated: they omitted declaring scopes and a Steam
+  credential-path literal. Protocol 1 is unchanged.
+- `coverage`: `status:complete|partial`, sorted `reasons`, fixed `limitations`,
+  `evidence_limited`, per-list `omitted_evidence_counts`, and numeric `limits`.
+- `sizes`: `file_bytes`, `metadata_bytes`, `method_il_bytes`, `scanned_il_bytes`,
+  `managed_resource_directory_bytes`, `embedded_resource_payload_bytes`.
+- `counts`: `methods_total`, `methods_examined`, `methods_with_body`,
+  `methods_scanned`, `methods_skipped`, `instructions_scanned`, `call_sites_total`,
+  `sensitive_calls_total`, `member_references_total`, `member_references_scanned`,
+  `sensitive_declarations_total`, `pinvokes_total`, `strings_scanned`,
+  `interesting_strings_total`, `resources_total`, `resources_scanned`,
+  `embedded_resources`, `external_resources`, `suspicious_resources_total`,
+  `unresolved_tokens`.
+- `category_counts`: sensitive IL instruction totals by category, independent of
+  whether their evidence samples fit in the response.
+- `resource_kind_counts`: all inspected embedded resource headers by kind.
+- `declarations`: `{kind:member_reference|pinvoke,category,target,token,declaring_scope}`.
+- `calls`: `{method,method_token,offset,opcode,target,target_token,target_kind,declaring_scope,category}`.
+  Offset is zero-based bytes from the method's IL body, not a file offset.
+  Opcodes are `call`, `callvirt`, `newobj`, `jmp`, `calli`. Overloads are identified
+  by metadata token; display names omit signatures and are not unique identities.
+  `target_kind` is `method_definition`, `member_reference`,
+  `method_specification`, `indirect`, or `unresolved`.
+- `pinvokes`: `{method,method_token,module,entry_point,flags}`.
+- `strings`: `{method,method_token,offset,kind,value}` from IL `ldstr` only;
+  kind is `url`, `sensitive_path`, `command_or_persistence`, or `path`.
+- `resources`: `{name,embedded,offset,size,header_kind}`. Offset is relative to the
+  managed resource directory. External resources have null size and are never
+  opened. Header kinds: `pe`, `zip`, `7z`, `rar`, `gzip`, `png`, `jpeg`, `gif`,
+  `riff`, `ogg`, `other`, `external`. These are prefix hints, not validated files;
+  `pe` means an MZ prefix, not a confirmed runnable embedded program.
+
+Categories are `dynamic_load`, `dynamic_code`, `process_start`, `network`,
+`native_interop`, `registry`, `credential_access`, `file_delete`, `file_write`,
+`file_read`, `filesystem`, `reflection`, `open_url`, `indirect_call`. A metadata
+declaration does not prove an IL call exists. An IL call does not prove that it is
+reachable or executed. Names are static metadata, not an authenticated library
+identity. URLs and paths are candidate-authored literals, never dereferenced.
+`loginusers.vdf`, including relative-path spelling, is a sensitive-path literal.
+
+Every call/declaration now carries `declaring_scope:{kind,token,assembly}`.
+Kinds are `local`, `assembly_reference`, `module_reference`, `indirect`,
+`unresolved`. A local definition remains local even when it declares a name like
+`System.IO.File`. An external scope's `token` is the exact AssemblyRef table token;
+its `assembly` has `name,version,culture,public_key_token`. Other scope kinds have
+`assembly:null`; tokens identify the local TypeDef/ModuleDef, ModuleRef, indirect
+signature or unresolved metadata handle as appropriate. MethodSpec and generic
+TypeSpec scopes follow their declared base handles, without loading dependencies.
+An absent public key token is null. Full public keys are reduced to their
+standard SHA-1 identity token within a 16 KiB key limit. These are declared
+reference identities, not verified signatures or proof of runtime resolution.
+A high-risk framework-call combination must not rely on type-name substrings
+alone; match the external assembly name and expected public-key token, preserve
+that evidence, and keep unknown/local names out of framework-only conclusions.
+
+`complete` means the bounded static traversals finished, not that the package is
+safe or that control/data flow is known. It does not include dependency loading,
+deobfuscation, native disassembly, runtime-generated code, full string-heap
+search, resource deserialization, or archive unpacking. Plain native PE reports
+`native` with `partial` / `native_code_not_analyzed`; mixed managed/native flags
+also make coverage partial. Invalid IL, bad resource bounds, external resources,
+overlapping resource regions, truncated metadata strings and traversal limits
+add explicit partial reasons. Corrupt PE/metadata returns no report.
+
+Evidence arrays are representative samples: 128 calls and 64 entries for each
+other list. `evidence_limited:true` by itself does not mean traversal failed, and
+consumers must not treat missing sampled calls/strings as proof of absence.
+Counts and byte totals cover every successfully inspected row within traversal
+limits; PE/archive header samples take precedence over ordinary image samples.
+Resource byte counts are logical payload sums, excluding four-byte length
+prefixes; overlapping regions are flagged partial and may appear more than once
+in that logical sum. IL byte counts likewise sum method bodies, not unique file
+regions. `scanned_il_bytes` counts fully decoded method bodies only.
+
+Protocol 2 limits: request 16 KiB, input 64 MiB, response 256 KiB, 50,000 methods,
+50,000 member references, 256 assembly references, 16,384 resource rows,
+1 MiB IL per method, 24 MiB aggregate decoded IL, two million instructions,
+512 UTF-16 code units per displayed string. Resources read only their length and
+at most 16 header bytes. The resource count is not limited by the evidence-array
+cap. Response overflow drops sample tails with exact omitted counts, never totals;
+if a bounded response still cannot be made, it returns `limit_exceeded`.
+Existing parent timeout/memory/cleanup limits remain independently enforced.
+
+Run `python -m pytest tests/metadata/test_security_parser.py -q` for protocol 2.
+Tests include a nonexecuted static-constructor sentinel, 850 resources with late
+MZ/ZIP prefixes, output limits, native/invalid evidence, and real Windows LPAC
+worker execution. The compiler uses a caller-owned response file to keep large
+resource fixtures below Windows command-line limits. Both development and offline
+self-contained builds compile `SecurityAnalysis.cs`; `helper-build.json` records
+its separate `security_source_sha256` provenance alongside the legacy source hash.

@@ -10,6 +10,7 @@ import { Sprout, FileText, Settings, ShieldCheck, Layers, Globe } from 'lucide-v
 import WorkshopPanel from '../features/native/WorkshopPanel.vue'
 import ProfilePanel from '../features/native/NativeProfiles.vue'
 import { createWorkshopRuntime } from '../features/native/workshopRuntime.js'
+import SecurityWorkspace from '../features/native/SecurityWorkspace.vue'
 import GameLaunchButton from '../features/installations/GameLaunchButton.vue'
 import LogDiagnosticsWorkspace from '../features/ai/LogDiagnosticsWorkspace.vue'
 import WindowFrame from './WindowFrame.vue'
@@ -23,6 +24,8 @@ import { reducedMotion } from '../features/catalog/gardenMotion.js'
 const workspaceTab = ref('mods')
 const aiOpened = ref(false)
 const workshopOpened = ref(false)
+const securityOpened=ref(false),securityMutating=ref(false)
+function openSecurity(){securityOpened.value=true;workspaceTab.value='security'}
 const workshopPanel = ref(null)
 const nativeSnapshot = ref(null)
 const importActive = ref(false)
@@ -35,6 +38,7 @@ const modState = ref({ dirty: false, loaded: false, locked: false, changes: 0 })
 const profilePanel = ref(null)
 const modManager = ref(null)
 const launcher = ref(null)
+const processStatus=ref(null),launchBusy=ref(false)
 const nav = ref(null)
 const vine = ref(null)
 const selectedInstallation = ref(null)
@@ -71,6 +75,8 @@ async function openImport() { workspaceTab.value = 'mods'; await nextTick(); mod
 async function applyProfile(ids) { workspaceTab.value = 'mods'; await nextTick(); modManager.value?.applyProfile(ids) }
 async function showRecovery() { workspaceTab.value = 'mods'; await nextTick(); modManager.value?.recovery() }
 const saveBeforeLaunch = async () => modManager.value ? await modManager.value.prepareLaunch() : false
+async function launchChecked(result){modManager.value?.launchFinished(result);await modManager.value?.refreshInventory()}
+function saved(){launcher.value?.clearError()}
 function placeVine(grow) {
   const active = nav.value?.querySelector(`[data-tab="${workspaceTab.value}"]`), line = vine.value
   if (!line) return
@@ -148,27 +154,29 @@ onUnmounted(cleanup)
 <template>
   <div class="garden-shell desktop-shell">
     <div class="garden-fronds" aria-hidden="true"></div>
-    <WindowFrame :bridge="bridge"/><GardenSymbols/>
+    <WindowFrame :bridge="bridge" :version="appInfo?.version"/><GardenSymbols/>
     <p class="sr-only" role="status">{{ status }}</p>
     <header v-show="!storageGated" class="canopy">
       <nav ref="nav" class="canopy-nav" aria-label="工作区">
         <button data-testid="workspace-mods" data-tab="mods" :aria-current="workspaceTab === 'mods' ? 'page' : undefined" @click="go('mods')"><Sprout :size="17" aria-hidden="true"/>模组<span v-if="modState.changes" class="canopy-count" :aria-label="`${modState.changes} 项未保存`">{{ modState.changes }}</span></button>
         <button data-testid="profile-open" data-tab="profiles" :disabled="!appInfo" :aria-current="workspaceTab === 'profiles' ? 'page' : undefined" @click="go('profiles')"><Layers :size="17" aria-hidden="true"/>方案</button>
         <button data-testid="workshop-open" data-tab="workshop" :disabled="!appInfo" :aria-current="workspaceTab === 'workshop' ? 'page' : undefined" @click="openWorkshop()"><Globe :size="17" aria-hidden="true"/>创意工坊</button>
+        <button data-testid="workspace-security" data-tab="security" :disabled="!appInfo" :aria-current="workspaceTab === 'security' ? 'page' : undefined" @click="openSecurity"><ShieldCheck :size="17" aria-hidden="true"/>模组检查</button>
         <button data-testid="workspace-ai" data-tab="ai" :aria-current="workspaceTab === 'ai' ? 'page' : undefined" @click="openDiagnostics"><FileText :size="17" aria-hidden="true"/>日志</button>
         <button class="info-button" data-testid="workspace-settings" data-tab="settings" :disabled="!appInfo" :aria-current="workspaceTab === 'settings' ? 'page' : undefined" aria-label="设置" @click="go('settings')"><Settings :size="17" aria-hidden="true"/>设置</button>
         <span ref="vine" class="canopy-vine" aria-hidden="true"><svg viewBox="0 0 100 14" preserveAspectRatio="none"><path d="M2 8 Q 14 2 26 8 T 50 8 T 74 8 T 98 8"/><ellipse cx="96" cy="5" rx="4" ry="2.4" transform="rotate(-30 96 5)"/></svg></span>
       </nav>
-      <div class="canopy-right" :inert="workspaceBusy || profileBusy || steam.busy() || undefined">
+      <div class="canopy-right" :inert="workspaceBusy || profileBusy || securityMutating || steam.busy() || undefined">
         <span v-if="modState.running" class="env-pill warn">游戏运行中 · 只读</span>
         <InstallationSelector v-if="workspaceReady" :bridge="bridge" :identity="nativeSnapshot?.identity ? {...nativeSnapshot.identity, ...nativeSnapshot.paths} : null" @selected="selectedInstallation = $event"/>
       </div>
-      <GameLaunchButton v-if="workspaceReady" ref="launcher" class="canopy-launch" :bridge="bridge" :installation="selectedInstallation" :disabled="modState.locked || !modState.loaded || steam.busy()" :before-launch="saveBeforeLaunch" :save-first="modState.dirty" :pending="modState.changes" @launch-checked="modManager?.refresh()"/>
+      <GameLaunchButton v-if="workspaceReady" ref="launcher" class="canopy-launch" :bridge="bridge" :installation="selectedInstallation" :disabled="modState.locked || !modState.loaded || steam.busy() || securityMutating" :before-launch="saveBeforeLaunch" :preparation-phase="modState.phase" @status="processStatus=$event" @busy="launchBusy=$event" :save-first="modState.dirty" :pending="modState.changes" @launch-checked="launchChecked"/>
     </header>
     <div class="garden-bed">
-      <ModWorkspace v-if="workspaceReady" v-show="workspaceTab === 'mods'" ref="modManager" :active="workspaceTab === 'mods'" :bridge="bridge" :steam="steam" :steam-state="steamState" :installation="selectedInstallation" @logs="openDiagnostics" @workshop="openWorkshop" @busy="workspaceBusy = $event" @state="modState = $event" @snapshot="nativeSnapshot = $event" @launch="launcher?.launch()"/>
+      <ModWorkspace v-if="workspaceReady" v-show="workspaceTab === 'mods'" ref="modManager" :active="workspaceTab === 'mods'" :process-status="processStatus" :launch-busy="launchBusy" @saved="saved" :bridge="bridge" :steam="steam" :steam-state="steamState" :installation="selectedInstallation" @logs="openDiagnostics" @ai-settings="openAiSettings" @workshop="openWorkshop" @busy="workspaceBusy = $event" @state="modState = $event" @snapshot="nativeSnapshot = $event" @launch="launcher?.launch()"/>
       <ProfilePanel v-if="workspaceReady" v-show="workspaceTab === 'profiles'" ref="profilePanel" :active="workspaceTab === 'profiles'" :bridge="bridge" :installation="selectedInstallation" :mods="nativeSnapshot?.mods || []" :current-order="nativeSnapshot?.enabled_ids || []" :current-rules="nativeSnapshot?.rules || []" :workspace-dirty="modState.dirty" :inert="workspaceBusy || undefined" @busy="profileBusy = $event" @apply="applyProfile" @reveal="revealMod" @recovery="showRecovery"/>
       <WorkshopPanel v-if="workspaceReady && workshopOpened" v-show="workspaceTab === 'workshop'" ref="workshopPanel" :active="workspaceTab === 'workshop'" :bridge="bridge" :steam="steam" :steam-state="steamState" :installation="selectedInstallation" :mods="nativeSnapshot?.mods || []" @ai-settings="openAiSettings" @logs="openDiagnostics" :ai-revision="aiRevision" @import="openImport" @reveal="revealMod" @refresh-mods="modManager?.refreshInventory()"/>
+      <SecurityWorkspace v-if="workspaceReady && securityOpened" v-show="workspaceTab==='security'" :active="workspaceTab==='security'" :bridge="bridge" :installation="selectedInstallation" :mods="nativeSnapshot?.mods||[]" :native-runtime="nativeSnapshot?.runtime" :dirty="modState.dirty" :busy="workspaceBusy||profileBusy||steam.busy()||launchBusy" @mutating="securityMutating=$event" @changed="modManager?.refreshInventory()" @settings="openAiSettings"/>
       <LogDiagnosticsWorkspace v-if="workspaceReady && aiOpened" v-show="workspaceTab === 'ai'" :active="workspaceTab === 'ai'" :bridge="bridge" :installation="selectedInstallation" :settings-revision="aiRevision" @settings="openAiSettings" @mod-changed="modManager?.refresh()" @reveal-mod="revealMod"/>
       <section v-if="appInfo" v-show="storageGated || workspaceTab === 'settings'" class="garden-settings app-info" :class="{ 'storage-gated': storageGated }" aria-label="设置">
         <div v-if="!storageGated" class="garden-intro"><div><h1>设置</h1><p>PSMM v{{ appInfo.version }} · 数据位置、模组更新、AI 服务与应用信息。</p></div></div>

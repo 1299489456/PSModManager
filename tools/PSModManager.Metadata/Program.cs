@@ -17,6 +17,9 @@ internal static class Program
     static string Text(string value) { if (value.Length > 8192) throw new LimitException("metadata_string"); return value; }
     static int Main(string[] args)
     {
+        if (args.SequenceEqual(new[] { "--security" })) return SecurityAnalysis.Run(false);
+        if (args.SequenceEqual(new[] { "--require-isolation", "--security" })) return SecurityAnalysis.Run(true);
+        if (args.SequenceEqual(new[] { "--require-isolation", "--approval" })) return ApprovalAnalysis.Run();
         string status; object? report = null; string? error = null; bool parsingImage = false;
         List<Dictionary<string, object?>>? resourceReports = null;
         Dictionary<string, object?>? resourceCoverage = null;
@@ -127,7 +130,7 @@ internal static class Program
         using var stdout = Console.OpenStandardOutput(); stdout.Write(output);
         return status == "managed" || status == "native" ? 0 : 2;
     }
-    static bool NetworkBoundaryProven()
+    internal static bool NetworkBoundaryProven()
     {
         bool denied = true;
         foreach (var family in new[] { AddressFamily.InterNetwork, AddressFamily.InterNetworkV6 })

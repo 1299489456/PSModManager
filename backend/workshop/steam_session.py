@@ -231,11 +231,19 @@ class SteamHelper:
         self.root = installation['canonical_root']
         self._process, self._connection = None, None
         self._lock = threading.RLock()
+        self._probe_cancelled = threading.Event()
 
     def _receive(self, timeout):
-        if not self._connection.poll(timeout):
-            code = 'WORKSHOP_SESSION_LOST' if not self._process.is_alive() else 'WORKSHOP_SESSION_TIMEOUT'
-            raise WorkshopError(code, MESSAGES[code], retryable=True)
+        deadline = time.monotonic() + timeout
+        while True:
+            if self._probe_cancelled.is_set():
+                raise WorkshopError('WORKSHOP_SESSION_LOST', MESSAGES['WORKSHOP_SESSION_LOST'], retryable=True)
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                code = 'WORKSHOP_SESSION_LOST' if not self._process.is_alive() else 'WORKSHOP_SESSION_TIMEOUT'
+                raise WorkshopError(code, MESSAGES[code], retryable=True)
+            if self._connection.poll(min(.05, remaining)):
+                break
         result = json.loads(self._connection.recv_bytes(2 * 1024 * 1024))
         if not result.get('ok'):
             value = result.get('error', {})
@@ -244,6 +252,8 @@ class SteamHelper:
         return result.get('result')
 
     def _start(self):
+        if self._probe_cancelled.is_set():
+            raise WorkshopError('WORKSHOP_SESSION_LOST', MESSAGES['WORKSHOP_SESSION_LOST'], retryable=True)
         if self._process is not None and self._process.is_alive():
             return
         self.close()
@@ -283,6 +293,11 @@ class SteamHelper:
 
     def snapshot(self, ids=()):
         return self._request('snapshot', ids=list(ids))
+
+    def cancel_probe(self):
+        # Only service-owned read-only probes call this. Never interrupt an
+        # accepted subscribe/download operation or touch the user's Steam/game.
+        self._probe_cancelled.set()
 
     def begin(self, operation_id, action, ids):
         return self._request('begin', operation_id=operation_id, action=action, ids=list(ids))

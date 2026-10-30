@@ -9,14 +9,14 @@ WorkshopService(paths, *, session=None, opener=None,
 
 `paths` 是现有 `AppPaths`；`session` 是可注入的 HTTPX 客户端。`installation` 是宿主已选择、校验的安装记录 dict，含绝对 `canonical_root`、可选 `app_id="4348910"`；不接受页面任意目录。工坊目录仅由该安装所在 `steamapps` 推导。手动原生安装仍能启动游戏，但不启用 Steam 工坊修改能力。
 
-`process_status(installation)` 返回 `{state: "stopped"|"running"|"unknown", writable: bool}`。`write_guard(installation)` 返回同启动器、原生模组写入共用的安装 lease；其 `check()` 在持有期间重新核对游戏进程。缺少两者时直接操作不可用。宿主退出调用 `close()`；启动游戏前，在已持有该安装 lease 时调用 `release(installation)`。
+`process_status(installation)` 返回 `{state: "stopped"|"running"|"unknown", writable: bool}`。`write_guard(installation)` 返回同启动器、原生模组写入共用的安装 lease；其 `check()` 在持有期间重新核对游戏进程。缺少两者时直接操作不可用。宿主退出调用 `close()`；前台原生保存/启动在获取安装 lease **之前**进入 `foreground_operation(installation)`，在该上下文内获取 lease 并执行操作。启动游戏仍需在已持 lease 时调用 `release(installation)`。
 
 ## DesktopApi 接线
 
 - `status(installation, *, workshop_id=None, refresh=False)`：立即读取本地记录和最近 Steam 快照，后台去重探测，不同步等待 SDK；返回 `{app_id, observed_at, local_available, items, downloads, issues, session, runtime, capabilities, operations}`。指定 ID 可后台查询未订阅条目。手动 refresh=true 绕过成功/失败的 30 秒 TTL，安装保护允许时立即排队探测；已有探测仍去重，不把页面调用变成阻塞探测。恢复检查尚未通过时不因 refresh 绕过保护。
 - `action(installation, *, action, ids, source="manual", submission_allowed=None)`：`action=subscribe|unsubscribe|update`；1 至 100 个数字 Workshop ID。source 只能由宿主传 manual/automatic，页面 action 不接受。submission_allowed 是宿主本批次不可复活 Event.is_set，关闭自动更新立即阻止后续逐项 begin，但已经提交项继续回调核对；重新开启使用新 Event，不恢复旧批次。返回操作 DTO，初始通常 queued，前端轮询 status.operations，批量逐项报告。
 - `capabilities(installation=None)`：无安装时仅公共浏览/官方交接可用；有安装时能力来自实际会话与进程保护。
-- `browse(installation=None, *, query="", page=1, sort="hot", refresh=False, page_size=24)`：page_size 支持 12/24/48；内部兼容旧 30。官方页仍取 30 项，按绝对偏移拼接/裁剪，最多跨 3 个源页，缓存源页复用，无页间重复/漏项。sort=hot/recent/new/mine；mine 合并本机记录与最近实际订阅，公开 API 补标题、封面。返回 `{items, page, page_size, total, has_more, source, capabilities}` 及下述缓存字段。
+- `browse(installation=None, *, query="", page=1, sort="hot", refresh=False, page_size=24)`：page_size 支持 12/24/48；内部兼容旧 30。官方页仍取 30 项，按绝对偏移拼接/裁剪，最多跨 3 个源页并发读取，缓存源页复用，无页间重复/漏项。sort=hot/recent/new/mine；mine 合并本机记录与最近实际订阅，公开 API 后台补标题、封面。本机卡片不等网络。返回 `{items, page, page_size, query, sort, total, has_more, source, capabilities, loading, partial, retry_after_ms}` 及下述缓存字段。冷缓存也不等待 HTTP：`items=[]/loading=true/refreshing=true` 表示首次后台读取，不能显示“没有匹配条目”；部分源页返回则 `partial=true`，条目保持源绝对偏移。`total=null` 表示尚未取得总量。`refreshing=true` 时建议 750ms 后重读（不传 refresh），最多有限轮询；显式 refresh 才绕过失败退避。终止读取失败保留 `network_error`，不能将空数组当作成功空目录。
 - `query(workshop_ids, installation=None, *, refresh=False)`：1 至 30 个 ID，返回 `{items, source}` 及缓存字段；同一条目的列表、批量查询、单项详情共用持久元数据。
 - `detail(workshop_id, installation=None, *, refresh=False)`：立即使用已有卡片/完整详情，完整文本和作者/依赖补充后台重验证；完全无缓存时仅等待必要的公开 API，不等待可选详情 HTML 或 SDK。新增 description_scope=summary/detail、source_pending。summary 不能作为完整翻译源；8k 截断另用 description_truncated 表示。未知依赖仍为 required_items=[] / children_kind=unknown。
 - `cached_detail(workshop_id, installation=None)`：宿主 AI 缓存专用，纯本地，完整公开源存在则返回 dict，否则 None；不排队、不联网、不初始化 SDK。
@@ -25,6 +25,8 @@ WorkshopService(paths, *, session=None, opener=None,
 - `open(workshop_id=None, *, intent="detail", target="steam")`：保留官方交接备用入口。`intent=detail|subscribe|unsubscribe|workshop`，`target=steam|browser`。严格生成 Valve 页面/Steam URI；返回 `state="handoff_opened", confirmation_required=true, subscription_state="unknown"`，打开页面不等于完成账号动作。
 - `anonymous_download(...)`：抛 `WORKSHOP_ANONYMOUS_UNAVAILABLE`。匿名下载能力未验证，不安装 SteamCMD、不制造登录、不以订阅冒充匿名下载。
 - `release(installation=None)`：释放自有 helper。指定安装时先查实际活动下载及未确认动作；有活动或无法消解的 uncertain 则抛 `WORKSHOP_OPERATION_BUSY`，启动器不得继续。无 Steam 库且无相关 provider/active/uncertain 的手动安装直接返回。无参数只关闭已有 helper，不替代指定安装的启动检查。
+- `foreground_operation(installation)`：宿主专用同步上下文，暂停该安装的新被动探测，取消并排空本服务的只读 probe 后 yield；结束前不会重新探测。现有 active/uncertain 仍报 `WORKSHOP_OPERATION_BUSY`，不当作探测取消。自有 helper 的 IPC 等待每 50ms 检查取消，正常退出后释放 lease；6 秒仍未排空则明确 `WORKSHOP_INSTALLATION_BUSY`，不假称已可写。不得在已经持有安装 lease 后才调用，也不用于包裹 workshop 自身 write_guard。旧 Demo/非目标 AppID 且无对应跟踪状态时直接 yield，不把工坊安装要求追加到原有裸游戏启动条件。
+- `probe_owns_lease(installation) -> bool`：纯内存、只读，不联网/探测/读文件。只有该安装本服务只读 probe 已实际取得安装 lease 且未释放、无 active/foreground 操作时为 true；排队中的 `_probes` 标志不能作证明。宿主仅在进程 stopped 且唯一 blocker 为 GUARD_LEASE_BUSY 时使用此证明，把只读探测标成可由 foreground_operation 抢占，不能豁免其他进程/恢复/路径阻断。实际写入仍需抢占并重新获取安装 lease。
 - `is_busy()`：无 SDK 调用，检查后台动作/uncertain、状态 probe、公共元数据/封面任务，供宿主阻断迁移。
 - `close()`：停止新任务，取消排队 HTTP，排空运行中的后台元数据/封面写入后再关闭 HTTP 客户端；返回后没有旧目录缓存晚写。Steam 已接受的任务可能继续执行，关闭管理器不表示取消下载。
 
@@ -115,7 +117,9 @@ helper 启动等待 20 秒，单次管道请求 10 秒，订阅回调 45 秒，�
 
 公开缓存位于 `paths.root/cache/workshop`，不保存账号会话、订阅 ID 列表、凭据或安装路径。metadata.json 最多 128 条记录/6 MiB，图片每个 1 MiB、最多 64 个，只接收已核验 Valve HTTPS 且无重定向的位图；SVG/HTML 拒绝。复用 locked_path 固定父目录/读文件，拒绝重解析和硬链接，独占临时文件加原子替换。损坏缓存视为 miss，不删除用户文件；不可写时元数据仍可内存使用。
 
-browse/query/detail 的缓存字段为 `{cache_hit, stale, refreshing, source_updated_at, network_error}`。元数据 5 分钟新鲜期，过期/显式刷新先返回已有内容、后台重验证（SWR）；封面为 24 小时或 URL 变化重取。同请求合并，失败自动探测有 30 秒退避，显式 refresh 可重试。公开工作线程 3 个、封面独立 1 个；缓存/会话锁不跨网络请求。官方源首次未访问且离线仍不可凭空显示内容；访问过的元数据、封面冷启动离线可用。
+browse/query/detail 的缓存字段为 `{cache_hit, stale, refreshing, source_updated_at, network_error}`。元数据 5 分钟新鲜期，过期/显式刷新先返回已有内容、后台重验证（SWR）；封面为 24 小时或 URL 变化重取。同请求合并，失败自动探测有 30 秒退避，显式 refresh 可重试。公开详情工作线程 3 个、目录独立 3 个、封面独立 1 个；缓存/会话锁不跨网络请求。慢详情不能占尽目录读取线程。官方源首次未访问且离线仍不可凭空显示内容；访问过的元数据、封面冷启动离线可用。
+
+目录 `stale/refreshing/network_error` 与 Steam SDK `session` 是两条独立状态：缓存过期只显示后台更新，不显示“重新连接”或网络失败；只有真实 network_error 显示目录错误。目录刷新不先连接 Steam。前端按安装/搜索/排序/页码/每页数量缓存列表，选中筛选立即变化，切回已有列表立即显示；同请求合并、旧响应可入缓存但不得覆盖最新选择，后台轮询完成后移除更新提示。2026-10-30 只读检查旧用户 metadata.json 为合法 version=1（128 条），问题来自状态与等待逻辑，未删除或迁移该缓存。
 
 本模块不会因读取状态、显示卡片或检测 needs_update 自动调用 DownloadItem；只有 action(update) 执行 SDK 修改。宿主可提供默认关闭、用户明确开启的“管理器自动更新模组”，以 source=automatic 调同一受保护动作，状态/回调不另走捷径。其开关只控制管理器提交；**Steam 客户端仍可能更新订阅内容**。
 
@@ -132,6 +136,13 @@ SDK/IPC adapter 未知异常归为 WORKSHOP_SESSION_LOST，不冒充安装 lease
 浏览使用官方页面 SSR，详情用无需 key 的 ISteamRemoteStorage/GetPublishedFileDetails/v1。页面结构变化报 WORKSHOP_PAGE_CHANGED，不伪装空列表。OpenID/OAuth 不等于 UGC 修改授权，不制造登录流程。
 
 ## 测试注入与证据
+
+### 2026-10-30 目录响应与前台优先修复
+
+- 定向 `test_catalog_responsiveness.py` 9 项：冷目录立即返回、同请求去重、48 项跨源页并发、部分缓存绝对偏移、真实错误字段、详情线程阻塞时目录独立、本机列表不等元数据、前台保存取消 probe 并一次取得 lease、active/uncertain 保留、关闭排空、Demo 兼容以及 IPC 取消。只用 fake SDK；不把取消被动探测用于 SDK 修改操作。
+- 相关前端 runtime 38 项通过，覆盖筛选缓存即时采用、旧响应不能覆盖新筛选、重复请求合并、后台读取完成自动移除缓存提示，以及目录错误不冒充账号断线。
+- 只读官方网络基线 ` .preview/workshop-catalog-latency-20261030/before.json`：热门/最近更新冷调用原本阻塞 2.640/1.141 秒；修改后 `after-persistent.json` 首次返回 2.3/0.1 毫秒，后台完整 24 项分别耗时 2.576/1.906 秒，暖列表各 1.3 毫秒。测试窗口未重现 30 秒网络耗时；原实现确有同步等待 8/25 秒 HTTP 的路径。改善的是交互等待，不把网络读取速度变化当作确定收益。
+- 实际 WebView2 + DesktopApi + service 验收 `.preview/workshop-catalog-webview-20261030-05/result.json`：筛选可见选择更新 5.1 毫秒，暖列表切回 89.9 毫秒；慢旧请求不能覆盖最新筛选；SDK ready 时目录刷新只显示正常后台提示，完成后自动消失；注入公开网络失败仍明确显示目录错误。官方元数据来自前述实网记录，慢 HTTP/错误和 SDK 为隔离 fixture，账号操作 0 次。截图已检查；UI asset `index-oDXyriAM.js`，无 page error。
 
 ```python
 from backend.workshop.steam_session import EngineProvider, SessionEngine

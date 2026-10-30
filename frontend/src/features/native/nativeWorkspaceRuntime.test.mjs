@@ -16,3 +16,29 @@ test('late previous-installation results never replace selected installation',as
 test('native bridge uses exact IDs, opaque hex tokens and explicit string config',async()=>{const sent=[],bridge=createBridge({transport:async request=>{sent.push(request);return{request_id:request.request_id,ok:true,data:{}}}});await bridge.request('native.detail',{installation_id:uuid,id:'CyberElectronics'});await bridge.request('native.import.commit',{installation_id:uuid,preview_id:'a'.repeat(32),expected_revision:'revision'});await bridge.request('native.config.save',{installation_id:uuid,id:'x',expected_revision:'rev',entries:[{key:'price',value:'1.00'}]});assert.equal(sent[0].payload.id,'CyberElectronics');await assert.rejects(()=>bridge.request('native.config.save',{installation_id:uuid,id:'x',expected_revision:'rev',entries:[{key:'price',value:1}]}));await assert.rejects(()=>bridge.request('native.save',{installation_id:uuid,expected_revision:'rev',enabled_ids:['x'],approved:true}));await bridge.dispose()})
 
 test('native bridge rejects non-native IDs and overlong profile names',async()=>{const bridge=createBridge({transport:async()=>{throw new Error('must not dispatch')}});for(const id of ['中文','../x','.hidden','a/b'])await assert.rejects(()=>bridge.request('native.detail',{installation_id:uuid,id}));await assert.rejects(()=>bridge.request('native.profile.create',{installation_id:uuid,name:'x'.repeat(101),enabled_ids:[]}));await bridge.dispose()})
+
+test('explicit unchanged save records user approval without safety scanning and clears the prior error',async()=>{
+  const {runtime,state,calls}=setup();await runtime.setInstallation(uuid);state.error='old failure';state.errorCode='GUARD_LEASE_BUSY'
+  assert.equal(runtime.dirty(),false);assert.equal((await runtime.save()).saved,true)
+  assert.deepEqual(calls.map(([c])=>c),['native.snapshot','native.validate','native.save']);assert.equal(state.error,'');assert.equal(state.errorCode,'');assert.equal(state.phase,null)
+})
+test('manual report risk, stale and missing reports never gate ordinary enable or save',async()=>{
+  for(const reportState of ['unscanned','high_risk','stale','incomplete']){
+    const {runtime,state,calls}=setup((command,payload,snap)=>command==='native.snapshot'?{...snap,mods:snap.mods.map(mod=>({...mod,security:{state:reportState,verdict:'high_risk'}}))}:command==='native.validate'?{blocking:false}:{...snap,enabled_ids:payload.enabled_ids,saved:true})
+    await runtime.setInstallation(uuid);runtime.enable(['base']);assert.deepEqual(state.order,['base']);assert.equal((await runtime.save()).saved,true);assert.deepEqual(calls.map(([c])=>c),['native.snapshot','native.validate','native.save']);runtime.dispose()
+  }
+})
+test('shared process observations lock immediately and stopped state requires host write revalidation',async()=>{
+  const {runtime,state}=setup();await runtime.setInstallation(uuid);runtime.enable(['base'])
+  assert.equal(runtime.observeProcess({installation_id:uuid,state:'running',message:'游戏运行中'}),false)
+  assert.equal(runtime.canWrite(),false);assert.equal(state.snapshot.runtime.state,'running');assert.deepEqual(state.order,['base'])
+  assert.equal(runtime.observeProcess({installation_id:uuid,state:'exited'}),true)
+  assert.equal(runtime.canWrite(),false);await runtime.refreshInventory();assert.equal(runtime.canWrite(),true);assert.deepEqual(state.order,['base'])
+  assert.equal(runtime.observeProcess({installation_id:'other',state:'running'}),false);assert.equal(runtime.canWrite(),true)
+  runtime.observeProcess({installation_id:uuid,state:'unknown'});assert.equal(runtime.canWrite(),false)
+})
+test('save invalidates an older inventory read so its stale response cannot replace the saved result',async()=>{
+  let release,count=0;const {runtime,state}=setup((command,payload,snap)=>command==='native.snapshot'?++count===1?snap:new Promise(r=>release=()=>r(snap)):command==='native.validate'?{blocking:false}:{...snap,revision:'saved',enabled_ids:payload.enabled_ids,saved:true})
+  await runtime.setInstallation(uuid);const read=runtime.refreshInventory();runtime.enable(['base']);await runtime.save();release();await read
+  assert.equal(state.snapshot.revision,'saved');assert.deepEqual(state.baseline,['base']);assert.equal(state.loading,false)
+})

@@ -63,6 +63,10 @@ MESSAGES = {
     'AI_PROVIDER_IN_USE':'这个服务仍用于分析或翻译，请先为这两项选择其他服务再删除。',
     'AI_PROVIDER_LIMIT':'最多可保存 20 个 AI 服务，请先移除不用的服务。',
     'AI_TRANSLATION_CACHE_IO':'无法读取或保存翻译缓存，请检查管理器数据目录；未自动重复翻译。',
+    'AI_SECURITY_REPORT_PENDING':'手动检查仍在进行，请等待报告生成后再分析。',
+    'AI_SECURITY_REPORT_CHANGED':'这份检查报告不存在或已更新，请重新选择已生成的报告。',
+    'AI_SECURITY_PREVIEW_EXPIRED':'发送预览已失效，请重新预览报告摘要。',
+    'AI_SECURITY_PREVIEW_CHANGED':'报告内容或分析服务已变化，请核对新的发送预览后再发送。',
 }
 
 
@@ -355,7 +359,11 @@ class DesktopAssistant:
                         prompt += '\n本次用户选择范围：'+redact_arguments(json.dumps(dict(installation_id=scope.installation_id,
                             selected_evidence_id=scope.selected_evidence_id),ensure_ascii=False),request_secrets)
                     messages = [dict(role='system',content=prompt)]
-                    if session.get('diagnostic'):
+                    if session.get('diagnostic', {}).get('kind') == 'security_report':
+                        # Host-only immutable preview. No installation scope,
+                        # tools or arbitrary files are added to this request.
+                        messages = [dict(row) for row in session['diagnostic']['prepared_messages']]
+                    elif session.get('diagnostic'):
                         messages[0]['content'] += ('\n这次是日志排错：先给出最有证据的结论，区分游戏、Mod、Loader、管理器问题；'
                             '引用日志来源和原文行号，解释原因，按优先级给出可操作的排查步骤。'
                             '明确区分日志事实与推测，资料截断或缺失时指出还需要什么。'

@@ -63,6 +63,9 @@ def test_delivery_copies_current_documents_and_catalog_materials(checkout, tmp_p
     readme = (bundle/'README-PORTABLE.txt').read_text('utf-8-sig')
     assert all(text in readme for text in ('完整解压', 'WebView2', 'LocalAppData', '数据位置'))
     assert '无需安装 MelonLoader' in readme and 'Steam 创意工坊' in readme
+    assert f'核对实际运行版本 {packaging.VERSION}' in readme
+    assert '解压新包不会更新仍打开的旧窗口' in readme
+    assert '顶部独立“模组检查”页' in readme
     assert 'AI 与 Nexus' not in readme
     assert not (bundle/'licenses/build-baseline.json').exists()
 
@@ -70,7 +73,11 @@ def test_delivery_copies_current_documents_and_catalog_materials(checkout, tmp_p
 @pytest.mark.parametrize('missing', ['frontend/dist/index.html', 'backend/app/resources/psmm-icon.ico',
     packaging.NOTICE_ROOT+'/distribution-materials.json', packaging.NOTICE_ROOT+'/build-baseline.json',
     'LICENSE', 'docs/user/quick-start.md',
-    'docs/development/workshop-recovery-scope-fix-2026-10-29.md'])
+    'docs/development/workshop-recovery-scope-fix-2026-10-29.md',
+    'docs/development/mod-security-implementation-2026-10-30.md',
+    'docs/development/interaction-reliability-fix-2026-10-30.md',
+    'docs/development/manual-mod-check-2026-10-30.md',
+    'docs/development/standalone-mod-check-2026-10-29.md'])
 def test_missing_resource_stops_before_output_or_build(checkout, monkeypatch, missing):
     root, _ = checkout
     (root/missing).unlink()
@@ -139,6 +146,15 @@ def test_package_inventory_rejects_external_steam_runtime(tmp_path, relative):
 
 def test_package_inventory_rejects_private_translation_cache(tmp_path):
     write(tmp_path, 'ai-translations.json', '{"owned": "private cached text"}')
+    with pytest.raises(ValueError, match='Forbidden release content'):
+        packaging.package_files(tmp_path)
+
+
+@pytest.mark.parametrize('relative', ['mod-security/installation/report.json',
+                                     '_internal/mod-security/installation/dispositions.json',
+                                     'mod-security-analysis/fixture-cache.json'])
+def test_package_inventory_rejects_private_security_reports_and_dispositions(tmp_path, relative):
+    write(tmp_path, relative, '{"owned": "private security history"}')
     with pytest.raises(ValueError, match='Forbidden release content'):
         packaging.package_files(tmp_path)
 
@@ -257,6 +273,8 @@ def test_build_assembles_final_delivery_before_manifest_and_archive(checkout, mo
     for name in ('main.py', 'PSModManager.spec', 'pack_pyinstaller.py', 'pyproject.toml', 'uv.lock',
                  'backend/scanning/worker_host.py', 'backend/scanning/worker_client.py',
                  'tools/PSModManager.Metadata/build.py', 'tools/PSModManager.Metadata/Program.cs',
+                 'tools/PSModManager.Metadata/SecurityAnalysis.cs',
+                 'tools/PSModManager.Metadata/ApprovalAnalysis.cs',
                  'tools/PSModManager.Metadata/PSModManager.Metadata.csproj',
                  'tools/PSModManager.Metadata/console_host_main.py'):
         write(root, name, 'owned build input')
@@ -282,6 +300,8 @@ def test_build_assembles_final_delivery_before_manifest_and_archive(checkout, mo
     assert {*packaging.delivery_documents(root), 'README-PORTABLE.txt',
         'licenses/demo/LICENSE.txt', 'licenses/distribution-materials.json'} <= declared
     assert 'licenses/distribution-materials.json' in manifest['licenses']
+    assert 'tools/PSModManager.Metadata/SecurityAnalysis.cs' in {row['path'] for row in manifest['inputs']}
+    assert 'tools/PSModManager.Metadata/ApprovalAnalysis.cs' in {row['path'] for row in manifest['inputs']}
     with zipfile.ZipFile(result['archive']) as archive:
         assert set(archive.namelist()) == {'PSModManager/'+name for name in actual}
         for name in actual:

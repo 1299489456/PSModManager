@@ -1,5 +1,6 @@
 """Public metadata, local inventory, and callback-confirmed Steam operations."""
 from copy import deepcopy
+from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from datetime import datetime
 import base64
@@ -27,8 +28,10 @@ class WorkshopService:
         self.cache = PublicCache(paths.root)
         self._lock = threading.RLock()
         self._public_pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix='PSMM-WorkshopPublic')
+        self._catalog_pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix='PSMM-WorkshopCatalog')
         self._image_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix='PSMM-WorkshopImage')
         self._fetches, self._fetch_errors, self._probes = {}, {}, set()
+        self._probe_controls, self._foreground = {}, {}
         self._image_sources = {}
         self._providers, self._steam_cache, self._operations = {}, {}, {}
         self._active, self._threads = {}, []
@@ -163,8 +166,9 @@ class WorkshopService:
             known = {row['workshop_id'] for row in value['items']}
             if refresh or not cached or age >= 30 or not set(ids).issubset(known):
                 with self._lock:
-                    if key not in self._probes and not self._closed.is_set():
+                    if key not in self._active and key not in self._probes and not self._foreground.get(key) and not self._closed.is_set():
                         self._probes.add(key)
+                        self._probe_controls[key] = dict(cancel=threading.Event(), done=threading.Event(), provider=None, lease_held=False)
                         thread = threading.Thread(target=self._probe_steam, args=(deepcopy(installation), list(ids)),
                                                   name='PSMM-WorkshopProbe', daemon=True)
                         self._threads = [t for t in self._threads if t.is_alive()]
@@ -176,22 +180,50 @@ class WorkshopService:
                                 probe_owned_busy=probing and not runtime['writable'])
         return value
 
+    def probe_owns_lease(self, installation):
+        """Read-only proof for the host's preemptible-probe UI admission rule."""
+        root = installation.get('canonical_root') if isinstance(installation, dict) else None
+        if not isinstance(root, str):
+            return False
+        key = root.casefold()
+        with self._lock:
+            control = self._probe_controls.get(key)
+            return bool(control and control.get('lease_held') and key in self._probes and
+                        key not in self._active and not self._foreground.get(key) and not self._closed.is_set())
+
+    @contextmanager
+    def _probe_lease(self, installation, control):
+        with self.write_guard(installation) as lease:
+            with self._lock:
+                control['lease_held'] = True
+            try:
+                yield lease
+            finally:
+                # Clear before the underlying lease can be acquired by another
+                # writer; queued/finishing probe threads are never ownership proof.
+                with self._lock:
+                    control['lease_held'] = False
+
     def _probe_steam(self, installation, ids):
         key = self._key(installation)
         provider = None
+        with self._lock:
+            control = self._probe_controls[key]
         try:
-            with self.write_guard(installation) as lease:
+            with self._probe_lease(installation, control) as lease:
                 lease.check()
                 with self._lock:
-                    if key in self._active or self._closed.is_set():
+                    if key in self._active or self._closed.is_set() or control['cancel'].is_set() or self._foreground.get(key):
                         return
                     provider = self._provider(installation)
+                    control['provider'] = provider
                 # Never hold the service/UI lock while IPC initializes Steam.
                 try:
                     value = self._steam_call(provider.snapshot, ids)
                     with self._lock:
-                        self._steam_cache[key] = (time.monotonic(), deepcopy(value))
-                        self._reconcile(key, value)
+                        if not control['cancel'].is_set():
+                            self._steam_cache[key] = (time.monotonic(), deepcopy(value))
+                            self._reconcile(key, value)
                 finally:
                     with self._lock:
                         if self._providers.get(key) is provider:
@@ -199,6 +231,8 @@ class WorkshopService:
                     provider.close()
                     provider = None
         except Exception as exc:
+            if control['cancel'].is_set():
+                return  # Foreground work superseded this read; it is not a disconnection.
             code = getattr(exc, 'code', None)
             if code not in MESSAGES:
                 code = self._guard_reason(self._runtime(installation), code) or 'WORKSHOP_GUARD_UNAVAILABLE'
@@ -216,6 +250,48 @@ class WorkshopService:
                 provider.close()
             with self._lock:
                 self._probes.discard(key)
+                self._probe_controls.pop(key, None)
+                control['done'].set()  # Only after helper cleanup and lease release.
+
+    @contextmanager
+    def foreground_operation(self, installation):
+        """Give host writes/launch priority over our cancellable read-only probe."""
+        if isinstance(installation, dict) and installation.get('app_id') not in (None, APP_ID):
+            # The host shares this entry point with legacy/demo game launches.
+            # Workshop prerequisites must not become new prerequisites there.
+            root = installation.get('canonical_root')
+            key = root.casefold() if isinstance(root, str) else None
+            with self._lock:
+                occupied = (key in self._providers or key in self._active or key in self._probes or
+                            any(owner == key and any(row['state'] == 'uncertain' for row in op['items'])
+                                for owner, op in self._operations.values()))
+            if occupied:
+                raise WorkshopError('WORKSHOP_OPERATION_BUSY', MESSAGES['WORKSHOP_OPERATION_BUSY'], retryable=True)
+            yield
+            return
+        key = self._key(installation)
+        with self._lock:
+            if key in self._active or any(owner == key and any(row['state'] == 'uncertain' for row in op['items'])
+                                         for owner, op in self._operations.values()):
+                raise WorkshopError('WORKSHOP_OPERATION_BUSY', MESSAGES['WORKSHOP_OPERATION_BUSY'], retryable=True)
+            self._foreground[key] = self._foreground.get(key, 0) + 1
+            control = self._probe_controls.get(key)
+            if control:
+                control['cancel'].set()
+                provider = control['provider']
+            else:
+                provider = None
+        try:
+            if provider is not None and callable(getattr(provider, 'cancel_probe', None)):
+                provider.cancel_probe()
+            if control and not control['done'].wait(6):
+                raise WorkshopError('WORKSHOP_INSTALLATION_BUSY', MESSAGES['WORKSHOP_INSTALLATION_BUSY'], retryable=True)
+            yield
+        finally:
+            with self._lock:
+                self._foreground[key] -= 1
+                if not self._foreground[key]:
+                    self._foreground.pop(key, None)
 
     def _reconcile(self, key, snapshot):
         """A fresh observed desired state may resolve uncertainty, not invent a callback."""
@@ -309,6 +385,8 @@ class WorkshopService:
         if workshop_root(installation) is None:
             raise WorkshopError('STEAM_LIBRARY_NOT_DETECTED', MESSAGES['STEAM_LIBRARY_NOT_DETECTED'])
         with self._lock:
+            if self._foreground.get(key):
+                raise WorkshopError('WORKSHOP_INSTALLATION_BUSY', MESSAGES['WORKSHOP_INSTALLATION_BUSY'], retryable=True)
             if key in self._active:
                 previous = self._operations[self._active[key]][1]
                 if previous['action'] == action and [row['workshop_id'] for row in previous['items']] == identities:
@@ -322,6 +400,8 @@ class WorkshopService:
         with self._lock:
             if self._closed.is_set():
                 raise WorkshopError('WORKSHOP_SESSION_LOST', MESSAGES['WORKSHOP_SESSION_LOST'])
+            if self._foreground.get(key):
+                raise WorkshopError('WORKSHOP_INSTALLATION_BUSY', MESSAGES['WORKSHOP_INSTALLATION_BUSY'], retryable=True)
             if key in self._active:
                 previous = self._operations[self._active[key]][1]
                 if previous['action'] == action and [row['workshop_id'] for row in previous['items']] == identities:
@@ -508,9 +588,18 @@ class WorkshopService:
 
     def close(self):
         self._closed.set()
+        with self._lock:
+            controls = list(self._probe_controls.values())
+            for control in controls:
+                control['cancel'].set()
+        for control in controls:
+            provider = control['provider']
+            if provider is not None and callable(getattr(provider, 'cancel_probe', None)):
+                provider.cancel_probe()
         # Migration copies the data root only after close returns. Drain running
         # SWR/image writes; cancel queued work, never leave a late cache writer.
         self._public_pool.shutdown(wait=True, cancel_futures=True)
+        self._catalog_pool.shutdown(wait=True, cancel_futures=True)
         self._image_pool.shutdown(wait=True, cancel_futures=True)
         for thread in self._threads:
             thread.join(12)
@@ -520,7 +609,7 @@ class WorkshopService:
             provider.close()
         self.client.session.close() if callable(getattr(self.client.session, 'close', None)) else None
 
-    def _fetch(self, key, action, *, image=False):
+    def _fetch(self, key, action, *, image=False, catalog=False):
         with self._lock:
             previous = self._fetches.get(key)
             if previous is not None and not previous.done():
@@ -540,7 +629,7 @@ class WorkshopService:
                     with self._lock:
                         self._fetch_errors[key] = (time.monotonic(), safe.as_dict())
                     raise safe from None
-            future = (self._image_pool if image else self._public_pool).submit(run)
+            future = (self._image_pool if image else self._catalog_pool if catalog else self._public_pool).submit(run)
             self._fetches[key] = future
             return future
 
@@ -553,7 +642,7 @@ class WorkshopService:
             source_updated_at=stamp(previous[0]) if previous else None,
             network_error=deepcopy(error[1]) if error else None)
 
-    def _cached(self, key, action, refresh, *, background=False):
+    def _cached(self, key, action, refresh, *, background=False, catalog=False):
         previous = self.cache.get(key)
         stale = bool(previous and time.time() - previous[0] >= 300)
         with self._lock:
@@ -564,15 +653,18 @@ class WorkshopService:
                 value = action()
                 self.cache.put(key, value)
                 return value
-            future = self._fetch(key, fetch)
+            future = self._fetch(key, fetch, catalog=catalog)
             if previous is None and not background:
                 value = future.result()
                 return value, dict(cache_hit=False, stale=False, refreshing=False,
                                    source_updated_at=stamp(self.cache.get(key)[0]), network_error=None)
         if previous is None and not background and failure:
             raise WorkshopError(failure[1]['code'], failure[1]['message'], retryable=failure[1]['retryable'])
+        if background:
+            previous = self.cache.get(key)  # A fast task may already have completed.
+            stale = bool(previous and time.time() - previous[0] >= 300)
         return (deepcopy(previous[1]) if previous else None,
-                self._metadata(key, previous, stale=stale or bool(refresh and previous)))
+                self._metadata(key, previous, stale=stale))
 
     def _remember_items(self, items):
         for value in items:
@@ -587,7 +679,7 @@ class WorkshopService:
                     item['description_scope'] = 'detail'
             self.cache.put(('item', item['workshop_id']), item)
 
-    def _public_query(self, ids, refresh):
+    def _public_query(self, ids, refresh, *, background=False):
         previous = [self.cache.get(('item', identity)) for identity in ids]
         key = ('query', *ids)
         stale = any(value is None or time.time() - value[0] >= 300 for value in previous)
@@ -600,9 +692,15 @@ class WorkshopService:
                 self._remember_items(values)
                 return values
             future = self._fetch(key, fetch)
-            if any(value is None for value in previous):
+            if any(value is None for value in previous) and not background:
                 values = future.result()
                 return values, dict(cache_hit=False, stale=False, refreshing=False, source_updated_at=now(), network_error=None)
+        if background:
+            previous = [self.cache.get(('item', identity)) for identity in ids]
+            known = [value for value in previous if value]
+            meta = self._metadata(key, min(known, key=lambda v: v[0]) if known else None,
+                                  stale=any(time.time() - value[0] >= 300 for value in known))
+            return [value[1] if value else None for value in previous], meta
         if any(value is None for value in previous):
             raise WorkshopError(failure[1]['code'], failure[1]['message'], retryable=failure[1]['retryable'])
         meta = self._metadata(key, min(previous, key=lambda v: v[0]), stale=stale or refresh)
@@ -655,18 +753,15 @@ class WorkshopService:
             rows = [self._local_item(row) for row in local.values() if not query or query.casefold() in (row.get('title') or '').casefold()]
             start = (page - 1) * page_size
             items = rows[start:start + page_size]
-            meta = dict(cache_hit=False, stale=False, refreshing=False, source_updated_at=None, network_error=None)
-            if items:
-                try:
-                    loaded = []
-                    for offset in range(0, len(items), 30):
-                        public = self.query([row['workshop_id'] for row in items[offset:offset + 30]], installation, refresh=refresh)
-                        loaded.extend(public['items'])
-                        meta = {name: public[name] for name in meta}
-                    items = loaded
-                except WorkshopError as exc:
-                    meta.update(stale=True, network_error=exc.as_dict())
-            return dict(items=items, page=page, page_size=page_size, total=len(rows), has_more=start + page_size < len(rows),
+            metadata, loaded = [], []
+            for offset in range(0, len(items), 30):
+                batch = items[offset:offset + 30]
+                values, meta = self._public_query([row['workshop_id'] for row in batch], refresh, background=True)
+                loaded.extend(self._decorate(value, local) if value else fallback for value, fallback in zip(values, batch))
+                metadata.append(meta)
+            meta = self._catalog_metadata(metadata)
+            return dict(items=loaded, page=page, page_size=page_size, total=len(rows), has_more=start + page_size < len(rows),
+                        query=query, sort=sort, loading=False, partial=False,
                         source='local_and_steam', **meta, capabilities=self._public_capabilities(installation),
                         message='本机内容及 Steam 已确认订阅；订阅状态以每项最近一次会话观察为准。')
         start, end = (page - 1) * page_size, page * page_size
@@ -676,23 +771,33 @@ class WorkshopService:
                 value = self.client.browse(query=query, page=source_page, sort=sort)
                 self._remember_items(value['items'])
                 return value
-            value, meta = self._cached(('browse', query, source_page, sort), fetch, refresh)
-            source_pages.append(value)
+            value, meta = self._cached(('browse', query, source_page, sort), fetch, refresh, background=True, catalog=True)
+            source_pages.append((source_page, value))
             metadata.append(meta)
-            if not value['has_more']:
+            if value is not None and not value['has_more']:
                 break
-        combined = [row for value in source_pages for row in value['items']]
-        offset = start % 30
-        total = source_pages[0].get('total')
-        result = dict(items=[self._decorate(item, local) for item in combined[offset:offset + page_size]],
+        indexed = {30 * (p - 1) + i: row for p, value in source_pages if value for i, row in enumerate(value['items'])}
+        known = [value for _, value in source_pages if value is not None]
+        total = known[0].get('total') if known else None
+        missing = any(value is None for _, value in source_pages)
+        meta = self._catalog_metadata(metadata)
+        result = dict(items=[self._decorate(indexed[i], local) for i in range(start, end) if i in indexed],
             page=page, page_size=page_size, total=total,
-            has_more=end < total if total is not None else len(combined) > offset + page_size or source_pages[-1]['has_more'],
-            source='steam_community', cache_hit=all(m['cache_hit'] for m in metadata),
-            stale=any(m['stale'] for m in metadata), refreshing=any(m['refreshing'] for m in metadata),
-            source_updated_at=min(m['source_updated_at'] for m in metadata if m['source_updated_at']),
-            network_error=next((m['network_error'] for m in metadata if m['network_error']), None),
+            query=query, sort=sort, loading=missing and meta['refreshing'], partial=missing and bool(indexed),
+            has_more=end < total if total is not None else bool(known and known[-1]['has_more']),
+            source='steam_community', **meta,
             capabilities=self._public_capabilities(installation))
         return result
+
+    @staticmethod
+    def _catalog_metadata(metadata):
+        times = [m['source_updated_at'] for m in metadata if m['source_updated_at']]
+        refreshing = any(m['refreshing'] for m in metadata)
+        return dict(cache_hit=bool(metadata) and all(m['cache_hit'] for m in metadata),
+                    stale=any(m['stale'] for m in metadata), refreshing=refreshing,
+                    source_updated_at=min(times) if times else None,
+                    network_error=next((m['network_error'] for m in metadata if m['network_error']), None),
+                    retry_after_ms=750 if refreshing else None)
 
     def query(self, workshop_ids, installation=None, *, refresh=False):
         if not isinstance(workshop_ids, (tuple, list)) or not 1 <= len(workshop_ids) <= 30 or type(refresh) is not bool:

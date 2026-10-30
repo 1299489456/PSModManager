@@ -1,4 +1,4 @@
-"""Native package/state orchestration. Game owns execution and approval."""
+"""Native management and explicit user approval; security inspection is separate."""
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import copy
@@ -8,20 +8,43 @@ from pathlib import Path
 import re
 import shutil
 import threading
+import time
 from uuid import uuid4
 
 from backend.utils.json_io import write_json_atomic
 from . import dependencies as deps
 from .errors import NativeModError, issue
-from .packages import (inspect_package, native_fingerprint, tree_files, tree_revision,
-                       extract_zip, MAX_FILE)
+from .packages import (inspect_package, native_fingerprint, native_fingerprint_details,
+                       native_source_identity, tree_files, tree_revision, extract_zip, MAX_FILE, CAPABILITIES)
 from .paths import installation_dict, locations, relative, safe, valid_id
-from .state import (read_bytes, revision, load_state, with_order, encode, decode,
+from .state import (read_bytes, revision, load_state, with_order, with_authorizations, encode, decode,
                     replace_bytes, load_config, update_config)
 
 
 def now():
     return datetime.now(timezone.utc).isoformat()
+
+
+class _ReadGuard:
+    """Bound expensive host checks during read-only work, never write boundaries.
+
+    Native fingerprinting still visits every required byte.
+    Construction and finish() perform immediate full checks; a long read polls
+    at most half a second after the previous completed check.
+    """
+    interval = 0.5
+
+    def __init__(self, check):
+        self.check = check
+        self.finish()
+
+    def __call__(self):
+        if time.monotonic() >= self.next_check:
+            self.finish()
+
+    def finish(self):
+        self.check()
+        self.next_check = time.monotonic() + self.interval
 
 
 class NativeModService:
@@ -108,15 +131,25 @@ class NativeModService:
         return packages, issues
 
     def _approval(self, package, record):
-        result = dict(state='unknown', declared=package['capabilities'], detected=[],
+        result = dict(state='unknown', declared=package['capabilities'], detected=None,
                       approved_at=None, updated_at=None, scan_status='unknown',
-                      current_scan_status='not_scanned', game_version=None)
+                      current_scan_status='not_scanned', game_version=None, approval_source='unknown', approval_basis=None)
         if not record:
             return result
-        result.update(detected=record.get('detected') or [], approved_at=record.get('approvedAt'),
+        result.update(detected=record.get('detected'), approved_at=record.get('approvedAt'),
                       updated_at=record.get('updatedAt'), game_version=record.get('gameVersion'),
-                      scan_status='historical_record', historical_declared=record.get('declared') or [])
-        if str(record.get('source', '')).lower() != package['source'] or str(record.get('workshopId', '')) != (package['workshop_id'] or '0'):
+                      scan_status='historical_record' if record.get('detected') is not None else 'not_scanned',
+                      historical_declared=record.get('declared') or [])
+        marker = record.get('psmmApproval')
+        result['approval_source'] = 'manager' if isinstance(marker, dict) and marker.get('source') == 'manager' else 'game_or_external'
+        if isinstance(marker, dict):
+            result['approval_basis'] = marker.get('basis') or marker.get('scanBasis')
+        try:
+            source, workshop_id = native_source_identity(package)
+        except NativeModError:
+            result.update(state='changed', reason='source_unproven')
+            return result
+        if record.get('source') != source or record.get('workshopId') != workshop_id:
             result.update(state='changed', reason='source_changed')
             return result
         key = (package['folder_path'], package['package_revision'], package['manifest_revision'])
@@ -139,10 +172,10 @@ class NativeModService:
         with self._lock:
             return self._snapshot(installation)
 
-    def _snapshot(self, installation):
+    def _snapshot(self, installation, *, observations=True):
         loc = locations(installation)
         if not self._native_supported(installation, loc):
-            runtime = self._runtime(installation)
+            runtime = self._runtime(installation) if observations else {'state': 'unknown', 'writable': False}
             runtime.update(writable=False, blocking_reason='NATIVE_RUNTIME_UNSUPPORTED')
             return dict(installation_id=str(installation_dict(installation).get('installation_id', '')),
                         revision='unsupported', ready=False, enabled_ids=[], mods=[], rules=[],
@@ -171,7 +204,8 @@ class NativeModService:
             elif len(sources) > 1:
                 mod['issues'].append(issue('NATIVE_SOURCE_SHADOWED', ident, severity='warning'))
             mod['target_enabled'] = ident in state['enabled_ids']
-            mod['approval'] = self._approval(mod, records.get(ident))
+            if observations:
+                mod['approval'] = self._approval(mod, records.get(ident))
             mods.append(mod)
         lower_ids = {}
         for mod in mods:
@@ -181,7 +215,11 @@ class NativeModService:
                 next(m for m in mods if m['id'] == previous)['issues'].append(issue('NATIVE_ID_CASE_COLLISION', previous, other_id=mod['id']))
         # Imported by the owning diagnostics module; evidence stays scoped to Player.log.
         from backend.diagnostics.native_log import read_runtime_summary
-        log = read_runtime_summary(loc['persistent_root'], state['enabled_ids'], grouped.keys())
+        # Internal revision checks require inventory/state, not another log parse,
+        # process/DB status query or approval-display fingerprint. The active
+        # write lease is the authority; observations are read once for the result.
+        log = (read_runtime_summary(loc['persistent_root'], state['enabled_ids'], grouped.keys()) if observations
+               else {'status': 'not_read', 'source': 'Player.log', 'by_id': {}, 'entries': []})
         for mod in mods:
             evidence = log.get('by_id', {}).get(mod['id'], {})
             mod['run'] = {**evidence, 'state': evidence.get('runtime_state', 'unknown'), 'log_path': str(loc['log_path'])}
@@ -197,7 +235,7 @@ class NativeModService:
         if pending:
             issues.append(issue('NATIVE_RECOVERY_PENDING', recovery_ids=pending))
         token = revision(encode({'state': state['revision'], 'rules': rules['revision'], 'packages': [(p['source_id'], p['folder_path'], p['package_revision'], p['manifest_revision']) for p in packages], 'data': data_facts}))
-        runtime = self._runtime(installation)
+        runtime = self._runtime(installation) if observations else {'state': 'unknown', 'writable': False}
         if pending:
             runtime.update(writable=False, blocking_reason='NATIVE_RECOVERY_PENDING')
         return dict(installation_id=str(installation_dict(installation).get('installation_id', '')),
@@ -237,7 +275,7 @@ class NativeModService:
         return deps.disable_closure(self.snapshot(installation)['mods'], enabled_ids, id)
 
     def _expect(self, installation, expected):
-        snap = self._snapshot(installation)
+        snap = self._snapshot(installation, observations=False)
         if not isinstance(expected, str) or snap['revision'] != expected:
             raise NativeModError('NATIVE_STATE_CHANGED')
         return snap
@@ -265,28 +303,144 @@ class NativeModService:
         write_json_atomic(safe(folder / 'record.json'), record)
 
     def save(self, installation, expected_revision, enabled_ids):
+        """Internal order-only write; never grants approval (including recovery)."""
         with self._lease(installation) as lease:
             snap = self._expect(installation, expected_revision)
             result = deps.analyze(snap['mods'], enabled_ids, snap['rules'])
             result['issues'] += [x for x in snap['issues'] if x['severity'] == 'error']
             if any(x['severity'] == 'error' for x in result['issues']):
                 raise NativeModError('NATIVE_PLAN_BLOCKED', {'issues': result['issues']})
-            loc = locations(installation)
-            state = load_state(loc['state_file'])
-            doc = with_order(state, enabled_ids)
-            folder, record = self._new_recovery(installation, 'state', '保存模组启用与顺序', metadata={'existed': state['raw'] is not None})
-            self._backup(folder, state['raw'])
-            self._finish(folder, record, 'prepared')
-            try:
-                def check():
+            return self._write_order(installation, expected_revision, enabled_ids, lease)
+
+    def apply(self, installation, expected_revision, enabled_ids):
+        """Save explicit enable intent and the game's required content identity.
+
+        This is user approval, not a security scan. No security report, parser,
+        LPAC worker, antivirus or resource-content fingerprint participates.
+        """
+        enabled_ids = deps.ordered_ids(enabled_ids)
+        with self._lease(installation) as lease:
+            current = self._expect(installation, expected_revision)
+            self._validate_apply(current, enabled_ids)
+            packages = [next(m for m in current['mods'] if m['id'] == ident) for ident in enabled_ids]
+            fingerprints = self._native_approval_fingerprints(packages, lease.check)
+            timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f') + '0Z'
+            authorizations = []
+            for package in packages:
+                ident = package['id']
+                source, workshop_id = native_source_identity(package)
+                authorizations.append(dict(id=ident, source=source,
+                    workshopId=workshop_id, **fingerprints[ident],
+                    declared=[c for c in CAPABILITIES if c in package['capabilities']],
+                    detected=None, gameVersion='', approvedAt=timestamp, updatedAt=timestamp,
+                    developerMode=False, psmmApproval=dict(source='manager', basis='user_enable', scanStatus='not_scanned')))
+            def verify():
+                actual = self._native_approval_fingerprints(packages, lease.check)
+                if actual != fingerprints:
+                    raise NativeModError('NATIVE_STATE_CHANGED')
+                # Reuse these just-verified native hashes in the returned display
+                # snapshot; no third DLL read is necessary for approval labels.
+                if len(self._fingerprints) + len(packages) >= 2048:
+                    self._fingerprints.clear()
+                for package in packages:
+                    key = (package['folder_path'], package['package_revision'], package['manifest_revision'])
+                    self._fingerprints[key] = actual[package['id']]['combinedHash']
+            return self._write_order(installation, expected_revision, enabled_ids, lease,
+                authorizations=authorizations, before_replace=verify,
+                label='保存模组启用、顺序与当前内容批准')
+
+    @staticmethod
+    def _validate_apply(snap, enabled_ids):
+        result = deps.analyze(snap['mods'], enabled_ids, snap['rules'])
+        result['issues'] += [x for x in snap['issues'] if x['severity'] == 'error']
+        if any(x['severity'] == 'error' for x in result['issues']):
+            raise NativeModError('NATIVE_PLAN_BLOCKED', {'issues': result['issues']})
+
+    @staticmethod
+    def _native_approval_fingerprints(packages, check):
+        """Only manifest and declared DLL bytes belong to the native protocol."""
+        fingerprints = {}
+        read_guard = _ReadGuard(check)
+        for package in packages:
+            native_source_identity(package)
+            fingerprints[package['id']] = native_fingerprint_details(package, check=read_guard)
+        read_guard.finish()
+        return fingerprints
+
+    def security_disable(self, installation, expected_revision, id, *, operation_id=None, recovery=False):
+        """Only remove intent and approval, including approval of a disabled Mod.
+
+        An unrelated invalid dependency must not prevent a risk-reducing disable.
+        The safety service owns quarantine state; native remains the sole writer
+        of game state, with the same lease, drift checks and recovery point.
+        """
+        if not valid_id(id):
+            raise NativeModError('NATIVE_INVALID_ID')
+        if ((operation_id is not None and (not isinstance(operation_id, str) or re.fullmatch(r'[a-f0-9]{32}', operation_id) is None))
+                or (recovery and operation_id is None)):
+            raise NativeModError('NATIVE_RECOVERY_INVALID')
+        with self._lease(installation, recovery=recovery) as lease:
+            pending = self._security_recovery_pending(installation, operation_id, id) if recovery else []
+            snap = self._expect(installation, expected_revision)
+            # A quarantined local package can be absent while an external state
+            # edit reintroduces its intent/trust. Clear those before restoration.
+            closure = deps.disable_closure(snap['mods'], snap['enabled_ids'], id)
+            result = self._write_order(installation, expected_revision, closure['enabled_ids'], lease,
+                revoke_ids={id, *closure['affected_ids']}, label='安全停用模组及受影响依赖',
+                metadata={'mod_id': id, 'security_operation_id': operation_id} if operation_id else None)
+            for previous in pending:
+                if previous['kind'] == 'state':
+                    folder, record = self._record(installation, previous['id'])
+                    self._finish(folder, record, 'recovered')
+            if pending:
+                result.update(self._snapshot(installation))
+            return {**result, 'affected_ids': closure['affected_ids']}
+
+    def _security_recovery_pending(self, installation, operation_id, mod_id):
+        records = self.recovery_list(installation)['items']
+        origins = [r['id'] for r in records if r['kind'] == 'local_remove'
+                   and r.get('security_operation_id') == operation_id and r.get('mod_id') == mod_id]
+        if len(origins) > 1:
+            raise NativeModError('NATIVE_RECOVERY_INVALID')
+        pending_ids = set(self._pending(installation))
+        pending = [r for r in records if r['id'] in pending_ids]
+        for record in pending:
+            own = (record.get('mod_id') == mod_id and
+                ((record['kind'] in {'state', 'local_remove'} and record.get('security_operation_id') == operation_id)
+                 or (record['kind'] == 'import' and record.get('security_restore_of') in origins)))
+            if not own:
+                raise NativeModError('NATIVE_RECOVERY_PENDING')
+        return pending
+
+    def _write_order(self, installation, expected_revision, enabled_ids, lease, *,
+                     revoke_ids=(), label='保存模组启用与顺序', metadata=None,
+                     authorizations=(), before_replace=None):
+        loc = locations(installation)
+        state = load_state(loc['state_file'])
+        doc = with_order(state, enabled_ids)
+        if authorizations:
+            doc = with_authorizations(doc, authorizations)
+        if revoke_ids and 'modTrust' in doc:
+            trust = json.loads(doc['modTrust']['value'])
+            trust['records'] = [record for record in trust['records'] if record['id'] not in revoke_ids]
+            doc['modTrust']['value'] = json.dumps(trust, ensure_ascii=False, separators=(',', ':'))
+        folder, record = self._new_recovery(installation, 'state', label,
+            metadata={'existed': state['raw'] is not None, **(metadata or {})})
+        self._backup(folder, state['raw'])
+        self._finish(folder, record, 'prepared')
+        try:
+            def check():
+                lease.check()
+                self._expect(installation, expected_revision)
+                if before_replace is not None:
+                    before_replace()
                     lease.check()
-                    self._expect(installation, expected_revision)
-                replace_bytes(loc['state_file'], encode(doc), state['revision'], check)
-                self._finish(folder, record)
-            except Exception:
-                self._finish(folder, record, 'failed')
-                raise
-            return {**self._snapshot(installation), 'recovery_id': record['id'], 'saved': True}
+            replace_bytes(loc['state_file'], encode(doc), state['revision'], check)
+            self._finish(folder, record)
+        except Exception:
+            self._finish(folder, record, 'failed')
+            raise
+        return {**self._snapshot(installation), 'recovery_id': record['id'], 'saved': True}
 
     def config_read(self, installation, id):
         if not valid_id(id):
@@ -422,7 +576,7 @@ class NativeModService:
                 raw = read_bytes(safe(folder) / 'record.json')
                 if raw:
                     record = decode(raw, 'NATIVE_RECOVERY_INVALID')
-                    items.append({k: record.get(k) for k in ('id', 'kind', 'created_at', 'label', 'status', 'mod_id')}
+                    items.append({k: record.get(k) for k in ('id', 'kind', 'created_at', 'label', 'status', 'mod_id', 'security_operation_id', 'security_restore_of')}
                                  | {'restorable': record.get('status') != 'preparing'})
         return {'items': sorted(items, key=lambda r: r['created_at'] or '', reverse=True)}
 
@@ -446,8 +600,16 @@ class NativeModService:
             raise NativeModError('NATIVE_RECOVERY_NOT_FOUND')
         return folder, decode(raw, 'NATIVE_RECOVERY_INVALID')
 
-    def recovery_restore(self, installation, id, expected_revision):
+    def recovery_restore(self, installation, id, expected_revision, *, security_operation_id=None, verify_package=None):
         folder, record = self._record(installation, id)
+        security_restore = security_operation_id is not None
+        if security_restore and (not isinstance(security_operation_id, str)
+                or re.fullmatch(r'[a-f0-9]{32}', security_operation_id) is None
+                or record.get('security_operation_id') != security_operation_id
+                or record.get('kind') != 'local_remove' or not callable(verify_package)):
+            raise NativeModError('NATIVE_RECOVERY_INVALID')
+        if not security_restore and verify_package is not None:
+            raise NativeModError('NATIVE_RECOVERY_INVALID')
         if record.get('status') == 'preparing':
             raise NativeModError('NATIVE_RECOVERY_INCOMPLETE')
         if record['kind'] == 'rules':
@@ -455,6 +617,7 @@ class NativeModService:
         if record['kind'] == 'profile':
             return self._restore_profile(installation, folder, record)
         with self._lease(installation, recovery=True) as lease:
+            security_pending = self._security_recovery_pending(installation, security_operation_id, record['mod_id']) if security_restore else []
             self._expect(installation, expected_revision)
             kind = record['kind']
             loc = locations(installation)
@@ -498,13 +661,18 @@ class NativeModService:
                     replace_bytes(target, previous, revision(current), lease.check)
                 self._finish(backup, journal)
             elif kind in ('import', 'local_remove', 'source_switch'):
-                backup, journal = self._restore_package(installation, folder, record, lease)
+                backup, journal = self._restore_package(installation, folder, record, lease,
+                    verify_package=verify_package if security_restore else None)
             elif kind in ('mod_data', 'mod_data_restore'):
                 backup, journal = self._restore_data(installation, folder, record, lease)
             else:
                 raise NativeModError('NATIVE_RECOVERY_UNSUPPORTED')
             if record.get('status') in ('prepared', 'failed'):
                 self._finish(folder, record, 'recovered')
+            for previous in security_pending:
+                if previous['kind'] == 'import':
+                    previous_folder, previous_record = self._record(installation, previous['id'])
+                    self._finish(previous_folder, previous_record, 'recovered')
             return {**self._snapshot(installation), 'recovery_id': journal['id']}
 
     def _profiles(self, installation):
@@ -698,7 +866,9 @@ class NativeModService:
             recovery_id = self._write_profiles(installation, path, raw, doc)
             return {'items': doc['items'], 'recovery_id': recovery_id}
 
-    def _local_transition(self, installation, id, expected_revision, *, switch=False):
+    def _local_transition(self, installation, id, expected_revision, *, switch=False, operation_id=None):
+        if operation_id is not None and (not isinstance(operation_id, str) or re.fullmatch(r'[a-f0-9]{32}', operation_id) is None):
+            raise NativeModError('NATIVE_RECOVERY_INVALID')
         with self._lease(installation) as lease:
             snap = self._expect(installation, expected_revision)
             mod = next((m for m in snap['mods'] if m['id'] == id), None)
@@ -725,7 +895,8 @@ class NativeModService:
                 raise NativeModError('NATIVE_UNSAFE_PATH')
             folder, record = self._new_recovery(installation, 'source_switch' if switch else 'local_remove',
                                                 '改用工坊来源' if switch else '移除本地模组',
-                                                metadata={'mod_id': id, 'folder_name': source.name})
+                                                metadata={'mod_id': id, 'folder_name': source.name,
+                                                          **({'security_operation_id': operation_id} if operation_id else {})})
             self._backup(folder, state['raw'], 'state-before.bin')
             # Copy into recovery first; moving between volumes is not atomic.
             shutil.copytree(source, folder / 'package')
@@ -745,15 +916,15 @@ class NativeModService:
                 self._finish(folder, record, 'failed'); raise
             return {**self._snapshot(installation), 'recovery_id': record['id']}
 
-    def local_remove(self, installation, id, expected_revision):
-        return self._local_transition(installation, id, expected_revision)
+    def local_remove(self, installation, id, expected_revision, *, operation_id=None):
+        return self._local_transition(installation, id, expected_revision, operation_id=operation_id)
 
     def source_switch(self, installation, id, expected_revision, source='workshop'):
         if source != 'workshop':
             raise NativeModError('NATIVE_SOURCE_SWITCH_UNSUPPORTED')
         return self._local_transition(installation, id, expected_revision, switch=True)
 
-    def _restore_package(self, installation, folder, record, lease):
+    def _restore_package(self, installation, folder, record, lease, *, verify_package=None):
         loc = locations(installation)
         mod_id = record.get('mod_id')
         if not valid_id(mod_id):
@@ -796,6 +967,21 @@ class NativeModService:
             self._remove_owned_tree(parked, target.parent.parent)
             self._finish(backup, journal)
             return backup, journal
+        if verify_package is not None:
+            # A safety quarantine intentionally contains suspect/invalid code.
+            # Restore exactly its recorded bytes, not a newly "valid" package.
+            package = inspect_package(folder / 'package', 'local')
+            if package['id'] != mod_id:
+                raise NativeModError('NATIVE_RECOVERY_INVALID')
+            verify_package(package)
+            if target.exists():
+                current = inspect_package(target, 'local')
+                if current['id'] != mod_id:
+                    raise NativeModError('NATIVE_RECOVERY_INVALID')
+                verify_package(current)
+                # A previous safety restore may have published before its
+                # journals were finalized. Exact content is the checkpoint.
+                return folder, record
         if target.exists() and record.get('status') in ('prepared', 'failed'):
             original = folder / 'package'
             if original.exists():
@@ -807,15 +993,18 @@ class NativeModService:
                     return folder, record
         if target.exists():
             raise NativeModError('NATIVE_TARGET_EXISTS')
-        package = inspect_package(folder / 'package', 'local', check_binaries=True)
-        if package['id'] != mod_id or any(x['severity'] == 'error' for x in package['issues']):
+        package = inspect_package(folder / 'package', 'local', check_binaries=verify_package is None)
+        if package['id'] != mod_id or (verify_package is None and any(x['severity'] == 'error' for x in package['issues'])):
             raise NativeModError('NATIVE_RECOVERY_INVALID')
         backup, journal = self._new_recovery(installation, 'import', '恢复本地包（不恢复批准）',
-                                             metadata={'mod_id': mod_id, 'folder_name': name})
+                                             metadata={'mod_id': mod_id, 'folder_name': name,
+                                                       **({'security_restore_of': record['id']} if verify_package else {})})
         target.parent.mkdir(parents=True, exist_ok=True)
         staged = safe(target.parent.parent / ('.psmm-native-stage-' + uuid4().hex))
         try:
             shutil.copytree(folder / 'package', staged)
+            if verify_package is not None:
+                verify_package(inspect_package(staged, 'local'))
             self._finish(backup, journal, 'prepared', package_revision=tree_revision(tree_files(staged)))
             lease.check(); safe(target)
             if target.exists():

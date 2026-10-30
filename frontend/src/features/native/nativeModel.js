@@ -98,11 +98,11 @@ export function runLabel(mod, enabled, baseline) {
 }
 export function approvalLabel(mod) {
   const a = mod?.approval || {}
-  if (a.state === 'approved') return { label: '已批准', detail: dateText(a.approved_at), tone: 'ok' }
+  if (a.state === 'approved') return { label: a.approval_basis === 'user_enable' ? '已同意启用' : '已批准', detail: a.approval_basis === 'user_enable' ? '用户启用同意，不代表安全检查通过' : dateText(a.approved_at), tone: 'ok' }
   if (a.state === 'changed') return { label: '需重新评估', detail: '包内容与批准时不同', tone: 'wait' }
-  if (a.state === 'updated_unverified') return { label: '更新待核对', detail: '游戏将重新评估此版本', tone: 'wait' }
+  if (a.state === 'updated_unverified') return { label: '更新待核对', detail: '保存时记录对当前版本的启用同意', tone: 'wait' }
   if (a.state === 'developer_mode') return { label: '开发者模式', detail: '不等同于批准记录', tone: 'wait' }
-  return { label: '待游戏批准', detail: '由游戏核对并决定', tone: 'wait' }
+  return { label: '待保存批准', detail: '保存时记录本次启用同意', tone: 'wait' }
 }
 const imageHosts = new Set(['images.steamusercontent.com','steamuserimages-a.akamaihd.net','cdn.akamai.steamstatic.com','cdn.fastly.steamstatic.com','shared.akamai.steamstatic.com','shared.fastly.steamstatic.com','community.akamai.steamstatic.com','community.fastly.steamstatic.com'])
 export function safeImage(url) { if(typeof url !== 'string')return null;if(/^data:image\/(?:png|jpeg|webp);base64,[a-z\d+/=]+$/i.test(url))return url;try{const u=new URL(url);return u.protocol==='https:'&&!u.username&&!u.password&&(!u.port||u.port==='443')&&imageHosts.has(u.hostname)?url:null}catch{return null} }

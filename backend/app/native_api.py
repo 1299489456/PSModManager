@@ -4,7 +4,7 @@ Only the host's pickers grant import/export paths. The page deals in registered
 installation IDs, manifest IDs and expiring tokens, never arbitrary file paths.
 """
 import base64
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import json
 import os
 from pathlib import Path
@@ -128,10 +128,17 @@ def write_guard(context, value):
         yield session
 
 
-def process_status(context, value):
+def process_status(context, value, *, foreground=False):
     result = context.deployment_guards.status(str(value['installation_id']))
-    return dict(state={'clear': 'stopped', 'running': 'running'}.get(result['process_status'], 'unknown'),
-                blockers=result['blockers'], writable=result['ready'])
+    status = dict(state={'clear': 'stopped', 'running': 'running'}.get(result['process_status'], 'unknown'),
+                  blockers=result['blockers'], writable=result['ready'])
+    # Foreground commands drain our own read-only probe before taking a lease.
+    # Only that proven owner is preemptible; a queued probe proves nothing.
+    if (foreground and status['state'] == 'stopped' and
+            status['blockers'] == ['GUARD_LEASE_BUSY'] and
+            context.workshop.probe_owns_lease(value)):
+        status.update(blockers=[], writable=True, busy_owner='workshop_probe')
+    return status
 
 
 def _preview_image(mod):
@@ -169,16 +176,32 @@ class NativeCommands:
     def service(self):
         return self.context.native_mods
 
-    def call(self, method, payload, *args):
-        result = getattr(self.service, method)(self._installation(payload), *args)
+    def call(self, method, payload, *args, **kwargs):
+        selected = self._installation(payload)
+        # An idle Steam observation must yield before a user's game-file write.
+        # Workshop's own writes use the original guard and do not recurse here.
+        writes = {'apply', 'save', 'rules_save', 'config_save', 'import_commit',
+                  'recovery_restore', 'recovery_create', 'local_remove', 'source_switch'}
+        foreground = (self.context.workshop.foreground_operation(selected)
+                      if method in writes else nullcontext())
+        with foreground:
+            if method == 'apply':
+                self.context.mod_security.check_launch(selected, enabled_ids=args[1])
+            result = getattr(self.service, method)(selected, *args, **kwargs)
+            return self._result(payload, selected, result)
+
+    def _result(self, payload, selected, result):
         if isinstance(result, dict) and 'mods' in result and 'runtime' in result:
             # A service can assemble its result while its own write lease is
             # held. Re-observe after release, without clearing native blockers.
-            result['runtime'].update(process_status(self.context, self._installation(payload)))
+            result['runtime'].update(process_status(self.context, selected, foreground=True))
             if result['runtime'].get('blocking_reason'):
                 result['runtime']['writable'] = False
             result['identity'] = self.identity(payload)
         return result
+
+    def save(self, payload):
+        return self.call('apply', payload, payload.expected_revision, payload.enabled_ids)
 
     def snapshot(self, payload):
         return self.call('snapshot', payload)
@@ -323,7 +346,7 @@ class NativeCommands:
             'native.validate': (Validate, lambda _, p: c('validate', p, p.enabled_ids, p.rules)),
             'native.rules.read': (Installed, lambda _, p: c('rules_read', p)),
             'native.rules.save': (RulesSave, lambda _, p: c('rules_save', p, p.expected_revision, p.rules)),
-            'native.save': (Save, lambda _, p: c('save', p, p.expected_revision, p.enabled_ids)),
+            'native.save': (Save, lambda _, p: self.save(p)),
             'native.config.read': (Mod, lambda _, p: c('config_read', p, p.id)),
             'native.config.save': (ConfigSave, lambda _, p: c('config_save', p, p.id, p.expected_revision,
                                                           [row.model_dump() for row in p.entries])),

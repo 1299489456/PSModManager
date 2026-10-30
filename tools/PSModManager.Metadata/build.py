@@ -6,6 +6,7 @@ import os
 import shutil
 import stat
 import subprocess
+import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -28,16 +29,31 @@ def toolchain():
     return dotnet, sdks[-1] / 'Roslyn/bincore/csc.dll', refs[-1] / 'ref/net10.0'
 
 
-def compile_source(source, output, *, library=False, resources=(), platform='anycpu'):
+def compile_source(source, output, *, library=False, resources=(), platform='anycpu', additional_references=()):
     dotnet, compiler, references = toolchain()
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
-    args = [dotnet, str(compiler), '/nologo', '/noconfig', '/nostdlib+', '/deterministic+',
+    args = [dotnet, str(compiler), '/nologo', '/noconfig', '/nostdlib+', '/deterministic+', '/utf8output',
             '/nullable:enable', '/langversion:latest', f'/target:{"library" if library else "exe"}',
             f'/platform:{platform}', f'/out:{output}']
     args += [f'/reference:{p}' for p in sorted(references.glob('*.dll'))]
+    args += [f'/reference:{p}' for p in additional_references]
     args += [f'/resource:{p},{name}' for p, name in resources]
-    result = subprocess.run(args + [str(source)], capture_output=True, text=True, timeout=60)
+    sources = [str(source)]
+    if Path(source).resolve() == Path(__file__).resolve().with_name('Program.cs'):
+        sources.append(str(Path(__file__).resolve().with_name('SecurityAnalysis.cs')))
+        sources.append(str(Path(__file__).resolve().with_name('ApprovalAnalysis.cs')))
+    # Large resource fixtures exceed CreateProcess' command-line limit. Roslyn
+    # accepts the same quoted arguments in a response file; /noconfig must stay
+    # on the command line. Never interpolate these paths through a shell.
+    options = [arg for arg in args[2:] + sources if arg != '/noconfig']
+    if any('\n' in arg or '\r' in arg for arg in options):
+        raise ValueError('Compiler arguments cannot contain line breaks')
+    with tempfile.TemporaryDirectory(prefix='psmm-csc-', dir=output.parent) as temporary:
+        response = Path(temporary) / 'compile.rsp'
+        response.write_text('\n'.join(subprocess.list2cmdline([arg]) for arg in options), encoding='utf-8')
+        result = subprocess.run([dotnet, str(compiler), '/noconfig', '@' + str(response)],
+                                capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=60)
     if result.returncode:
         raise RuntimeError(result.stdout + result.stderr)
     if not library:
@@ -92,6 +108,8 @@ def self_contained(output):
     feed = work / 'feed'
     feed.mkdir()
     shutil.copyfile(base / 'Program.cs', source / 'Program.cs')
+    shutil.copyfile(base / 'SecurityAnalysis.cs', source / 'SecurityAnalysis.cs')
+    shutil.copyfile(base / 'ApprovalAnalysis.cs', source / 'ApprovalAnalysis.cs')
     shutil.copyfile(base / 'PSModManager.Metadata.csproj', source / 'PSModManager.Metadata.csproj')
     shutil.copyfile(package, feed / package.name)
     (source / 'global.json').write_text(json.dumps({'sdk': {
@@ -146,6 +164,8 @@ def self_contained(output):
         'offline_feed': 'caller-owned copy of cached Microsoft.NETCore.App.Runtime.win-x64',
         'runtime_package_sha256': sha256(package),
         'source_sha256': sha256(base / 'Program.cs'),
+        'security_source_sha256': sha256(base / 'SecurityAnalysis.cs'),
+        'approval_source_sha256': sha256(base / 'ApprovalAnalysis.cs'),
         'project_sha256': sha256(base / 'PSModManager.Metadata.csproj'),
         'commands_exit_codes': [0, 0]}, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     # Delete only the .build tree created above, never a caller-supplied path.

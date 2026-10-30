@@ -4,24 +4,25 @@ from uuid import uuid4
 
 import pytest
 
-from backend.ai.diagnostics_api import diagnostic_commands
 from tests.integration.harness.ai_tool_provider import ScriptedAIProvider
-from tests.integration.harness.transaction_recovery import TransactionFixture, request
+from tests.integration.harness.transaction_recovery import request
+from tests.integration.test_ai_query_completion import app as native_app
 from tests.integration.test_ai_tools import configure
+from tests.native_mods.test_native_service import package
 from tests.unit.test_ai_privacy import MemoryCredentials, finish
 
 
 @pytest.fixture
-def app(tmp_path):
-    fixture = TransactionFixture(tmp_path)
+def app(native_app):
+    fixture = native_app
     fixture.context.ai.credentials._backend = MemoryCredentials()
-    if 'ai.diagnostics.sources' not in fixture.context.api._commands:
-        fixture.context.api._commands.update(diagnostic_commands(fixture.context))
-    (fixture.game / 'MelonLoader/Latest.log').write_text(
+    # Both the fixed-source reader and the native tools stay inside owned data.
+    fixture.context.logs.user_data_resolver = lambda _: fixture.persistent
+    fixture.log = fixture.persistent / 'Player.log'
+    fixture.log.write_text(
         '[12:00:00] Game started\n[12:00:01] ERROR ModAlpha dependency missing\n'
         'token=do-not-send-password\nC:\\Users\\PrivatePerson\\AppData\\test\n', encoding='utf-8')
     yield fixture
-    fixture.close()
 
 
 def sources(app, installation=True):
@@ -51,7 +52,7 @@ def test_open_preview_no_network_and_original_readable_with_redaction(app):
         result = preview(app, manager=True)
         assert provider.requests == []
         assert len(result['logs']) == 2
-        log = next(row for row in result['logs'] if 'Latest.log' in row['relative_path'])
+        log = next(row for row in result['logs'] if row['relative_path'] == 'Player.log')
         assert 'ModAlpha dependency missing' in log['text']
         assert 'do-not-send-password' not in log['text']
         assert 'PrivatePerson' not in log['text']
@@ -62,11 +63,11 @@ def test_open_preview_no_network_and_original_readable_with_redaction(app):
 
 
 def test_analysis_really_calls_provider_and_followup_reuses_visible_snapshot(app):
-    with ScriptedAIProvider([{'text': 'Latest.log 第 2 行显示缺少依赖。'}, {'text': '先检查 ModAlpha 的依赖版本。'}]) as provider:
+    with ScriptedAIProvider([{'text': 'Player.log 第 2 行显示缺少依赖。'}, {'text': '先检查 ModAlpha 的依赖版本。'}]) as provider:
         configure(app, provider)
         snapshot = preview(app)
         # Changes after preview must not replace the material the user agreed to send.
-        (app.game / 'MelonLoader/Latest.log').write_text('new unselected content\n', encoding='utf-8')
+        app.log.write_text('new unselected content\n', encoding='utf-8')
         first = send(app, snapshot)
         assert first['completed'] and '缺少依赖' in first['text']
         second = send(app, snapshot, '具体怎么检查？', first['session_id'])
@@ -123,7 +124,7 @@ def test_empty_unconfigured_and_changed_snapshot_do_not_claim_analysis(app):
         result = app.context.api.dispatch(request('ai.diagnostics.send', {'snapshot_id': changed['snapshot_id'], 'session_id': first['session_id'], 'question': 'next'}))
         assert not result['ok'] and result['error']['code'] == 'AI_DIAGNOSTIC_CHANGED'
         assert len(provider.requests) == 1
-        (app.game / 'MelonLoader/Latest.log').write_text('', encoding='utf-8')
+        app.log.write_text('', encoding='utf-8')
         empty = preview(app)
         result = app.context.api.dispatch(request('ai.diagnostics.send', {'snapshot_id': empty['snapshot_id'], 'question': 'hello'}))
         assert not result['ok'] and result['error']['code'] == 'AI_LOG_EMPTY'
@@ -131,7 +132,7 @@ def test_empty_unconfigured_and_changed_snapshot_do_not_claim_analysis(app):
 
 
 def test_large_utf8_log_is_bounded_numbered_and_marked_truncated(app):
-    (app.game / 'MelonLoader/Latest.log').write_text('很早的错误不在本次片段内\n' + '信息\n' * 5000 + '最后一行错误\n', encoding='utf-8')
+    app.log.write_text('很早的错误不在本次片段内\n' + '信息\n' * 5000 + '最后一行错误\n', encoding='utf-8')
     snapshot = preview(app, include_context=False)
     log = snapshot['logs'][0]
     assert log['truncated'] and len(log['text'].encode('utf-8')) <= 8192 and log['line_count'] <= 240
@@ -144,15 +145,15 @@ def test_large_utf8_log_is_bounded_numbered_and_marked_truncated(app):
 
 def test_unselected_and_hardlinked_logs_never_read(app, tmp_path):
     import os
-    archive = app.game / 'MelonLoader/Logs'
-    archive.mkdir(exist_ok=True)
-    (archive / 'old.log').write_text('unselected archive private content', encoding='utf-8')
+    archive = app.persistent / 'Player-prev.log'
+    archive.write_text('unselected archive private content', encoding='utf-8')
     result = preview(app)
     assert 'unselected archive' not in json.dumps(result)
     private = tmp_path / 'private.log'
     private.write_text('hardlinked confidential log', encoding='utf-8')
-    os.link(private, archive / 'linked.log')
-    row = next(row for row in sources(app) if row['relative_path'].endswith('linked.log'))
+    archive.unlink()
+    os.link(private, archive)
+    row = next(row for row in sources(app) if row['relative_path'] == 'Player-prev.log')
     assert row['status'] == 'unreadable'
     result = app.context.api.dispatch(request('ai.diagnostics.preview', dict(installation_id=app.installation, source_ids=[row['source_id']])))
     assert not result['ok'] and result['error']['code'] == 'AI_LOG_UNREADABLE'
@@ -161,7 +162,7 @@ def test_unselected_and_hardlinked_logs_never_read(app, tmp_path):
 
 def test_reader_can_page_back_through_entire_log_without_gaps(app):
     original = ''.join(f'日志行 {index:05d} 中文内容\n' for index in range(5000))
-    (app.game / 'MelonLoader/Latest.log').write_text(original, encoding='utf-8')
+    app.log.write_text(original, encoding='utf-8')
     source_id = next(row['source_id'] for row in sources(app) if row['kind'] == 'game' and row['default'])
     pages, before = [], None
     while True:
@@ -182,7 +183,7 @@ def test_reader_can_page_back_through_entire_log_without_gaps(app):
 
 def test_ai_excerpt_finds_error_earlier_than_tail_reading_window(app):
     original = 'boot\nERROR dependency missing earlier\n  at ModAlpha.Load()\n' + 'later routine info\n' * 2000
-    (app.game / 'MelonLoader/Latest.log').write_text(original, encoding='utf-8')
+    app.log.write_text(original, encoding='utf-8')
     snapshot = preview(app)
     log = snapshot['logs'][0]
     assert log['selection_mode'] == 'error_context'
@@ -196,17 +197,18 @@ def test_ai_excerpt_finds_error_earlier_than_tail_reading_window(app):
 
 
 def test_context_includes_discovered_mods_before_package_adoption(app):
-    (app.game / 'Mods/ExternalLogContext.dll').write_bytes(b'synthetic-unadopted-mod')
+    package(app.game / 'Mods', 'ExternalLogContext')
+    app.set_enabled(['ExternalLogContext'])
     result = preview(app)
     mods = result['context']['mods']
-    assert any(row['display_name'] == 'ExternalLogContext' for row in mods['items'])
-    assert mods['enabled_count'] >= 1
+    assert any(row['name'] == 'ExternalLogContext' for row in mods['items']), mods
+    assert 'ExternalLogContext' in mods['enabled_ids']
     assert mods['total'] >= 1
 
 
 def test_utf16_log_reader_preserves_complete_lines(app):
     original = ''.join(f'UTF16 日志 {index}\n' for index in range(3000))
-    (app.game / 'MelonLoader/Latest.log').write_text(original, encoding='utf-16')
+    app.log.write_text(original, encoding='utf-16')
     source_id = next(row['source_id'] for row in sources(app) if row['kind'] == 'game' and row['default'])
     pages, before = [], None
     while True:
@@ -224,7 +226,7 @@ def test_utf16_log_reader_preserves_complete_lines(app):
 
 def test_old_log_warning_and_actual_file_time_reach_model(app):
     import os
-    log_path = app.game / 'MelonLoader/Latest.log'
+    log_path = app.log
     os.utime(log_path, (1000, 1000))
     result = preview(app, include_context=False)
     log = result['logs'][0]
@@ -251,7 +253,7 @@ def test_large_logs_keep_startup_outside_tail_window_and_respect_budget(app, enc
               '[12:00:00] [Il2CppAssemblyGenerator] Assembly generation needed.\n'
               '[12:00:00] [Il2CppAssemblyGenerator] token=do-not-send-password\n')
     text = header + 'routine 中文 line\n' * 25000 + '[12:01:00] ERROR newest failure\n'
-    (app.game / 'MelonLoader/Latest.log').write_text(text, encoding=encoding)
+    app.log.write_text(text, encoding=encoding)
     result = preview(app)
     log = result['logs'][0]
     startup = log['startup_context']
@@ -275,7 +277,7 @@ def test_error_flood_does_not_discard_boot_versions_and_generation(app):
               '[12:00:00] Game Version: 0.49D\n'
               '[12:00:00] Unity Version: 2021.3.45f2\n'
               '[12:00:01] [Il2CppAssemblyGenerator] Assembly is up to date. No Generation Needed.\n')
-    (app.game / 'MelonLoader/Latest.log').write_text(header + ('ERROR mod failure ' + 'x' * 300 + '\n') * 300, encoding='utf-8')
+    app.log.write_text(header + ('ERROR mod failure ' + 'x' * 300 + '\n') * 300, encoding='utf-8')
     log = preview(app)['logs'][0]
     assert log['startup_context'] is None
     for line in header.splitlines():
@@ -286,12 +288,14 @@ def test_error_flood_does_not_discard_boot_versions_and_generation(app):
 def test_current_environment_does_not_reuse_stored_or_historical_versions(app, monkeypatch):
     from backend.games.probably_stolen import fingerprint
     (app.game / 'UnityPlayer.dll').write_bytes(b'synthetic metadata')
-    monkeypatch.setattr(fingerprint, 'file_version', lambda p: '0.7.3' if p.name == 'MelonLoader.dll' else '2021.3.45f2')
+    monkeypatch.setattr(fingerprint, 'file_version', lambda _: '2021.3.45f2')
+    app.log.write_text('[ModLoader] audit: game 0.46D, trust list: historical\n', encoding='utf-8')
     result = preview(app)['context']['installation']
-    assert result['game_version'] is None
+    assert result['application_version'] is None and result['application_version_source'] == 'unknown'
+    assert result['last_run_application_version'] == '0.46D'
     assert result['unity_version'] == '2021.3.45f2'
-    assert result['loader_version'] == '0.7.3'
-    assert result['freshness'] == 'current_files' and result['runtime_verified'] is False
+    assert result['runtime_kind'] == 'mono' and 'loader_version' not in result
+    assert result['freshness'] == 'current_native_snapshot' and result['runtime_verified'] is False
 
 
 def test_manager_log_does_not_get_game_update_warning(app):

@@ -84,6 +84,7 @@ class DesktopContext:
         self.deployment_guards = None
         self.native_mods = None
         self.native_commands = None
+        self.mod_security = None
         self.workshop = None
         self.workshop_updates = None
         self.plans = None
@@ -154,13 +155,15 @@ class DesktopContext:
         self.mod_configs = ConfigService(paths, self.deployment_guards)
         from backend.games.probably_stolen.launch import LaunchService
         self.launcher = LaunchService(self.deployment_guards,
-            prepare_launch=lambda session: self.workshop.release(session.installation.model_dump(mode='json')))
+            prepare_launch=self._prepare_launch)
         from backend.native_mods import NativeModService, locations
         from .native_api import NativeCommands, installation, process_status, write_guard
         self.native_mods = NativeModService(paths,
             write_guard=lambda value: write_guard(self, value),
-            process_status=lambda value: process_status(self, value))
+            process_status=lambda value: process_status(self, value, foreground=True))
         self.native_commands = NativeCommands(self)
+        from backend.mod_security import ModSecurityService
+        self.mod_security = ModSecurityService(paths, self.native_mods)
         from backend.workshop import WorkshopService
         self.workshop = WorkshopService(paths,
             write_guard=lambda value: write_guard(self, value),
@@ -217,6 +220,28 @@ class DesktopContext:
         self.logger.info('startup product=%s version=%s keyring=%s updater=disabled', APP_NAME, APP_VERSION, KEYRING_SERVICE)
         self.workshop_updates.start()
 
+    def launch_game(self, installation_id):
+        from . import native_api
+        from backend.runtime.events import RuntimePolicyError
+        from backend.deployments.paths import GuardRejected
+        try:
+            selected = native_api.installation(self, installation_id)
+        except RuntimePolicyError as exc:
+            if exc.code == 'INSTALLATION_NOT_FOUND':
+                raise GuardRejected('GUARD_INSTALLATION_CHANGED') from None
+            raise
+        # Quiesce our read-only Steam probe before taking the launch lease.
+        with self.workshop.foreground_operation(selected):
+            return self.launcher.launch(installation_id)
+
+    def _prepare_launch(self, session):
+        from . import native_api
+        selected = native_api.installation(self, session.installation.installation_id)
+        # Only explicit user quarantine participates in ordinary launch. Manual
+        # analysis/report state does not introduce a prerequisite for playing.
+        self.workshop.release(selected)
+        self.mod_security.check_launch(selected, check=session.check)
+
     def close(self, *, keep_api=False, keep_store=False):
         failure = None
         if self.api is not None and not keep_api:
@@ -231,6 +256,8 @@ class DesktopContext:
             return
         if self.workshop_updates is not None:
             self.workshop_updates.close()
+        if self.mod_security is not None:
+            self.mod_security.close()
         if self.ai is not None:
             self.ai.close()
         if self.launcher is not None:

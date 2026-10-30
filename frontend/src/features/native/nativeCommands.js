@@ -1,4 +1,7 @@
 export const nativeFields = {
+  'security.status':['installation_id'], 'security.activity':['installation_id'], 'security.detail':['installation_id','id'], 'security.scan':['installation_id'],
+  'security.ai.preview':['installation_id','id','report_id'], 'security.ai.send':['preview_id'],
+  'security.dispose.preview':['installation_id','id','mode'], 'security.dispose':['installation_id','preview_id'], 'security.restore':['installation_id','record_id'],
   'native.snapshot': ['installation_id'], 'native.detail': ['installation_id', 'id'],
   'native.identity': ['installation_id'], 'native.rules.read': ['installation_id'], 'native.rules.save': ['installation_id', 'expected_revision', 'rules'],
   'native.validate': ['installation_id', 'enabled_ids'],
@@ -20,6 +23,7 @@ export const nativeFields = {
   'app.open_link': ['url'],
 }
 export const nativeOptional = {
+  'security.scan':['ids','antivirus'],
   'native.validate': ['rules'], 'native.profile.export': ['kind'], 'native.open': ['id'],
   'workshop.status': ['workshop_id','refresh'], 'workshop.browse': ['installation_id', 'query', 'page', 'sort', 'refresh','page_size'],
   'workshop.query': ['installation_id', 'refresh'], 'workshop.detail': ['installation_id', 'refresh'],
@@ -31,6 +35,10 @@ const uuid = v => typeof v === 'string' && /^(?:[a-f\d]{32}|[a-f\d]{8}-[a-f\d]{4
 const modId = v => typeof v === 'string' && v.length > 0 && v.length <= 64 && !v.startsWith('.') && /^[A-Za-z0-9_.-]+$/.test(v)
 const workshopId = v => typeof v === 'string' && /^\d{1,20}$/.test(v)
 export function validNativeField(command, key, v) {
+  if(command==='security.scan'&&key==='ids')return Array.isArray(v)&&v.length>0&&v.length<=1024&&v.every(modId)&&new Set(v).size===v.length
+  if(key==='antivirus')return typeof v==='boolean'
+  if(key==='mode')return ['disable','quarantine'].includes(v)
+  if(key==='record_id'||key==='report_id')return uuid(v)
   if(key==='provider_id')return typeof v==='string'&&/^[A-Za-z0-9_-]{1,64}$/.test(v)
   if(key==='provider')return v==='openai_compatible'
   if(key==='purpose')return ['analysis','translation'].includes(v)

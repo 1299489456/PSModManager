@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createWorkshopCatalogRuntime } from './workshopCatalogRuntime.js'
+import { createWorkshopCatalogRuntime, catalogStatusView } from './workshopCatalogRuntime.js'
 import { workshopImageCache } from './workshopImageCache.js'
 import { createWorkshopTranslationRuntime } from './workshopTranslationRuntime.js'
 test('card selection is immediate, a slow previous detail cannot replace the latest, and repeat visits use cache',async()=>{
@@ -15,3 +15,50 @@ test('translation survives selection and pure display toggles; only explicit ref
 test('persisted translation cache lookup displays a translation without a new AI task',async()=>{const state={},calls=[];const runtime=createWorkshopTranslationRuntime({request:async(c)=>{calls.push(c);return{hit:true,translation:{title:'译名',description:'译文'},model:'configured-model'}}},state);await runtime.select('1');assert.equal(runtime.text('title'),'译名');assert.equal(state.cached,true);assert.deepEqual(calls,['ai.translation.cache']);runtime.dispose()})
 test('source or provider invalidation is checked again without sending a translation request',async()=>{let result={hit:true,translation:{description:'旧译文'}};const calls=[],state={};const runtime=createWorkshopTranslationRuntime({request:async c=>{calls.push(c);return result}},state);await runtime.select('1');result={hit:false,source_pending:true};await runtime.hydrateCache();assert.equal(runtime.text('description'),'旧译文');result={hit:false};await runtime.hydrateCache();assert.equal(runtime.text('description'),'');assert.equal(state.status,'idle');assert.ok(calls.every(c=>c==='ai.translation.cache'));runtime.dispose()})
 test('a cached summary is completed automatically after the background detail fetch',async t=>{t.mock.timers.enable({apis:['setTimeout']});let calls=0;const state={},runtime=createWorkshopCatalogRuntime({request:async()=>++calls===1?{workshop_id:'1',description:'摘要',source_pending:true,refreshing:true}:{workshop_id:'1',description:'完整介绍',source_pending:false,refreshing:false}},state);await runtime.select({workshop_id:'1',title:'卡片'});assert.equal(state.selected.description,'摘要');assert.equal(state.detailLoading,true);t.mock.timers.tick(1000);await Promise.resolve();await Promise.resolve();assert.equal(state.selected.description,'完整介绍');assert.equal(state.detailLoading,false);runtime.dispose()})
+
+const flush=async()=>{for(let i=0;i<8;i++)await Promise.resolve()}
+test('catalog freshness is not a failed Steam connection',()=>{
+  const cached={items:[{}],stale:true,refreshing:true}
+  assert.equal(catalogStatusView(cached).kind,'loading')
+  assert.equal(catalogStatusView(cached).retry,false)
+  assert.doesNotMatch(catalogStatusView(cached).text,/重新连接|网络读取未完成/)
+  assert.equal(catalogStatusView({...cached,stale:false,refreshing:false}),null)
+  const error=catalogStatusView({...cached,refreshing:false,network_error:{message:'公开网络超时'}})
+  assert.equal(error.kind,'error');assert.match(error.text,/公开目录读取失败.*公开网络超时/)
+})
+test('cold directory polls until ready without reconnecting Steam',async t=>{
+  t.mock.timers.enable({apis:['setTimeout']})
+  const calls=[],state={},runtime=createWorkshopCatalogRuntime({request:async(c,p)=>{calls.push([c,p]);return calls.length===1?{items:[],loading:true,refreshing:true,retry_after_ms:750}:{items:[{workshop_id:'1'}],loading:false,refreshing:false}}},state)
+  await runtime.browse({sort:'recent'});assert.equal(state.listLoading,true)
+  t.mock.timers.tick(750);await flush()
+  assert.equal(state.result.items[0].workshop_id,'1');assert.equal(state.listLoading,false)
+  assert.ok(calls.every(([c,p])=>c==='workshop.browse'&&p.sort==='recent'&&!p.refresh))
+  runtime.dispose()
+})
+test('switching filters immediately adopts that filter cache, and last request wins',async()=>{
+  const state={},pending=[],runtime=createWorkshopCatalogRuntime({request:(c,p)=>new Promise(resolve=>pending.push({p,resolve}))},state)
+  const hot=runtime.browse({sort:'hot'});pending[0].resolve({items:[{title:'hot'}]});await hot
+  const recent=runtime.browse({sort:'recent'});assert.equal(state.result,null);assert.equal(state.listLoading,true)
+  const back=runtime.browse({sort:'hot'});assert.equal(state.result.items[0].title,'hot');assert.equal(state.listLoading,false)
+  pending[1].resolve({items:[{title:'recent'}]});await recent
+  assert.equal(state.result.items[0].title,'hot')
+  pending[2].resolve({items:[{title:'hot-new'}]});await back;assert.equal(state.result.items[0].title,'hot-new')
+  runtime.dispose()
+})
+test('repeated requests coalesce and obsolete poll cannot change a newer filter',async t=>{
+  t.mock.timers.enable({apis:['setTimeout']})
+  const state={},pending=[],runtime=createWorkshopCatalogRuntime({request:(c,p)=>new Promise(resolve=>pending.push({p,resolve}))},state)
+  const one=runtime.browse({sort:'hot'}),two=runtime.browse({sort:'hot',refresh:true})
+  assert.equal(pending.length,1)
+  pending[0].resolve({items:[{title:'hot'}],refreshing:true,retry_after_ms:750});await Promise.all([one,two])
+  const next=runtime.browse({sort:'new'});pending[1].resolve({items:[{title:'new'}]});await next
+  t.mock.timers.tick(2000);await flush()
+  assert.equal(pending.length,2);assert.equal(state.result.items[0].title,'new')
+  runtime.dispose()
+})
+test('explicit refresh shares an in-flight detail rather than racing duplicate requests',async()=>{
+  let resolve,calls=0;const state={},runtime=createWorkshopCatalogRuntime({request:()=>{calls++;return new Promise(r=>resolve=r)}},state)
+  const first=runtime.select({workshop_id:'1',title:'card'}),second=runtime.select('1',true)
+  assert.equal(calls,1);resolve({workshop_id:'1',title:'complete'});await Promise.all([first,second])
+  assert.equal(state.selected.title,'complete');runtime.dispose()
+})
